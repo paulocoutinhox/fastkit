@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-db"
+version = "1.0.0"
+description = "FastKit — async SQLAlchemy 2 engine, sessions, repositories and dialect capabilities."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "fastkit-core",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "aiosqlite>=0.20",
+]
+
+[project.optional-dependencies]
+postgresql = ["asyncpg>=0.29"]
+mysql = ["asyncmy>=0.2.9"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.db" = "fastkit_db.app:DbApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_db"]

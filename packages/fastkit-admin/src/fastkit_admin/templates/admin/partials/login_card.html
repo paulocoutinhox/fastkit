@@ -1,0 +1,24 @@
+<div class="page page-center">
+  <div class="container container-tight py-4">
+    <div class="card card-md" data-testid="login-form">
+      <div class="card-body">
+        <h1 class="h2 text-center mb-1">{{ config.brand_name }} <span data-i18n="login.admin">Admin</span></h1>
+        <p class="text-secondary text-center mb-4" data-i18n="login.subtitle">Sign in to continue</p>
+        <div id="login-error" class="alert alert-danger d-none" data-testid="login-error"></div>
+        <form id="login-form-el" autocomplete="off">
+          <div class="mb-3">
+            <label class="form-label" data-i18n="login.email">Email</label>
+            <input type="email" class="form-control" id="login-email" data-testid="login-email" value="root@fastkit.local" autocomplete="username" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label" data-i18n="login.password">Password</label>
+            <input type="password" class="form-control" id="login-password" data-testid="login-password" autocomplete="new-password" />
+          </div>
+          <div class="form-footer">
+            <button type="submit" class="btn btn-primary w-100" data-testid="login-submit" data-i18n="login.submit">Sign in</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

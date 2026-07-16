@@ -1,0 +1,13 @@
+{% from "admin/macros.html" import brand, nav_menu %}
+<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark" data-testid="sidebar">
+  <div class="container-fluid">
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" data-testid="sidebar-toggle">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <h1 class="navbar-brand navbar-brand-autodark">{% block brand %}<a href="{{ config.path }}">{{ brand(config) }}</a>{% endblock %}</h1>
+    <div class="collapse navbar-collapse" id="sidebar-menu">
+      {% block sidebar_menu %}{{ nav_menu(navigation, config.path) }}{% endblock %}
+      {% include "admin/_sidebar_footer.html" ignore missing %}
+    </div>
+  </div>
+</aside>

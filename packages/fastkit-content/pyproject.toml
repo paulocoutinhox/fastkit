@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-content"
+version = "1.0.0"
+description = "FastKit — languages, content and translations."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db", "fastkit-i18n", "fastkit-tenancy"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.content" = "fastkit_content.app:ContentApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_content"]

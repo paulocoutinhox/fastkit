@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-testkit"
+version = "1.0.0"
+description = "FastKit — factories, fakes and fixtures for testing."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_testkit"]

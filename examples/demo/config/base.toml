@@ -1,0 +1,56 @@
+installed_apps = [
+    "fastkit.core",
+    "fastkit.db",
+    "fastkit.logging",
+    "fastkit.tenancy",
+    "fastkit.accounts",
+    "fastkit.permissions",
+    "fastkit.auth",
+    "fastkit.cache",
+    "fastkit.tasks",
+    "fastkit.storage",
+    "fastkit.assets",
+    "fastkit.mail",
+    "fastkit.i18n",
+    "fastkit.content",
+    "fastkit.admin",
+    "fastkit.reports",
+    "fastkit.webhooks",
+    "demo",
+]
+
+[app]
+name = "FastKit Demo"
+environment = "dev"
+debug = true
+secret_key = "demo-development-secret-key-change-me-please"
+
+[database]
+url = "sqlite+aiosqlite:///./data/demo.db"
+
+[auth]
+password_min_length = 12
+
+[admin]
+enabled = true
+path = "/admin"
+api_path = "/api"
+
+[cache]
+provider = "file"
+directory = "./data/cache"
+
+[storage]
+provider = "local"
+root = "./data/media"
+base_url = "/media"
+
+[mail]
+provider = "smtp"
+host = "localhost"
+port = 1025
+default_from = "demo@fastkit.local"
+
+[i18n]
+default_locale = "en"
+supported_locales = ["en", "pt"]

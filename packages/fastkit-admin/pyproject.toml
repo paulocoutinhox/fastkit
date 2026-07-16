@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-admin"
+version = "1.0.0"
+description = "FastKit — declarative, API-first admin engine."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db", "fastkit-accounts", "fastkit-auth", "fastkit-permissions", "fastkit-i18n", "jinja2>=3.1", "python-multipart>=0.0.9", "fastkit-vendor-jquery", "fastkit-vendor-tabler", "fastkit-vendor-tabler-icons", "fastkit-vendor-tinymce", "fastkit-vendor-jsoneditor"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.admin" = "fastkit_admin.app:AdminApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_admin"]

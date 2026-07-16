@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-tenancy"
+version = "1.0.0"
+description = "FastKit — tenant model, context and resolvers."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.tenancy" = "fastkit_tenancy.app:TenancyApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_tenancy"]

@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fastkit
+          POSTGRES_PASSWORD: fastkit
+          POSTGRES_DB: fastkit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fastkit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      FASTKIT_TEST_REDIS_URL: redis://127.0.0.1:6379/0
+      FASTKIT_TEST_POSTGRES_URL: postgresql+asyncpg://fastkit:fastkit@127.0.0.1:5432/fastkit
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: pip install uv
+      - name: Create the environment
+        run: make install
+      - name: Lint
+        run: make lint
+      - name: Coverage gate
+        run: make coverage
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: pip install uv
+      - name: Create the environment
+        run: make install
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install the Playwright harness
+        run: make install-admin
+      - name: Install Playwright browsers
+        run: cd frontend/admin && npx playwright install --with-deps chromium
+      - name: Run the browser suite
+        run: make test-e2e

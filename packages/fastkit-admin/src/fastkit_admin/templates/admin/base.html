@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en">
+  {% include "admin/partials/head.html" %}
+  <body>
+    {% include "admin/_pre_body.html" ignore missing %}
+    {% block content %}{% endblock %}
+    {% include "admin/_pre_footer.html" ignore missing %}
+    {% include "admin/partials/scripts.html" %}
+    {% include "admin/_post_footer.html" ignore missing %}
+  </body>
+</html>

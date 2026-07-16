@@ -1,0 +1,52 @@
+[project]
+name = "fastkit-monorepo"
+version = "1.0.0"
+description = "FastKit — modular, extensible and asynchronous ecosystem for FastAPI applications."
+requires-python = ">=3.12"
+
+[tool.uv.workspace]
+members = ["packages/*", "examples/*"]
+
+[tool.uv.sources]
+fastkit-core = { workspace = true }
+fastkit-config = { workspace = true }
+fastkit-db = { workspace = true }
+fastkit-logging = { workspace = true }
+fastkit-tenancy = { workspace = true }
+fastkit-accounts = { workspace = true }
+fastkit-permissions = { workspace = true }
+fastkit-auth = { workspace = true }
+fastkit-cache = { workspace = true }
+fastkit-tasks = { workspace = true }
+fastkit-storage = { workspace = true }
+fastkit-assets = { workspace = true }
+fastkit-mail = { workspace = true }
+fastkit-i18n = { workspace = true }
+fastkit-content = { workspace = true }
+fastkit-admin = { workspace = true }
+fastkit-vendor-jquery = { workspace = true }
+fastkit-vendor-tabler = { workspace = true }
+fastkit-vendor-tabler-icons = { workspace = true }
+fastkit-vendor-tinymce = { workspace = true }
+fastkit-vendor-jsoneditor = { workspace = true }
+fastkit-reports = { workspace = true }
+fastkit-webhooks = { workspace = true }
+fastkit-cli = { workspace = true }
+fastkit-testkit = { workspace = true }
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "pytest-cov", "httpx"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["packages", "examples", "tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["packages"]
+omit = ["*/tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:", "raise NotImplementedError", "\\.\\.\\.", "@(abc\\.)?abstractmethod"]

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-mail"
+version = "1.0.0"
+description = "FastKit — asynchronous email with templates and providers."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db", "jinja2>=3.1"]
+
+[project.optional-dependencies]
+smtp = ["aiosmtplib>=3.0"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.mail" = "fastkit_mail.app:MailApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_mail"]
+include = ["src/fastkit_mail/templates/**"]

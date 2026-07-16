@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-logging"
+version = "1.0.0"
+description = "FastKit — structured logging, SystemLog and AuditLog."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.logging" = "fastkit_logging.app:LoggingApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_logging"]

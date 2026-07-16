@@ -1,0 +1,12 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<script>window.__FASTKIT__.timezone = {{ user.timezone | tojson }};</script>
+<div class="page">
+  {% include "admin/partials/sidebar.html" %}
+  <div class="page-wrapper">
+    {% include "admin/partials/navbar.html" %}
+    {% include "admin/partials/content.html" %}
+  </div>
+</div>
+{% endblock %}

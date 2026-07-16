@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-core"
+version = "1.0.0"
+description = "FastKit core runtime, registries, service container and API envelope."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "fastapi>=0.115",
+    "pydantic>=2.9",
+]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-asyncio", "pytest-cov", "httpx"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.core" = "fastkit_core.app_config:CoreApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_core"]

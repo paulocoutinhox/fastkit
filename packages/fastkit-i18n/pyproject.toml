@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-i18n"
+version = "1.0.0"
+description = "FastKit — gettext translations and locale resolution."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.i18n" = "fastkit_i18n.app:I18nApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_i18n"]

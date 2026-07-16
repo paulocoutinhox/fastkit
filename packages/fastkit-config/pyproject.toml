@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-config"
+version = "1.0.0"
+description = "FastKit — typed settings, environment merge and safe public config export."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_config"]

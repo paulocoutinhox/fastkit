@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-vendor-tinymce"
+version = "1.0.0"
+description = "Vendored TinyMCE rich text editor for the FastKit admin."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = []
+
+[project.entry-points."fastkit.assets"]
+"tinymce" = "fastkit_vendor_tinymce.assets"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_vendor_tinymce"]

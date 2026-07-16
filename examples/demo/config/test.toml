@@ -1,0 +1,12 @@
+[app]
+environment = "test"
+
+[database]
+url = "sqlite+aiosqlite:///./data/demo-test.db"
+
+[mail]
+provider = "memory"
+
+[cache]
+provider = "file"
+directory = "./data/cache-test"

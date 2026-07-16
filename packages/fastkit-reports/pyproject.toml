@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-reports"
+version = "1.0.0"
+description = "FastKit — report definitions and renderers."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db"]
+
+[project.optional-dependencies]
+pdf = ["weasyprint>=62.0"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.reports" = "fastkit_reports.app:ReportsApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_reports"]

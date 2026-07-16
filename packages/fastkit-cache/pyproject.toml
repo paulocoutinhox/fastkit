@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-cache"
+version = "1.0.0"
+description = "FastKit — cache contract with file, database and Redis providers."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db"]
+
+[project.optional-dependencies]
+redis = ["redis>=5.0"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.cache" = "fastkit_cache.app:CacheApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_cache"]

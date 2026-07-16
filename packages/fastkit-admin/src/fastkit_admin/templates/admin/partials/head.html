@@ -1,0 +1,13 @@
+{% from "admin/macros.html" import asset_link %}
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}{{ config.brand_name }} Admin{% endblock %}</title>
+  <link rel="icon" href="{{ config.favicon }}" />
+  {% for tag in config.head_assets %}{{ asset_link(tag) }}{% endfor %}
+  <link rel="stylesheet" href="{{ config.static_base }}/admin.css" />
+  {% if config.primary_color %}<style>:root { --tblr-primary: {{ config.primary_color }}; }</style>{% endif %}
+  <script>window.__FASTKIT__ = {{ config.client_json | safe }};</script>
+  <script>document.documentElement.setAttribute("data-bs-theme", localStorage.getItem("fk-theme") || "light");</script>
+  {% include "admin/_extra_head.html" ignore missing %}
+</head>

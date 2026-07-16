@@ -1,0 +1,12 @@
+<div class="nav-item dropdown">
+  <a href="#" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" aria-label="Open user menu" data-testid="user-menu">
+    <span class="avatar avatar-sm bg-primary-lt" data-testid="user-avatar"{% if user.avatar_url %} style="background-image: url({{ user.avatar_url }})"{% endif %}>{% if not user.avatar_url %}{{ user.display_name[:2] | upper }}{% endif %}</span>
+    <div class="d-none d-xl-block ps-2">
+      <div data-testid="user-name">{{ user.display_name }}</div>
+    </div>
+  </a>
+  <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+    <a class="dropdown-item" href="{{ config.path }}/profile" data-nav data-resource="profile" data-testid="menu-profile" data-i18n="profile.title">My profile</a>
+    <a class="dropdown-item text-danger" href="#" id="logout" data-testid="logout" data-i18n="nav.sign-out">Sign out</a>
+  </div>
+</div>

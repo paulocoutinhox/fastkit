@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-tasks"
+version = "1.0.0"
+description = "FastKit — persistent task queue and scheduler."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.tasks" = "fastkit_tasks.app:TasksApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_tasks"]

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-demo"
+version = "1.0.0"
+description = "FastKit demo application wiring every package with local providers."
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "fastkit-core",
+    "fastkit-config",
+    "fastkit-db",
+    "fastkit-logging",
+    "fastkit-tenancy",
+    "fastkit-accounts",
+    "fastkit-permissions",
+    "fastkit-auth",
+    "fastkit-cache",
+    "fastkit-tasks",
+    "fastkit-storage",
+    "fastkit-assets",
+    "fastkit-mail",
+    "fastkit-i18n",
+    "fastkit-content",
+    "fastkit-admin",
+    "fastkit-reports",
+    "fastkit-webhooks",
+    "fpdf2>=2.8",
+]
+
+[project.entry-points."fastkit.apps"]
+"demo" = "app.demo_app:DemoApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

@@ -1,0 +1,23 @@
+.fk-upload-preview {
+  width: 4.5rem;
+  height: 4.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--tblr-bg-surface-secondary);
+}
+
+.fk-upload-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fk-lookup-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  max-height: 14rem;
+  overflow-y: auto;
+}

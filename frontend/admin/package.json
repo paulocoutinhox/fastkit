@@ -1,0 +1,12 @@
+{
+  "name": "fastkit-admin-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1"
+  }
+}

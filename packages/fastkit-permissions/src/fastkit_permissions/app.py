@@ -1,0 +1,27 @@
+from fastkit_core.apps.base import BootstrapContext, FastKitApp
+from fastkit_permissions.authorization import Authorizer
+from fastkit_permissions.cache import PermissionCache
+from fastkit_permissions.models import Permission, Role, RolePermission, UserRole
+from fastkit_permissions.service import PermissionService
+
+MODELS = (Permission, Role, RolePermission, UserRole)
+
+
+class PermissionsApp(FastKitApp):
+    name = "fastkit.permissions"
+    label = "permissions"
+    version = "1.0.0"
+    requires = ("fastkit.core", "fastkit.db", "fastkit.accounts")
+
+    def register_models(self, context: BootstrapContext) -> None:
+        for model in MODELS:
+            context.models.register(model, source=self.name)
+
+    def register_services(self, context: BootstrapContext) -> None:
+        database = context.component("database")
+        cache = PermissionCache()
+        service = PermissionService(database.session_factory, cache)
+
+        context.set_component("permission_cache", cache)
+        context.set_component("permission_service", service)
+        context.set_component("authorizer", Authorizer(service, cache))

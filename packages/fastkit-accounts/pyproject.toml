@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-accounts"
+version = "1.0.0"
+description = "FastKit — users, profiles and login identifiers."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db", "fastkit-tenancy"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.accounts" = "fastkit_accounts.app:AccountsApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_accounts"]

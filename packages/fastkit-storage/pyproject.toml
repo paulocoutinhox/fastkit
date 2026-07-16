@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-storage"
+version = "1.0.0"
+description = "FastKit — storage contract with local and S3 providers."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core"]
+
+[project.optional-dependencies]
+s3 = ["aioboto3>=13.0"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.storage" = "fastkit_storage.app:StorageApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_storage"]

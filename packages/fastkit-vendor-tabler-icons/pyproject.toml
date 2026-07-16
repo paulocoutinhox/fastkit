@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-vendor-tabler-icons"
+version = "1.0.0"
+description = "Vendored Tabler Icons webfont for the FastKit admin."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = []
+
+[project.entry-points."fastkit.assets"]
+"tabler-icons" = "fastkit_vendor_tabler_icons.assets"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_vendor_tabler_icons"]

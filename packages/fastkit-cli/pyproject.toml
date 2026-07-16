@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-cli"
+version = "1.0.0"
+description = "FastKit — aggregated command line interface."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_cli"]
