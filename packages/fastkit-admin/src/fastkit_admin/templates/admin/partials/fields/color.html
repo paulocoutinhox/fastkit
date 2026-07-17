@@ -1,0 +1,4 @@
+<div class="d-flex align-items-center gap-2 fk-color" data-field="{{ field.name }}">
+  <input type="color" class="form-control form-control-color" value="{{ field.value or '#000000' }}">
+  <input type="text" class="form-control font-monospace" style="max-width:9rem" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}" value="{{ field.value if field.value is not none else '' }}" placeholder="#4f46e5">
+</div>

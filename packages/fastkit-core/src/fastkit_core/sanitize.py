@@ -72,6 +72,9 @@ class _Sanitizer(HTMLParser):
         self._parts.append(f"<{tag}{''.join(rendered)}{closing}>")
 
     def handle_startendtag(self, tag, attrs):
+        if tag in _DROP_CONTENT_TAGS:
+            return
+
         self.handle_starttag(tag, attrs)
 
     def handle_endtag(self, tag):

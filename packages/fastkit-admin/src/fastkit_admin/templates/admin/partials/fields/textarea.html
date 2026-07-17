@@ -1,0 +1,1 @@
+<textarea class="form-control" rows="4" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}"{% if field.placeholder %} placeholder="{{ field.placeholder }}"{% endif %}{% if field.readonly %} readonly{% endif %}{% if field.required %} required{% endif %}>{{ field.value if field.value is not none else '' }}</textarea>

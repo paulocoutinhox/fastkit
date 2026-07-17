@@ -1,0 +1,1 @@
+<input class="form-control" type="date" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}" value="{{ field.value if field.value is not none else '' }}"{% if field.readonly %} readonly{% endif %}{% if field.required %} required{% endif %}>

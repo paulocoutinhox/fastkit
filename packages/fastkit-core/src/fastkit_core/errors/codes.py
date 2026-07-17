@@ -47,5 +47,13 @@ STORAGE_ERROR = ErrorCode("storage.error", 502, "error.storage", Severity.error,
 PROVIDER_UNAVAILABLE = ErrorCode("provider.unavailable", 503, "error.provider-unavailable", Severity.error, retryable=True)
 PROVIDER_TIMEOUT = ErrorCode("provider.timeout", 504, "error.provider-timeout", Severity.error, retryable=True)
 
+# raw http errors
+BAD_REQUEST = ErrorCode("http.bad_request", 400, "error.bad-request", Severity.warning, should_log=False)
+METHOD_NOT_ALLOWED = ErrorCode("http.method_not_allowed", 405, "error.method-not-allowed", Severity.warning, should_log=False)
+NOT_ACCEPTABLE = ErrorCode("http.not_acceptable", 406, "error.not-acceptable", Severity.warning, should_log=False)
+PAYLOAD_TOO_LARGE = ErrorCode("http.payload_too_large", 413, "error.payload-too-large", Severity.warning, should_log=False)
+UNSUPPORTED_MEDIA_TYPE = ErrorCode("http.unsupported_media_type", 415, "error.unsupported-media-type", Severity.warning, should_log=False)
+HTTP_ERROR = ErrorCode("http.error", 400, "error.http", Severity.warning, should_log=False)
+
 # generic internal
 INTERNAL_ERROR = ErrorCode("internal.error", 500, "error.internal", Severity.critical, user_visible=False)

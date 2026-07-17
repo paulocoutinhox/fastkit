@@ -1,0 +1,4 @@
+<div class="mb-2 fk-filter" data-filter="{{ filter.field }}" data-type="{{ filter.type }}">
+  <label class="form-label small mb-1">{{ t(filter.label) }}</label>
+  {% include ["admin/partials/filters/" ~ filter.type ~ ".html", "admin/partials/filters/text.html"] %}
+</div>

@@ -39,6 +39,35 @@ def test_missing_body_field_maps_to_required(error_app):
     assert response.json()["errors"][0]["code"] == "validation.required"
 
 
+def test_unknown_route_is_enveloped(error_app):
+    response = client_for(error_app).get("/does-not-exist")
+    body = response.json()
+
+    assert response.status_code == 404
+    assert body["success"] is False
+    assert body["message"]["code"] == "resource.not_found"
+    assert body["message"]["text"]
+    assert body["errors"] == []
+
+
+def test_method_not_allowed_is_enveloped_with_allow_header(error_app):
+    response = client_for(error_app).post("/ok")
+    body = response.json()
+
+    assert response.status_code == 405
+    assert body["message"]["code"] == "http.method_not_allowed"
+    assert "allow" in {key.lower() for key in response.headers}
+
+
+def test_unmapped_http_exception_keeps_status_and_generic_code(error_app):
+    response = client_for(error_app).get("/teapot")
+    body = response.json()
+
+    assert response.status_code == 418
+    assert body["message"]["code"] == "http.error"
+    assert body["message"]["text"]
+
+
 def test_fastkit_error_envelope(error_app):
     response = client_for(error_app).get("/missing")
     body = response.json()
@@ -84,12 +113,14 @@ class _Resolver:
 
 def _app_with_runtime(runtime):
     from fastapi.exceptions import RequestValidationError
+    from starlette.exceptions import HTTPException as StarletteHTTPException
 
     from fastkit_core.context.middleware import RequestContextMiddleware
     from fastkit_core.errors.codes import CACHE_ERROR, RESOURCE_NOT_FOUND
     from fastkit_core.errors.exceptions import FastKitError, NotFoundError
     from fastkit_core.errors.handlers import (
         fastkit_exception_handler,
+        http_exception_handler,
         unhandled_exception_handler,
         validation_exception_handler,
     )
@@ -97,6 +128,7 @@ def _app_with_runtime(runtime):
     app = FastAPI()
     app.add_middleware(RequestContextMiddleware)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(FastKitError, fastkit_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
     app.state.fastkit = runtime
@@ -161,6 +193,23 @@ def test_non_user_visible_error_never_leaks_its_message():
     response = client_for(_app_with_runtime(runtime)).get("/cache-boom")
 
     assert response.json()["message"]["text"] == "Generic problem."
+
+
+def test_http_error_text_is_translated_from_runtime():
+    runtime = _FakeRuntime(translator=_Translator({("error.not-found", "pt"): "Não encontrado."}), resolver=_Resolver())
+    response = client_for(_app_with_runtime(runtime)).get("/nope", headers={"Accept-Language": "pt-BR"})
+
+    assert response.status_code == 404
+    assert response.json()["message"]["text"] == "Não encontrado."
+
+
+def test_error_code_for_status_maps_and_falls_back():
+    from fastkit_core.errors.handlers import error_code_for_status
+
+    assert error_code_for_status(404).code == "resource.not_found"
+    assert error_code_for_status(418).code == "http.error"
+    assert error_code_for_status(500).code == "internal.error"
+    assert error_code_for_status(599).code == "internal.error"
 
 
 class DemoApp(FastKitApp):

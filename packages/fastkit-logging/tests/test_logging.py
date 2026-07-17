@@ -133,6 +133,15 @@ async def test_system_log_service_persists(database, context_reset):
     assert stored[0].request_id == "req-2"
 
 
+async def test_system_log_service_accepts_lowercase_level(database, context_reset):
+    service = SystemLogService(database.session_factory, "test")
+
+    row = await service.record("warning", "security", "login", "suspicious attempt")
+
+    assert row is not None
+    assert row.level == "warning"
+
+
 async def test_system_log_service_survives_db_failure(context_reset):
     def broken_factory():
         raise RuntimeError("db down")

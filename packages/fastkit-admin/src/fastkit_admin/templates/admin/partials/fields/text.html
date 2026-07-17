@@ -1,0 +1,2 @@
+{% set input_type = "email" if field.type == "email" else "url" if field.type == "url" else "password" if field.type == "password" else "text" %}
+<input class="form-control" type="{{ input_type }}" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}" value="{{ field.value if field.value is not none else '' }}"{% if field.type == "password" %} autocomplete="new-password"{% endif %}{% if field.placeholder %} placeholder="{{ field.placeholder }}"{% endif %}{% if field.readonly %} readonly{% endif %}{% if field.required %} required{% endif %}>

@@ -70,6 +70,7 @@ class AdminResource(Generic[ModelT]):
     ordering: list[str] = []
     form_fields: list = []
     fieldsets: list = []
+    inlines: list = []
     page_size: int = 25
     max_page_size: int = 100
     select_all: bool = True
@@ -426,6 +427,7 @@ class AdminResource(Generic[ModelT]):
             "resource": self.name,
             "mode": mode,
             "fieldsets": fieldsets,
+            "inlines": [inline.schema() for inline in self.inlines],
             "actions": [{"name": "save", "label": "Save", "variant": "primary"}],
         }
 

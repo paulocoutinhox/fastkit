@@ -1,0 +1,8 @@
+<div class="d-flex flex-wrap gap-2 fk-multiselect" id="field-{{ field.name }}" data-field="{{ field.name }}" data-testid="field-{{ field.name }}">
+  {% for choice in field.choices or [] %}
+  <label class="form-selectgroup-item">
+    <input type="checkbox" class="form-check-input me-1" value="{{ choice.value }}"{% if field.value and choice.value in field.value %} checked{% endif %}>
+    <span>{{ choice.label }}</span>
+  </label>
+  {% endfor %}
+</div>

@@ -46,10 +46,12 @@ class AuthService:
         await self._recaptcha.verify(recaptcha_token)
 
         candidates = await self._accounts.find_candidates(requested_tenant_id, identifier_type, identifier_value)
+        verifiable = any(candidate.password_hash for candidate in candidates)
         matches = [candidate for candidate in candidates if candidate.password_hash and self._passwords.verify(candidate.password_hash, password)]
 
         if not matches:
-            if not candidates:
+            # keep the cost constant when no real argon2 verify ran, so passwordless accounts are not an enumeration oracle
+            if not verifiable:
                 self._passwords.dummy_verify(password)
 
             await self._register_failures(candidates)
@@ -64,7 +66,7 @@ class AuthService:
         effective_tenant_id = resolve_effective_tenant(to_api(user.tenant_id), requested_tenant_id)
         record, raw_token = await self._sessions.create(user.id, to_api(user.tenant_id), effective_tenant_id, ip_address, user_agent)
 
-        await self._on_success(user)
+        await self._on_success(user, password)
         token = self._tokens.issue(str(user.id), to_api(user.tenant_id), effective_tenant_id, str(record.id))
 
         self._rate_limiter.reset(ip_address, requested_tenant_id, f"{identifier_type}:{normalized_identifier}")
@@ -96,16 +98,26 @@ class AuthService:
 
             await session.commit()
 
-    async def _on_success(self, user: User) -> None:
+    async def _on_success(self, user: User, password: str) -> None:
         now = self._clock()
+
+        # upgrade the stored hash in place when the argon2 parameters changed since it was written
+        rehashed = self._passwords.rehash(password) if self._passwords.needs_rehash(user.password_hash) else None
 
         async with self._session_factory() as session:
             stored = await session.get(User, user.id)
             stored.failed_login_count = 0
             stored.locked_until = None
             stored.last_login_at = now
+
+            if rehashed is not None:
+                stored.password_hash = rehashed
+
             await session.commit()
 
         user.failed_login_count = 0
         user.locked_until = None
         user.last_login_at = now
+
+        if rehashed is not None:
+            user.password_hash = rehashed

@@ -1,0 +1,3 @@
+<div class="fk-filter-lookup" data-filter="{{ filter.field }}" data-depends-on="{{ filter.depends_on | join(',') }}" data-value="{{ filter.value if filter.value is not none else '' }}">
+  <input type="hidden" class="fk-filter-input" name="filter[{{ filter.field }}]" value="{{ filter.value if filter.value is not none else '' }}">
+</div>

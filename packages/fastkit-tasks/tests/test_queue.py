@@ -1,7 +1,27 @@
 from datetime import timedelta
 
 from fastkit_tasks.models import ExecutionStatus, TaskExecution
+from fastkit_tasks.queue import TaskQueue
+from fastkit_tasks.registry import TaskDefinition
 from fastkit_tasks.retry import RetryPolicy
+
+
+async def test_enqueue_applies_registered_task_policy(database, clock, registry):
+    async def handler(**kwargs):
+        return None
+
+    registry.register(TaskDefinition(name="reports.build", handler=handler, queue="reports", max_attempts=5, timeout=300, retry_delay=30))
+    queue = TaskQueue(database.session_factory, registry=registry, clock=clock)
+
+    execution = await queue.enqueue("reports.build", queue="reports")
+
+    assert execution.max_attempts == 5
+    assert execution.timeout_seconds == 300
+    assert execution.retry_delay_seconds == 30
+
+    override = await queue.enqueue("reports.build", queue="reports", max_attempts=1)
+
+    assert override.max_attempts == 1
 
 
 async def test_enqueue_creates_pending(queue):

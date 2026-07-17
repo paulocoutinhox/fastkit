@@ -1,0 +1,28 @@
+{% macro cell(column, value) %}
+{%- if column.html -%}
+  {%- if value -%}{{ value | safe }}{%- else -%}<span class="text-secondary">—</span>{%- endif -%}
+{%- elif column.field_type == "boolean" -%}
+  {%- if value -%}<i class="ti ti-check text-green" data-testid="bool-true"></i>{%- else -%}<i class="ti ti-x text-red" data-testid="bool-false"></i>{%- endif -%}
+{%- elif value is none or value == "" -%}
+  <span class="text-secondary">—</span>
+{%- else -%}
+  {{ value }}
+{%- endif -%}
+{% endmacro %}
+
+{% macro sort_icon(column) %}
+{%- if column.sort_active and column.sort_desc -%}ti-chevron-down
+{%- elif column.sort_active -%}ti-chevron-up
+{%- else -%}ti-selector{%- endif -%}
+{% endmacro %}
+
+{% macro row_actions(row, flags, path, resource) %}
+<div class="dropdown">
+  <button class="btn btn-action fk-menu-toggle" data-bs-toggle="dropdown" aria-label="{{ t('grid.actions') }}"><i class="ti ti-dots-vertical"></i></button>
+  <div class="dropdown-menu dropdown-menu-end fk-menu-fixed">
+    {% if flags.can_detail %}<a class="dropdown-item" href="{{ path }}/{{ resource }}/{{ row.id }}" data-testid="view-{{ row.id }}"><i class="ti ti-eye me-2"></i>{{ t('grid.view') }}</a>{% endif %}
+    {% if flags.can_update %}<a class="dropdown-item" href="{{ path }}/{{ resource }}/{{ row.id }}/edit" data-testid="edit-{{ row.id }}"><i class="ti ti-edit me-2"></i>{{ t('grid.edit') }}</a>{% endif %}
+    {% if flags.can_delete %}<button type="button" class="dropdown-item text-danger fk-delete" data-id="{{ row.id }}" data-testid="delete-{{ row.id }}"><i class="ti ti-trash me-2"></i>{{ t('grid.delete') }}</button>{% endif %}
+  </div>
+</div>
+{% endmacro %}

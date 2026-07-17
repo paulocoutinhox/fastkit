@@ -111,7 +111,13 @@ class PermissionService:
     async def _add(self, row) -> None:
         async with self._session_factory() as session:
             session.add(row)
-            await session.commit()
+
+            try:
+                await session.commit()
+            except IntegrityError:
+                # the assignment already exists, so the desired state is reached and this is a no-op
+                await session.rollback()
+                return
 
         if self._cache is not None:
             self._cache.bump_version()

@@ -73,3 +73,29 @@ def test_every_error_code_has_a_catalog_entry():
                 missing.append(value.translation_key)
 
     assert not missing, f"error codes missing a catalog entry: {sorted(missing)}"
+
+
+def test_every_pydantic_validation_key_has_a_catalog_entry():
+    from fastkit_core.errors.handlers import GENERIC_VALIDATION_CODE, PYDANTIC_CODE_MAP
+    from fastkit_i18n.catalogs import BASE_CATALOGS
+
+    keys = set(PYDANTIC_CODE_MAP.values()) | {GENERIC_VALIDATION_CODE}
+
+    for locale, catalog in BASE_CATALOGS.items():
+        missing = sorted(key for key in keys if key not in catalog)
+
+        assert not missing, f"validation keys missing from {locale} catalog: {missing}"
+
+
+def test_pydantic_code_map_covers_every_error_type():
+    import typing
+
+    from pydantic_core.core_schema import ErrorType
+
+    from fastkit_core.errors.handlers import PYDANTIC_CODE_MAP
+
+    error_types = set(typing.get_args(ErrorType))
+    mapped = set(PYDANTIC_CODE_MAP)
+
+    assert not error_types - mapped, f"pydantic error types missing from the map: {sorted(error_types - mapped)}"
+    assert not mapped - error_types, f"map has entries that are not pydantic error types: {sorted(mapped - error_types)}"

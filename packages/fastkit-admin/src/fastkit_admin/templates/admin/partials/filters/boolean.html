@@ -1,0 +1,5 @@
+<select class="form-select fk-filter-input" name="filter[{{ filter.field }}]">
+  <option value="">—</option>
+  <option value="true"{% if filter.value == 'true' %} selected{% endif %}>{{ t('filter.yes') }}</option>
+  <option value="false"{% if filter.value == 'false' %} selected{% endif %}>{{ t('filter.no') }}</option>
+</select>

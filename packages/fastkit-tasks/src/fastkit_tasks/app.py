@@ -23,7 +23,7 @@ class TasksApp(FastKitApp):
         database = context.component("database")
 
         registry = TaskRegistry()
-        queue = TaskQueue(database.session_factory)
+        queue = TaskQueue(database.session_factory, registry=registry)
         scheduler = Scheduler(database.session_factory, queue)
 
         context.set_component("task_registry", registry)

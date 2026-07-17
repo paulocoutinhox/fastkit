@@ -1,0 +1,1 @@
+<input class="form-control fk-masked" type="text" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}" data-mask="{{ field.mask }}" value="{{ field.value if field.value is not none else '' }}" placeholder="{{ field.mask }}"{% if field.readonly %} readonly{% endif %}{% if field.required %} required{% endif %}>

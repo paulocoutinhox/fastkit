@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
-_FIELD_RANGES = ((0, 59), (0, 23), (1, 31), (1, 12), (0, 6))
+_FIELD_RANGES = ((0, 59), (0, 23), (1, 31), (1, 12), (0, 7))
+_WEEKDAY_VALUES = frozenset(range(0, 7))
 
 
 class CronError(ValueError):
@@ -50,7 +51,13 @@ def parse_cron(expression: str) -> tuple[set[int], ...]:
     if len(fields) != 5:
         raise CronError("cron expression must have exactly 5 fields")
 
-    return tuple(_parse_field(field, low, high) for field, (low, high) in zip(fields, _FIELD_RANGES))
+    parsed = [_parse_field(field, low, high) for field, (low, high) in zip(fields, _FIELD_RANGES)]
+
+    # posix cron accepts 7 as sunday, which the matcher expresses as 0
+    if 7 in parsed[4]:
+        parsed[4] = (parsed[4] - {7}) | {0}
+
+    return tuple(parsed)
 
 
 def next_run(expression: str, after: datetime) -> datetime:
@@ -58,7 +65,7 @@ def next_run(expression: str, after: datetime) -> datetime:
 
     minutes, hours, days, months, weekdays = parse_cron(expression)
     days_restricted = days != set(range(_FIELD_RANGES[2][0], _FIELD_RANGES[2][1] + 1))
-    weekdays_restricted = weekdays != set(range(_FIELD_RANGES[4][0], _FIELD_RANGES[4][1] + 1))
+    weekdays_restricted = weekdays != _WEEKDAY_VALUES
 
     candidate = (after + timedelta(minutes=1)).replace(second=0, microsecond=0)
 

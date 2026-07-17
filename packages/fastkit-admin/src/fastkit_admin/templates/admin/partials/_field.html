@@ -1,0 +1,6 @@
+<div class="mb-3 fk-field" data-field="{{ field.name }}" data-type="{{ field.type }}">
+  {% if field.type != "boolean" and not field.hide_label %}<label class="form-label" for="field-{{ field.name }}">{{ t(field.label) }}</label>{% endif %}
+  {% include ["admin/partials/fields/" ~ field.type ~ ".html", "admin/partials/fields/text.html"] %}
+  {% if field.help_text and field.type != "boolean" %}<div class="form-hint">{{ t(field.help_text) }}</div>{% endif %}
+  <div class="text-danger small mt-1" data-error="{{ field.name }}" data-testid="error-{{ field.name }}"></div>
+</div>

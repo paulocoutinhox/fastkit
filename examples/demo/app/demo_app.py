@@ -150,9 +150,33 @@ class DemoApp(FastKitApp):
         context.routers.include(build_upload_router(deps, {"image": image_handler, "file": file_handler}), prefix=api_path, source=self.name)
         context.routers.include(build_admin_router(site, deps), prefix=api_path, source=self.name)
 
+        report_service = runtime.component("report_service")
+        report_registry = runtime.component("report_registry")
+
+        async def report_data(name, session, locale, params):
+            schema = report_registry.get(name).to_schema()
+            result = await report_service.build_result(name, session, dict(params))
+
+            return {"title": schema["title"], "columns": schema["columns"], "filters": schema["filters"], "rows": result.rows, "formats": report_service.export_formats()}
+
+        async def profile_data(user, locale):
+            identifiers = await account_service.list_identifiers(user.id)
+            asset_id = user.profile.avatar_asset_id if getattr(user, "profile", None) else None
+            url = await resolve_avatar_url(asset_id) if asset_id else None
+
+            return {
+                "display_name": user.display_name,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "avatar_url": url,
+                "identifier_types": account_service.identifier_types(),
+                "identifiers": [{"id": str(item.id), "type": item.type, "value": item.value} for item in identifiers],
+            }
+
         renderer = AdminRenderer(override_dirs=[str(TEMPLATES_DIR)])
         page_config = build_page_config(settings.admin, theme={"brand_name": "FastKit"}, recaptcha=settings.auth.recaptcha)
-        context.routers.include(build_admin_pages_router(renderer, site, deps, page_config, avatar_url=resolve_avatar_url), source=self.name)
+        context.routers.include(build_admin_pages_router(renderer, site, deps, page_config, avatar_url=resolve_avatar_url, report_data=report_data, profile_data=profile_data), source=self.name)
         context.routers.include(self._build_home_router(), source=self.name)
 
     def _build_home_router(self) -> APIRouter:

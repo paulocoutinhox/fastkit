@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from fastkit_admin.api import AdminDeps
@@ -68,7 +68,7 @@ def _build_client(current_user, translate=None, avatar_url=None):
     async def authorize(user, permission):
         return None
 
-    async def optional_user(request):
+    async def optional_user(request: Request):
         return current_user["value"]
 
     async def get_locale(request):
@@ -104,7 +104,7 @@ def test_shell_renders_for_authenticated_user():
     holder = {"value": _User()}
     client = _build_client(holder)
 
-    response = client.get("/admin/products")
+    response = client.get("/admin")
 
     assert response.status_code == 200
     assert 'data-testid="sidebar"' in response.text
@@ -117,7 +117,7 @@ def test_shell_renders_the_resolved_header_avatar():
 
     client = _build_client({"value": _User()}, avatar_url=avatar_url)
 
-    response = client.get("/admin/products")
+    response = client.get("/admin")
 
     assert response.status_code == 200
     assert "/media/asset-1.webp" in response.text
@@ -131,7 +131,7 @@ def test_shell_translates_navigation_labels():
 
     client = _build_client({"value": _User()}, translate=translate)
 
-    response = client.get("/admin/products")
+    response = client.get("/admin")
 
     assert response.status_code == 200
     assert "Principal" in response.text

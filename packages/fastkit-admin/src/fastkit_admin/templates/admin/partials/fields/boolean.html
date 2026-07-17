@@ -1,0 +1,4 @@
+<label class="form-check form-switch">
+  <input class="form-check-input" type="checkbox" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}"{% if field.value %} checked{% endif %}>
+  <span class="form-check-label">{{ t(field.help_text or field.label) }}</span>
+</label>

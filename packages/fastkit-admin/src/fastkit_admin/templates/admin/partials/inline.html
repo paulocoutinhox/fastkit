@@ -1,0 +1,22 @@
+<div class="card mb-3 fk-inline" data-inline="{{ inline.name }}" data-min="{{ inline.min_items }}"{% if inline.max_items is not none %} data-max="{{ inline.max_items }}"{% endif %} data-testid="inline-{{ inline.name }}">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h3 class="card-title mb-0">{{ t(inline.label) }}</h3>
+    <button type="button" class="btn btn-sm fk-inline-add" data-testid="inline-add-{{ inline.name }}"><i class="ti ti-plus me-1"></i>{{ t('inline.add') }}</button>
+  </div>
+  <div class="card-body">
+    <div class="fk-inline-rows">
+      {% for row in inline.rows %}
+      <div class="fk-inline-row border-bottom pb-3 mb-3" data-index="{{ loop.index0 }}">
+        <div class="d-flex justify-content-end"><button type="button" class="btn btn-sm btn-ghost-danger fk-inline-remove" aria-label="{{ t('grid.delete') }}"><i class="ti ti-trash"></i></button></div>
+        {% for field in row %}{% include "admin/partials/_field.html" %}{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <template class="fk-inline-prototype">
+      <div class="fk-inline-row border-bottom pb-3 mb-3">
+        <div class="d-flex justify-content-end"><button type="button" class="btn btn-sm btn-ghost-danger fk-inline-remove" aria-label="{{ t('grid.delete') }}"><i class="ti ti-trash"></i></button></div>
+        {% for field in inline.fields %}{% include "admin/partials/_field.html" %}{% endfor %}
+      </div>
+    </template>
+  </div>
+</div>

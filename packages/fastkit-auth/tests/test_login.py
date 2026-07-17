@@ -30,6 +30,25 @@ async def test_successful_login(auth_service, accounts, passwords):
     assert result.session.status == "active"
 
 
+async def test_successful_login_rehashes_when_parameters_changed(auth_service, accounts, passwords, monkeypatch):
+    from fastkit_accounts.models import User
+
+    user = await make_user(accounts, passwords, tenant_id=1, email="rehash@acme.com")
+    original_hash = user.password_hash
+
+    monkeypatch.setattr(passwords, "needs_rehash", lambda password_hash: True)
+
+    result = await auth_service.login("email", "rehash@acme.com", "correct horse battery", requested_tenant_id=1)
+
+    assert result.user.password_hash != original_hash
+    assert passwords.verify(result.user.password_hash, "correct horse battery")
+
+    async with accounts._session_factory() as session:
+        stored = await session.get(User, user.id)
+
+        assert stored.password_hash == result.user.password_hash
+
+
 async def test_login_wrong_password(auth_service, accounts, passwords):
     await make_user(accounts, passwords, tenant_id=1, email="owner@acme.com")
 
@@ -37,6 +56,19 @@ async def test_login_wrong_password(auth_service, accounts, passwords):
         await auth_service.login("email", "owner@acme.com", "wrong-password", requested_tenant_id=1)
 
     assert exc.value.error_code is INVALID_CREDENTIALS
+
+
+async def test_login_passwordless_account_still_runs_dummy_verify(auth_service, accounts, passwords, monkeypatch):
+    await accounts.create_user(tenant_id=1, identifiers=[("email", "social@acme.com")], password_hash=None)
+
+    calls = []
+    monkeypatch.setattr(passwords, "dummy_verify", lambda password: calls.append(password))
+
+    with pytest.raises(AuthenticationError) as exc:
+        await auth_service.login("email", "social@acme.com", "whatever", requested_tenant_id=1)
+
+    assert exc.value.error_code is INVALID_CREDENTIALS
+    assert calls == ["whatever"]
 
 
 async def test_login_unknown_identifier_is_generic(auth_service):

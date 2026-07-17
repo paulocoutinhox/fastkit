@@ -2,5 +2,5 @@
 {% for tag in config.body_assets %}{{ asset_script(tag) }}{% endfor %}
 {% if config.recaptcha_enabled %}<script src="https://www.google.com/recaptcha/api.js?render={{ config.recaptcha_site_key }}"></script>{% endif %}
 <script src="{{ config.static_base }}/fastkit-ui.js"></script>
-<script src="{{ config.static_base }}/admin.js"></script>
+<script src="{{ config.static_base }}/app.js"></script>
 {% include "admin/_extra_js.html" ignore missing %}

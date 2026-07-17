@@ -1,0 +1,6 @@
+<select class="form-select fk-filter-input" name="filter[{{ filter.field }}]">
+  <option value="">—</option>
+  {% for choice in filter.choices or [] %}
+  <option value="{{ choice.value }}"{% if filter.value is not none and filter.value|string == choice.value|string %} selected{% endif %}>{{ choice.label }}</option>
+  {% endfor %}
+</select>

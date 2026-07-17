@@ -1,0 +1,16 @@
+<div class="card mb-3 d-none fk-filter-panel" data-testid="filter-panel">
+  <div class="card-body">
+    <form class="fk-filters">
+      {% for group in filter_groups %}
+      {% if group.title %}<div class="subheader mb-2 mt-2">{{ t(group.title) }}</div>{% endif %}
+      <div class="row g-2">
+        {% for filter in group.filters %}<div class="col-12 col-md-6 col-lg-4">{% include "admin/partials/_filter.html" %}</div>{% endfor %}
+      </div>
+      {% endfor %}
+      <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-primary btn-sm fk-filter-apply" data-testid="filter-apply">{{ t('grid.apply') }}</button>
+        <button type="button" class="btn btn-sm fk-filter-clear" data-testid="filter-clear">{{ t('grid.clear') }}</button>
+      </div>
+    </form>
+  </div>
+</div>

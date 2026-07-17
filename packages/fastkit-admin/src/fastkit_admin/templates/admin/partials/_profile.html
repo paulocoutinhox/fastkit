@@ -1,0 +1,51 @@
+<div data-testid="profile" data-api-path="{{ api_path }}">
+  <div class="card mb-3">
+    <div class="card-header"><h3 class="card-title">{{ t('profile.avatar') }}</h3></div>
+    <div class="card-body">
+      <div class="d-flex align-items-center gap-3">
+        <span class="avatar avatar-xl fk-profile-avatar" data-testid="profile-avatar"{% if avatar_url %} style="background-image:url({{ avatar_url }})"{% endif %}>{% if not avatar_url %}{{ initials }}{% endif %}</span>
+        <label class="btn mb-0">{{ t('profile.change-photo') }}<input type="file" accept="image/*" class="d-none fk-avatar-input" data-testid="profile-avatar-input"></label>
+      </div>
+    </div>
+  </div>
+
+  <form class="card mb-3 fk-profile-details">
+    <div class="card-header"><h3 class="card-title">{{ t('profile.details') }}</h3></div>
+    <div class="card-body">
+      <div class="mb-3"><label class="form-label">Email</label><input class="form-control" value="{{ email }}" disabled></div>
+      <div class="mb-3"><label class="form-label">{{ t('profile.display-name') }}</label><input class="form-control" data-testid="profile-display-name" name="display_name" value="{{ display_name }}"><div class="text-danger small mt-1" data-error="display_name"></div></div>
+      <div class="mb-3"><label class="form-label">{{ t('profile.first-name') }}</label><input class="form-control" data-testid="profile-first-name" name="first_name" value="{{ first_name }}"><div class="text-danger small mt-1" data-error="first_name"></div></div>
+      <div class="mb-3"><label class="form-label">{{ t('profile.last-name') }}</label><input class="form-control" data-testid="profile-last-name" name="last_name" value="{{ last_name }}"><div class="text-danger small mt-1" data-error="last_name"></div></div>
+      <button type="submit" class="btn btn-primary" data-testid="profile-save">{{ t('form.save') }}</button>
+    </div>
+  </form>
+
+  <form class="card mb-3 fk-profile-password">
+    <div class="card-header"><h3 class="card-title">{{ t('profile.password') }}</h3></div>
+    <div class="card-body">
+      <div class="mb-3"><label class="form-label">{{ t('profile.current-password') }}</label><input type="password" autocomplete="current-password" class="form-control" data-testid="profile-current-password" name="current_password"><div class="text-danger small mt-1" data-error="current_password"></div></div>
+      <div class="mb-3"><label class="form-label">{{ t('profile.new-password') }}</label><input type="password" autocomplete="new-password" class="form-control" data-testid="profile-new-password" name="new_password"><div class="text-danger small mt-1" data-error="new_password"></div></div>
+      <button type="submit" class="btn btn-primary" data-testid="profile-password-save">{{ t('profile.change-password') }}</button>
+    </div>
+  </form>
+
+  <div class="card mb-3 fk-profile-methods">
+    <div class="card-header"><h3 class="card-title">{{ t('profile.login-methods') }}</h3></div>
+    <div class="card-body">
+      <ul class="list-group list-group-flush mb-3" data-testid="identifiers">
+        {% for identifier in identifiers %}
+        <li class="list-group-item d-flex align-items-center px-0">
+          <span>{{ identifier.type }}: {{ identifier.value }}</span>
+          <button type="button" class="btn btn-ghost-danger btn-sm ms-auto fk-identifier-delete" data-id="{{ identifier.id }}" data-testid="identifier-delete-{{ identifier.type }}">{{ t('upload.remove') }}</button>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-sm-4"><label class="form-label small">{{ t('profile.method-type') }}</label><select class="form-select" data-testid="identifier-type">{% for type in identifier_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select></div>
+        <div class="col-12 col-sm-5"><label class="form-label small">{{ t('profile.method-value') }}</label><input class="form-control" data-testid="identifier-value" placeholder="{{ t('profile.method-value') }}"></div>
+        <div class="col-12 col-sm-3"><button type="button" class="btn btn-outline-primary w-100 fk-identifier-add" data-testid="identifier-add">{{ t('profile.add-method') }}</button></div>
+      </div>
+      <div class="text-danger small mt-1" data-error="value"></div>
+    </div>
+  </div>
+</div>

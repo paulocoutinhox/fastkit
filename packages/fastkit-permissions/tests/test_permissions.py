@@ -23,6 +23,20 @@ async def test_direct_role_grants_permission(service, authorizer, accounts):
     await authorizer.require(user, "users.view", tenant_id=1)
 
 
+async def test_duplicate_grant_and_assign_are_idempotent(service, accounts):
+    user = await _user(accounts)
+    permission = await service.create_permission("users.edit", "Edit users")
+    role = await service.create_role("Manager", tenant_id=1)
+
+    await service.grant_permission(role.id, permission.id)
+    await service.grant_permission(role.id, permission.id)
+
+    await service.assign_role(user.id, role.id, tenant_id=1)
+    await service.assign_role(user.id, role.id, tenant_id=1)
+
+    assert await service.role_permission_ids(role.id) == [permission.id]
+
+
 async def test_tenant_scoped_role_does_not_leak_to_other_tenants(service, authorizer, accounts):
     user = await _user(accounts)
     permission = await service.create_permission("users.view", "View users")

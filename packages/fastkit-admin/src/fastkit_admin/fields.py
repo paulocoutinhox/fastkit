@@ -184,6 +184,9 @@ class DecimalField(AdminField):
         if raw is None or raw == "":
             return None
 
+        if isinstance(raw, bool) or not isinstance(raw, (str, int, float, Decimal)):
+            raise self._fail("validation.number-invalid")
+
         try:
             return parse_decimal(raw, locale)
         except DecimalParseError as error:
@@ -203,6 +206,9 @@ class DateField(AdminField):
         if raw is None or raw == "":
             return None
 
+        if not isinstance(raw, str):
+            raise self._fail("validation.date-invalid")
+
         try:
             return parse_date(raw, locale)
         except ValueError as error:
@@ -221,6 +227,9 @@ class DateTimeField(AdminField):
     def parse_value(self, raw, locale: str = "en") -> datetime | None:
         if raw is None or raw == "":
             return None
+
+        if not isinstance(raw, str):
+            raise self._fail("validation.datetime-invalid")
 
         try:
             return parse_datetime(raw, locale)
@@ -244,9 +253,12 @@ class SelectField(AdminField):
     def validate(self, value) -> None:
         super().validate(value)
 
-        allowed = {value for value, _ in self.choices}
+        if value in (None, ""):
+            return
 
-        if value not in (None, "") and value not in allowed:
+        allowed = {choice for choice, _ in self.choices}
+
+        if not isinstance(value, str) or value not in allowed:
             raise self._fail("validation.invalid")
 
 
@@ -262,6 +274,9 @@ class TimeField(AdminField):
     def parse_value(self, raw, locale: str = "en") -> time | None:
         if raw is None or raw == "":
             return None
+
+        if not isinstance(raw, str):
+            raise self._fail("validation.time-invalid")
 
         try:
             return parse_time(raw, locale)
@@ -344,7 +359,7 @@ class MultiSelectField(AdminField):
         allowed = {choice for choice, _ in self.choices}
 
         for item in value or []:
-            if item not in allowed:
+            if not isinstance(item, str) or item not in allowed:
                 raise self._fail("validation.invalid")
 
 

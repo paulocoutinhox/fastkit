@@ -61,6 +61,17 @@ def test_parse_cron_supports_ranges_and_steps():
     assert months == {1, 3, 5, 7, 9, 11}
 
 
+def test_weekday_seven_is_sunday():
+    _, _, _, _, weekdays = parse_cron("0 0 * * 7")
+
+    assert weekdays == {0}
+
+    result = next_run("0 0 * * 7", datetime(2026, 7, 14, 12, 0))
+
+    assert result == datetime(2026, 7, 19, 0, 0)
+    assert result.weekday() == 6
+
+
 def test_parse_cron_errors():
     with pytest.raises(CronError, match="5 fields"):
         parse_cron("* * *")

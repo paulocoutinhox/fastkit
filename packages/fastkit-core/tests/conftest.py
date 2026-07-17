@@ -2,12 +2,14 @@ import pytest
 from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fastkit_core.context.middleware import RequestContextMiddleware
 from fastkit_core.errors.codes import RESOURCE_NOT_FOUND
 from fastkit_core.errors.exceptions import FastKitError, NotFoundError
 from fastkit_core.errors.handlers import (
     fastkit_exception_handler,
+    http_exception_handler,
     unhandled_exception_handler,
     validation_exception_handler,
 )
@@ -21,6 +23,7 @@ def make_error_app() -> FastAPI:
     app = FastAPI()
     app.add_middleware(RequestContextMiddleware)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.add_exception_handler(FastKitError, fastkit_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
@@ -41,6 +44,10 @@ def make_error_app() -> FastAPI:
     @router.get("/boom")
     async def boom():
         raise RuntimeError("unexpected")
+
+    @router.get("/teapot")
+    async def teapot():
+        raise StarletteHTTPException(status_code=418)
 
     app.include_router(router)
 

@@ -99,6 +99,15 @@ def test_gettext_lenient_formatting_never_crashes():
     assert translator.gettext("b", locale="en", x=1) == "Raw brace {"
 
 
+def test_base_catalogs_are_key_symmetric():
+    from fastkit_i18n.catalogs import BASE_CATALOGS
+
+    english = set(BASE_CATALOGS["en"])
+
+    for locale, catalog in BASE_CATALOGS.items():
+        assert set(catalog) == english, f"{locale} catalog keys differ from en: {english.symmetric_difference(catalog)}"
+
+
 def test_translator_messages_merges_fallback_chain():
     translator = Translator(
         {"en": {"a": "A", "b": "B"}, "pt": {"a": "Aa"}},

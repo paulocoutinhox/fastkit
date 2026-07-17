@@ -1,0 +1,6 @@
+<select class="form-select" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}"{% if field.readonly %} disabled{% endif %}>
+  <option value="">—</option>
+  {% for choice in field.choices or [] %}
+  <option value="{{ choice.value }}"{% if field.value is not none and field.value|string == choice.value|string %} selected{% endif %}>{{ choice.label }}</option>
+  {% endfor %}
+</select>

@@ -1,0 +1,30 @@
+{% import "admin/partials/_grid_macros.html" as g with context %}
+<div class="table-responsive">
+  <table class="table table-selectable card-table table-vcenter text-nowrap datatable">
+    <thead>
+      <tr>
+        {% if has_bulk %}<th class="w-1 text-center"><input type="checkbox" class="form-check-input" data-testid="select-all"></th>{% endif %}
+        {% for column in columns %}
+        <th class="{% if column.align == 'center' or (column.align is none and column.field_type == 'boolean') %}text-center{% endif %}">
+          {% if column.sortable %}<a class="text-reset fk-sort" href="{{ base_url }}?sort={{ column.sort_value }}{% if search %}&search={{ search | urlencode }}{% endif %}">{{ t(column.label) }} <i class="ti {{ g.sort_icon(column) | trim }}"></i></a>{% else %}{{ t(column.label) }}{% endif %}
+        </th>
+        {% endfor %}
+        <th class="w-1"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr data-id="{{ row.id }}" data-testid="row-{{ row.id }}">
+        {% if has_bulk %}<td class="text-center"><input type="checkbox" class="form-check-input fk-row-select" value="{{ row.id }}"></td>{% endif %}
+        {% for column in columns %}<td class="{% if column.align == 'center' or (column.align is none and column.field_type == 'boolean') %}text-center{% endif %}">{{ g.cell(column, row[column.name]) }}</td>{% endfor %}
+        <td>{{ g.row_actions(row, flags, path, resource) }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="{{ columns | length + 2 }}" class="text-center text-secondary py-4" data-testid="grid-empty">{{ t('grid.empty') }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="card-footer d-flex align-items-center justify-content-between flex-wrap gap-2">
+  {% include "admin/partials/_pagination.html" %}
+</div>

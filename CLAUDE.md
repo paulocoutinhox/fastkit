@@ -92,10 +92,27 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
 - **Response envelope** (`fastkit_core.api.envelope`): every response is
   `{success, message: {code, text} | null, data, errors, meta}`. Errors carry a
   stable `code` and a translated `text`. **A single resolver — `errors.handlers.resolve_error_text`
-  — owns the message text** (all three exception handlers funnel through it): it returns
-  `exc.message` else the runtime-translated `code.translation_key` else a translated generic
-  fallback, so `text` is **never null**; and for a code with `user_visible=False` (`CACHE_ERROR`,
-  `INTERNAL_ERROR`) it returns only the generic message, **never leaking the internal detail**.
+  — owns the message text** (all exception handlers funnel through it): user-facing text is the
+  **runtime-translated `code.translation_key`** (a proper, localized sentence), falling back to
+  `exc.message` only when no translator is available, else a translated generic fallback — so `text`
+  is **never null** and is never a lowercase inline dev string when i18n is present. `exc.message` is
+  therefore **developer detail** (the exception's `str()`, logs), not the user-facing copy: a custom
+  user message is a **catalog entry** under its own code, not an inline string. For a code with
+  `user_visible=False` (`CACHE_ERROR`, `INTERNAL_ERROR`) it returns only the generic message,
+  **never leaking the internal detail**.
+- **Validation errors cover 100% of pydantic v2.** `PYDANTIC_CODE_MAP` maps **every** `pydantic_core`
+  `ErrorType` (all 104) to a `validation.*` catalog key — a boundary test asserts the map covers the
+  full `ErrorType` set (a pydantic upgrade that adds a type fails the suite) and that every mapped key
+  plus the generic fallback exists in `BASE_CATALOGS` en+pt, so no validation error ever surfaces a
+  raw code. `GENERIC_VALIDATION_CODE` is only the defensive default for a future/unknown type, not a
+  routine outcome.
+- **Every non-validation HTTP error is enveloped and translated too.** A `StarletteHTTPException`
+  handler (404 unknown route, 405 wrong method, and any raw `HTTPException` a dependency or middleware
+  raises) maps `exc.status_code` to an `ErrorCode` via `HTTP_STATUS_CODE_MAP` (4xx → an `http.*` code,
+  5xx → `internal.error`), builds the standard envelope through `resolve_error_text`, keeps the
+  original status and **preserves `exc.headers`** (e.g. `Allow`, `WWW-Authenticate`). A custom
+  user-facing message must be raised as a `FastKitError` (which carries `message`/`field_errors`), not
+  a raw `HTTPException` — the four handlers are registered together in `FastKit.install`.
 - **Field errors are consistent, translated and centrally displayed.** Server side, validation
   `FieldError`s use the **form field name** as `field` (e.g. every `fastkit_accounts` identifier
   normalizer raises under `field="value"`, not the identifier type) and carry a `code` + `params`
@@ -107,7 +124,12 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   create/edit, all profile sub-forms, add-identifier) goes through it, never a bespoke `.catch`.
 - **The admin never 500s on ordinary bad input.** Field parsers that coerce (`NumberField`,
   `RelationField`/`LookupField` `int()`, `MultiSelectField` list) raise a 422 `FieldError`, not a
-  raw `ValueError`/`TypeError`. Grid filters coerce the query-string value to the column's Python
+  raw `ValueError`/`TypeError`. `DateField`/`TimeField`/`DateTimeField` reject a non-string JSON value
+  (list/dict/number) with a 422 `FieldError` instead of an `AttributeError` from `strip()`, and
+  `DecimalField` rejects `bool`/list/dict (a numeric JSON value is still accepted) instead of an
+  `InvalidOperation`/`AttributeError`; `SelectField`/`MultiSelectField.validate` guard the choice
+  membership test with an `isinstance(str)` check so an unhashable value (`{"status": []}`,
+  `{"tags": [["x"]]}`) raises a 422, not a `TypeError`. Grid filters coerce the query-string value to the column's Python
   type via a shared `filters._coerce_for_column` (used by one `EqualityFilter` base) and **skip
   the filter** if it does not parse — so `filter[price]=abc` can't raise a Postgres `DataError`.
   `DateRangeFilter.apply` returns the query unchanged when the value is not a `{from,to}` dict (a
@@ -171,7 +193,8 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     payload can't 500; accounts `create_user`/`add_identifier` map a duplicate-in-payload or
     concurrent insert to `ConflictError`, not a raw 500); asset variant saves delete-then-insert so
     reprocessing is idempotent. `set_role_permissions` de-dups its `permission_ids` and maps an
-    `IntegrityError` (unknown role/permission) to a 422 `FieldError`.
+    `IntegrityError` (unknown role/permission) to a 422 `FieldError`; `grant_permission`/`assign_role`
+    catch a duplicate `IntegrityError` and no-op (idempotent, never a 500).
   - **Malformed client input never 500s the framework**: `Accept-Language` with a bad `q=`
     value is skipped (`i18n/locale.parse_accept_language`); a valid-signed webhook whose body is
     not JSON (or lacks `id`) is stored **rejected**, not raised; plus the admin bad-input rules above.
@@ -184,8 +207,11 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     duplicate-registration error.
   - **Login hardening**: the rate-limit bucket is keyed on the **normalized** identifier
     (`account.normalize_identifier`), so casing/whitespace variants of one account share a bucket;
-    an unknown identifier runs a throwaway `PasswordHashService.dummy_verify` so its timing matches
-    a known one (no user-enumeration oracle); an unknown `identifier_type` returns
+    the login runs a throwaway `PasswordHashService.dummy_verify` whenever **no** real argon2 verify
+    ran — an unknown identifier *or* a known passwordless/social-only account whose `password_hash` is
+    `NULL` — so timing matches a password account and neither is a user-enumeration oracle; a
+    successful login **transparently rehashes** the stored password (`needs_rehash` → policy-free
+    `rehash`, persisted in place) when the argon2 parameters changed; an unknown `identifier_type` returns
     `INVALID_CREDENTIALS` (not a `KeyError` 500, not an enumeration signal); passwords are capped at
     `auth.password_max_length` (argon2 never hashes an unbounded payload).
   - **More "never 500 the admin" guards**: `AdminSite.navigation` tolerates a menu item pointing at
@@ -209,8 +235,14 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     `DEFAULT_MAX_UPLOAD_BYTES` = 25 MiB) reads with a hard cap and raises a 422
     `validation.file-too-large` — the upload and profile-avatar routers take a `max_bytes` param so
     a huge body can't exhaust memory.
-  - **Task scheduling is robust**: `cron` supports `*`, ranges (`9-17`), steps (`*/2`, `1-9/2`) and
-    lists, raising `CronError` (never a bare `ValueError`) for a bad token; day-of-month and
+  - **A registered task's retry policy is authoritative**: `TaskQueue` holds the `task_registry` and
+    `enqueue` fills `max_attempts`/`timeout`/`retry_delay` from the `TaskDefinition` when the caller
+    does not override them, so a declared `registry.task(name, max_attempts=5, timeout=300, …)` policy
+    applies to both scheduled and manually-enqueued executions (an explicit `enqueue` argument still
+    wins; an unregistered name falls back to `1`/`60`/`5`).
+  - **Task scheduling is robust**: `cron` supports `*`, ranges (`9-17`), steps (`*/2`, `1-9/2`),
+    lists and POSIX **`7` as Sunday** (normalized to `0`), raising `CronError` (never a bare
+    `ValueError`) for a bad token; day-of-month and
     day-of-week use POSIX **OR** semantics when both are restricted; an invalid `cron_expression`
     **disables** that schedule (`_compute_next` catches `CronError`) instead of stalling `tick()`
     forever. `TaskQueue.reclaim_expired` moves a lease-expired task already at `attempt_count >=
@@ -227,7 +259,9 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     `ValidationError`, never a bare `TypeError` from walking into a `str`. `logging.sanitize`
     redacts secret keys by specific markers (`api_key`/`bearer`/`cvv`/`ssn`/`card_number`/…) — never
     an over-broad `card` that would hide `wildcard` — and redacts whole containers past its depth
-    cap so a deep-nested secret can't leak.
+    cap so a deep-nested secret can't leak. `SystemLogService.record` resolves the log level by name
+    (`logging.getLevelName`), so a lowercase level (`warning`) logs at the correct level instead of
+    raising `TypeError` from `getattr(logging, "warning")` returning a function.
   - Local storage derives content type from the object key (`mimetypes`), never a module-global
     dict (which was lost on restart and grew unbounded).
   - **Client stale-write / failed-request guards** (admin.js): the lookup widget's search + value
@@ -239,7 +273,9 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     throw on Apply.
   - **XSS is defended by default**: the one shared HTML sanitizer lives in
     `fastkit_core.sanitize.sanitize_html` (allow-list tags/attrs/URL schemes, drops `on*`,
-    `script`/`style`, `javascript:`/non-image `data:`); `RichTextField` **sanitizes by default**
+    `script`/`style`, `javascript:`/non-image `data:`) — a **self-closed** `<script/>`/`<style/>` drops
+    only itself and never enters the skip state, so content after it is not silently truncated;
+    `RichTextField` **sanitizes by default**
     (pass `sanitizer=None` to explicitly opt out), and content bodies use the same function — so a
     stored rich value rendered via the detail view's `.html()` can't carry a payload. Grid cells go
     through `formatCell` → `createTextNode` (a column only renders as markup when it has an author

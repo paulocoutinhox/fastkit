@@ -6,7 +6,11 @@
   {% include "admin/partials/sidebar.html" %}
   <div class="page-wrapper">
     {% include "admin/partials/navbar.html" %}
-    {% include "admin/partials/content.html" %}
+    <div class="page-body">
+      <div class="container-fluid">
+        <div id="content" data-testid="content">{% block screen %}{% endblock %}</div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

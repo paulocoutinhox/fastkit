@@ -13,7 +13,7 @@ def hash_token(raw_token: str) -> str:
 
 
 class SessionService:
-    """Creates, validates, rotates and revokes opaque server-side sessions."""
+    """Creates, validates and revokes opaque server-side sessions."""
 
     def __init__(self, session_factory, ttl_seconds: int = 3600, clock=None):
         self._session_factory = session_factory

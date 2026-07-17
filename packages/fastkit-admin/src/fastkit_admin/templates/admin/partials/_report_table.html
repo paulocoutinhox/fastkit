@@ -1,0 +1,18 @@
+<div class="card-header d-flex flex-wrap align-items-center gap-2">
+  <h3 class="card-title mb-0">{{ t(title) }}</h3>
+  <div class="ms-auto btn-list">
+    {% for fmt in formats %}<a class="btn fk-report-export" target="_blank" rel="noopener" data-testid="report-export-{{ fmt }}" data-fmt="{{ fmt }}" href="{{ api_path }}/reports/{{ name }}/export.{{ fmt }}{{ query }}"><i class="ti ti-download me-1"></i>{{ fmt | upper }}</a>{% endfor %}
+  </div>
+</div>
+<div class="table-responsive" data-testid="report-table">
+  <table class="table table-vcenter card-table">
+    <thead>
+      <tr>{% for column in columns %}<th style="text-align:{{ column.align or 'left' }}">{{ t(column.label) }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr data-testid="report-row">{% for column in columns %}<td style="text-align:{{ column.align or 'left' }}">{% if row[column.key] is none %}<span class="text-secondary">—</span>{% else %}{{ row[column.key] }}{% endif %}</td>{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

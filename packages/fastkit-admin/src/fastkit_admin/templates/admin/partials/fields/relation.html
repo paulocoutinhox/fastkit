@@ -1,0 +1,3 @@
+<select class="form-select fk-relation" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}" data-field="{{ field.name }}" data-depends-on="{{ field.depends_on | join(',') }}" data-value="{{ field.value if field.value is not none else '' }}">
+  <option value="">—</option>
+</select>

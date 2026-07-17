@@ -1,0 +1,26 @@
+<div class="mb-3" data-testid="detail-{{ field.name }}">
+  {% if field.type not in ("permission_matrix", "translations") %}<div class="text-secondary small">{{ t(field.label) }}</div>{% endif %}
+  {% if field.html is not none %}
+    <div>{% if field.html %}{{ field.html | safe }}{% else %}<span class="text-secondary">—</span>{% endif %}</div>
+  {% elif field.type == "image" and field.value %}
+    <img class="rounded border fk-lightbox" style="max-height:96px;cursor:zoom-in" src="{{ field.value }}" alt="{{ t(field.label) }}">
+  {% elif field.type == "file" and field.value %}
+    <a href="{{ field.value }}" target="_blank" rel="noopener">{{ field.value }}</a>
+  {% elif field.type == "richtext" and field.value %}
+    <div>{{ field.value | safe }}</div>
+  {% elif field.type == "json" and field.value %}
+    <pre class="mb-0 p-2 bg-secondary-lt rounded">{{ field.value }}</pre>
+  {% elif field.type == "boolean" %}
+    {% if field.value %}<i class="ti ti-check text-green" data-testid="bool-true"></i>{% else %}<i class="ti ti-x text-red" data-testid="bool-false"></i>{% endif %}
+  {% elif field.type == "color" and field.value %}
+    <span class="d-inline-block rounded-circle align-middle" style="width:1rem;height:1rem;background:{{ field.value }}"></span> <span class="font-monospace">{{ field.value }}</span>
+  {% elif field.type == "permission_matrix" %}
+    <div class="fk-matrix" data-readonly="1" data-groups-url="{{ field.groups_url }}" data-value-url="{{ field.value_url }}" data-record-id="{{ record_id if record_id is not none else '' }}" data-testid="field-{{ field.name }}"></div>
+  {% elif field.type == "translations" %}
+    <div class="fk-translations" data-readonly="1" data-languages-url="{{ field.languages_url }}" data-value-url="{{ field.value_url }}" data-record-id="{{ record_id if record_id is not none else '' }}" data-testid="field-{{ field.name }}"></div>
+  {% elif field.value is none or field.value == "" %}
+    <div><span class="text-secondary">—</span></div>
+  {% else %}
+    <div>{{ field.value }}</div>
+  {% endif %}
+</div>

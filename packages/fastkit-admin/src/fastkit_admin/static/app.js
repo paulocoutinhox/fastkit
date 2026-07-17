@@ -1,0 +1,633 @@
+(function ($) {
+  "use strict";
+
+  var CONFIG = window.__FASTKIT__ || {};
+  var API = CONFIG.apiBaseUrl || "/api";
+  var ADMIN = CONFIG.adminPath || "/admin";
+
+  function t(key) {
+    return (CONFIG.messages && CONFIG.messages[key]) || key;
+  }
+
+  function api(method, path, body) {
+    return FastKit.api(method, path, body);
+  }
+
+  function go(url) {
+    window.location.assign(url);
+  }
+
+  function optionsUrl(resource, field, params) {
+    var query = $.param(params || {});
+    return "/resources/" + resource + "/options/" + field + (query ? "?" + query : "");
+  }
+
+  function applyMask(value, mask) {
+    var digits = String(value).replace(/\D/g, "");
+    var result = "";
+    var index = 0;
+    for (var i = 0; i < mask.length; i += 1) {
+      if (index >= digits.length) { break; }
+      if (mask[i] === "#") { result += digits[index]; index += 1; } else { result += mask[i]; }
+    }
+    return result;
+  }
+
+  // ---------- reading field values ----------
+
+  function readField($wrap) {
+    var type = $wrap.data("type");
+    if (type === "boolean") { return $wrap.find('input[type=checkbox]').prop("checked"); }
+    if (type === "multiselect") { return $wrap.find('input[type=checkbox]:checked').map(function () { return $(this).val(); }).get(); }
+    if (type === "color") { return $wrap.find('input[type=text]').val(); }
+    if (type === "richtext") {
+      var editor = window.tinymce && window.tinymce.get($wrap.find("textarea").attr("id"));
+      return editor ? editor.getContent() : $wrap.find("textarea").val();
+    }
+    if (type === "json") {
+      var jsonEditor = $wrap.find(".fk-json").data("jsonEditor");
+      try { return jsonEditor ? jsonEditor.get() : null; } catch (error) { return null; }
+    }
+    if (type === "lookup") { return $wrap.find(".fk-lookup").data("value"); }
+    if (type === "image" || type === "file") { return $wrap.find(".fk-upload").data("value"); }
+    return $wrap.find("input,select,textarea").val();
+  }
+
+  var VIRTUAL = ["permission_matrix", "translations"];
+
+  function collect($form) {
+    var payload = {};
+    $form.find(".fk-field").each(function () {
+      var $wrap = $(this);
+      if ($wrap.closest(".fk-inline").length) { return; }
+      if (VIRTUAL.indexOf($wrap.data("type")) >= 0) { return; }
+      payload[$wrap.data("field")] = readField($wrap);
+    });
+    $form.find(".fk-inline").each(function () {
+      var name = $(this).data("inline");
+      var rows = [];
+      $(this).find(".fk-inline-rows").children(".fk-inline-row").each(function () {
+        var row = {};
+        $(this).find(".fk-field").each(function () {
+          if (VIRTUAL.indexOf($(this).data("type")) < 0) { row[$(this).data("field")] = readField($(this)); }
+        });
+        rows.push(row);
+      });
+      payload[name] = rows;
+    });
+    return payload;
+  }
+
+  // ---------- field enhancers ----------
+
+  function initMasks(root) {
+    $(root).find(".fk-masked").each(function () {
+      var mask = $(this).data("mask");
+      $(this).on("input", function () { $(this).val(applyMask($(this).val(), mask)); });
+    });
+  }
+
+  function initColor(root) {
+    $(root).find(".fk-color").each(function () {
+      var $picker = $(this).find('input[type=color]');
+      var $text = $(this).find('input[type=text]');
+      $picker.on("input", function () { $text.val($picker.val()); });
+      $text.on("input", function () { if (/^#[0-9a-fA-F]{6}$/.test($text.val())) { $picker.val($text.val()); } });
+    });
+  }
+
+  function initUploads(root) {
+    $(root).find(".fk-upload").each(function () {
+      var $container = $(this);
+      var url = $container.data("upload-url");
+      var kind = $container.data("kind");
+      var $hidden = $container.find('input[type=hidden]');
+      $container.data("value", $hidden.val() || "");
+      var $label = $('<label class="btn mb-0"><span></span><input type="file" class="d-none"></label>');
+      if (kind === "image") { $label.find("input").attr("accept", "image/*"); }
+      var $remove = $('<button type="button" class="btn btn-ghost-danger ms-2"></button>').text(t("upload.remove"));
+      function refresh() {
+        var value = $container.data("value");
+        $hidden.val(value);
+        $label.find("span").text(value ? t("upload.replace") : kind === "image" ? t("upload.image") : t("upload.file"));
+        $remove.toggle(!!value);
+      }
+      $label.find("input").on("change", function (event) {
+        var file = event.target.files[0];
+        if (!file) { return; }
+        $label.find("span").text(t("upload.uploading"));
+        FastKit.upload(url, file).then(function (res) { $container.data("value", res.data.url); refresh(); }).catch(function (err) { FastKit.toast("error", err.message); refresh(); });
+        event.target.value = "";
+      });
+      $remove.on("click", function () { $container.data("value", ""); refresh(); });
+      $container.append($label).append($remove);
+      refresh();
+    });
+  }
+
+  function initRichtexts(root) {
+    if (!window.tinymce) { return; }
+    $(root).find(".fk-richtext").each(function () {
+      var element = this;
+      var upload = $(this).data("upload-url");
+      window.tinymce.init({
+        target: element,
+        license_key: "gpl",
+        menubar: false,
+        height: 320,
+        branding: false,
+        promotion: false,
+        convert_urls: false,
+        plugins: "lists link image table code autolink",
+        toolbar: "undo redo | bold italic underline | bullist numlist | link image table | code",
+        images_upload_handler: function (blobInfo) { return FastKit.upload(upload, blobInfo.blob()).then(function (res) { return res.data.url; }); }
+      });
+    });
+  }
+
+  function initJsons(root) {
+    if (!window.JSONEditor) { return; }
+    $(root).find(".fk-json").each(function () {
+      var element = this;
+      var raw = $(this).attr("data-value");
+      var initial = null;
+      if (raw && raw !== "null") { try { initial = JSON.parse(raw); } catch (error) { initial = raw; } }
+      var editor = new window.JSONEditor(element, { modes: ["tree", "text"], mainMenuBar: true, statusBar: false }, initial);
+      $(element).data("jsonEditor", editor);
+    });
+  }
+
+  function resourceOf($el) {
+    return $el.closest("[data-resource]").data("resource");
+  }
+
+  function readParent($form, name) {
+    var $wrap = $form.find('.fk-field[data-field="' + name + '"]').first();
+    return $wrap.length ? readField($wrap) : null;
+  }
+
+  function initRelations(root) {
+    var $form = $(root).closest("form");
+    $(root).find(".fk-relation").each(function () {
+      var $select = $(this);
+      var field = $select.data("field");
+      var resource = resourceOf($select);
+      var current = $select.data("value");
+      loadOptions($select, resource, field, {}, current);
+    });
+    bindDependents($form, root);
+  }
+
+  function loadOptions($select, resource, field, params, current) {
+    return api("GET", optionsUrl(resource, field, params)).then(function (res) {
+      $select.find("option:not(:first)").remove();
+      res.data.forEach(function (option) { $select.append($("<option></option>").attr("value", option.value).text(option.label)); });
+      if (current != null && current !== "") { $select.val(String(current)); }
+    });
+  }
+
+  function bindDependents($form, root) {
+    $(root).find(".fk-relation,.fk-lookup").each(function () {
+      var $child = $(this);
+      var parents = String($child.data("depends-on") || "").split(",").filter(Boolean);
+      parents.forEach(function (parent) {
+        $form.find('.fk-field[data-field="' + parent + '"]').on("change", function () {
+          var params = {};
+          var value = readParent($form, parent);
+          if (value != null && value !== "") { params[parent] = value; }
+          if ($child.hasClass("fk-relation")) {
+            $child.data("value", "");
+            loadOptions($child, resourceOf($child), $child.data("field"), params);
+          }
+        });
+      });
+    });
+  }
+
+  function initLookups(root) {
+    var $form = $(root).closest("form");
+    $(root).find(".fk-lookup").each(function () {
+      var $container = $(this);
+      var resource = resourceOf($container);
+      var field = $container.data("field");
+      var minChars = Number($container.data("min-chars") || 0);
+      var initialLimit = Number($container.data("initial-limit") || 10);
+      var searchLimit = Number($container.data("search-limit") || 20);
+      var $hidden = $container.find('input[type=hidden]');
+      $container.data("value", $hidden.val() || "");
+      var $input = $('<input class="form-control" type="text" autocomplete="off">').attr("placeholder", t("lookup.search"));
+      var $menu = $('<div class="dropdown-menu fk-lookup-menu w-100"></div>');
+      $container.addClass("dropdown").append($input).append($menu);
+      var timer = null;
+      var seq = 0;
+
+      function params() {
+        var result = {};
+        String($container.data("depends-on") || "").split(",").filter(Boolean).forEach(function (parent) {
+          var value = readParent($form, parent);
+          if (value != null && value !== "") { result[parent] = value; }
+        });
+        return result;
+      }
+      function search() {
+        var query = $input.val();
+        var payload = params();
+        if (query) { payload.q = query; }
+        payload.limit = query ? searchLimit : initialLimit;
+        var current = ++seq;
+        api("GET", optionsUrl(resource, field, payload)).then(function (res) {
+          if (current !== seq) { return; }
+          $menu.empty();
+          if (!res.data.length) { $menu.append('<span class="dropdown-item disabled">' + FastKit.esc(t("lookup.empty")) + "</span>"); }
+          res.data.forEach(function (option) {
+            var $item = $('<a class="dropdown-item" href="#"></a>').text(option.label);
+            $item.on("mousedown", function (event) { event.preventDefault(); $container.data("value", option.value); $hidden.val(option.value); $input.val(option.label); $menu.removeClass("show"); $container.trigger("change"); });
+            $menu.append($item);
+          });
+          $menu.addClass("show");
+        }).catch(function () { if (current === seq) { $menu.empty().removeClass("show"); } });
+      }
+      $input.on("focus", search);
+      $input.on("input", function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { if ($input.val().length >= minChars) { search(); } else { $menu.removeClass("show"); } }, 200);
+      });
+      $input.on("blur", function () { setTimeout(function () { $menu.removeClass("show"); }, 150); });
+    });
+  }
+
+  function matrixLayout($host, groups, selected, readonly) {
+    $host.empty();
+    groups.forEach(function (group) {
+      var permissions = readonly ? group.permissions.filter(function (permission) { return selected[permission.id]; }) : group.permissions;
+      if (readonly && !permissions.length) { return; }
+      var $section = $('<div class="mb-4"></div>');
+      $section.append($('<div class="subheader mb-3 pb-2 border-bottom"></div>').text(group.group));
+      var $grid = $('<div class="row g-2"></div>');
+      permissions.forEach(function (permission) {
+        var $col = $('<div class="col-12 col-sm-6 col-lg-4"></div>');
+        if (readonly) {
+          $col.addClass("d-flex align-items-center gap-2").append('<i class="ti ti-check text-green"></i>').append($("<span></span>").attr("data-testid", "detail-permission-" + permission.code).text(permission.name));
+        } else {
+          var $label = $('<label class="form-check mb-0"><input type="checkbox" class="form-check-input"><span class="form-check-label"></span></label>');
+          $label.find("input").attr("value", permission.id).prop("checked", !!selected[permission.id]).attr("data-testid", "permission-" + permission.code);
+          $label.find(".form-check-label").text(permission.name);
+          $col.append($label);
+        }
+        $grid.append($col);
+      });
+      $host.append($section.append($grid));
+    });
+  }
+
+  function initMatrices(root) {
+    $(root).find(".fk-matrix").each(function () {
+      var $host = $(this);
+      var readonly = !!$host.data("readonly");
+      var recordId = $host.data("record-id");
+      api("GET", $host.data("groups-url")).then(function (groupsRes) {
+        var selected = {};
+        function render() { matrixLayout($host, groupsRes.data, selected, readonly); }
+        if (recordId !== "" && recordId != null) {
+          api("GET", String($host.data("value-url")).replace("{id}", recordId)).then(function (valueRes) { valueRes.data.permission_ids.forEach(function (id) { selected[id] = true; }); render(); }).catch(function () { render(); });
+        } else { render(); }
+      }).catch(function () { FastKit.toast("error", t("error.unexpected")); });
+    });
+  }
+
+  function saveMatrices($form, recordId) {
+    var chain = Promise.resolve();
+    $form.find('.fk-field[data-type="permission_matrix"] .fk-matrix').each(function () {
+      var url = String($(this).data("save-url")).replace("{id}", recordId);
+      var ids = $(this).find('input[type=checkbox]:checked').map(function () { return Number($(this).val()); }).get();
+      chain = chain.then(function () { return api("PUT", url, { permission_ids: ids }); });
+    });
+    return chain;
+  }
+
+  function initTranslations(root) {
+    $(root).find(".fk-translations").each(function () {
+      var $host = $(this);
+      var readonly = !!$host.data("readonly");
+      var recordId = $host.data("record-id");
+      api("GET", $host.data("languages-url")).then(function (langRes) {
+        function render(values) {
+          $host.empty();
+          langRes.data.forEach(function (language) {
+            var $group = $('<div class="mb-3"></div>');
+            $group.append($('<label class="form-label"></label>').text(language.name));
+            if (readonly) {
+              $group.append($('<div class="text-secondary"></div>').text(values[language.code] || "—"));
+            } else {
+              $group.append($('<textarea class="form-control" rows="3"></textarea>').attr("data-testid", "translation-" + language.code).attr("data-language", language.code).val(values[language.code] || ""));
+            }
+            $host.append($group);
+          });
+        }
+        if (recordId !== "" && recordId != null) {
+          api("GET", String($host.data("value-url")).replace("{id}", recordId)).then(function (valueRes) {
+            var values = {};
+            valueRes.data.translations.forEach(function (translation) { values[translation.language] = translation.body; });
+            render(values);
+          }).catch(function () { render({}); });
+        } else { render({}); }
+      }).catch(function () { FastKit.toast("error", t("error.unexpected")); });
+    });
+  }
+
+  function saveTranslations($form, recordId) {
+    var chain = Promise.resolve();
+    $form.find('.fk-field[data-type="translations"] .fk-translations').each(function () {
+      var url = String($(this).data("save-url")).replace("{id}", recordId);
+      var payload = { translations: $(this).find("textarea[data-language]").map(function () { return { language: $(this).data("language"), body: $(this).val() }; }).get() };
+      chain = chain.then(function () { return api("PUT", url, payload); });
+    });
+    return chain;
+  }
+
+  function enhance(root) {
+    initMasks(root);
+    initColor(root);
+    initUploads(root);
+    initRichtexts(root);
+    initJsons(root);
+    initRelations(root);
+    initLookups(root);
+    initMatrices(root);
+    initTranslations(root);
+  }
+
+  // ---------- grid ----------
+
+  function initGrid() {
+    var $grid = $("#grid");
+    if (!$grid.length) { return; }
+    var base = $grid.data("base-url");
+    var state = { search: "", sort: "", page: 1, filters: {} };
+
+    function query() {
+      var parts = [];
+      if (state.search) { parts.push("search=" + encodeURIComponent(state.search)); }
+      if (state.sort) { parts.push("sort=" + encodeURIComponent(state.sort)); }
+      if (state.page > 1) { parts.push("page=" + state.page); }
+      Object.keys(state.filters).forEach(function (key) { parts.push(key + "=" + encodeURIComponent(state.filters[key])); });
+      return parts.join("&");
+    }
+
+    function reload() {
+      var url = base + "?" + query() + (query() ? "&" : "") + "_fragment=table";
+      $.get(url).done(function (html) { $grid.html(html); }).fail(function () { FastKit.toast("error", t("error.unexpected")); });
+    }
+
+    $(".fk-search-form").on("submit", function (event) { event.preventDefault(); state.search = $(this).find('[name=search]').val(); state.page = 1; reload(); });
+    $(".fk-filter-toggle").on("click", function () { $(".fk-filter-panel").toggleClass("d-none"); });
+
+    $(".fk-filters").on("submit", function (event) {
+      event.preventDefault();
+      state.filters = {};
+      $(this).find(".fk-filter-input").each(function () {
+        var name = $(this).attr("name");
+        if (!name) { return; }
+        if ($(this).is('[type=checkbox]') && !$(this).prop("checked")) { return; }
+        var value = $(this).val();
+        if (value !== "" && value != null) { state.filters[name] = value; }
+      });
+      state.page = 1;
+      reload();
+    });
+    $(".fk-filter-clear").on("click", function () { state.filters = {}; $(".fk-filters")[0].reset(); state.page = 1; reload(); });
+
+    $grid.on("click", ".fk-sort", function (event) { event.preventDefault(); state.sort = new URL(this.href, window.location.origin).searchParams.get("sort"); reload(); });
+    $grid.on("click", ".fk-page", function (event) { event.preventDefault(); state.page = Number(new URL(this.href, window.location.origin).searchParams.get("page")); reload(); });
+
+    $grid.on("click", ".fk-delete", function () {
+      var id = $(this).data("id");
+      FastKit.confirm(t("confirm.delete")).then(function (ok) {
+        if (!ok) { return; }
+        api("DELETE", "/resources/" + $grid.data("resource") + "/" + id).then(function () { FastKit.toast("success", t("form.deleted")); reload(); }).catch(function (err) { FastKit.toast("error", err.message); });
+      });
+    });
+
+    var $bulk = $(".fk-bulk");
+    $grid.on("change", ".fk-row-select,[data-testid=select-all]", function () {
+      if ($(this).is("[data-testid=select-all]")) { $grid.find(".fk-row-select").prop("checked", $(this).prop("checked")); }
+      var count = $grid.find(".fk-row-select:checked").length;
+      $bulk.toggleClass("d-none", count === 0).find(".fk-bulk-count").text(count);
+    });
+    $bulk.find(".fk-bulk-delete").on("click", function () {
+      var ids = $grid.find(".fk-row-select:checked").map(function () { return $(this).val(); }).get();
+      if (!ids.length) { return; }
+      FastKit.confirm(t("confirm.delete")).then(function (ok) {
+        if (!ok) { return; }
+        api("POST", "/resources/" + $grid.data("resource") + "/actions/bulk-delete", { ids: ids }).then(function () { FastKit.toast("success", t("form.deleted")); reload(); }).catch(function (err) { FastKit.toast("error", err.message); });
+      });
+    });
+  }
+
+  // ---------- inlines ----------
+
+  function reindexInline($inline) {
+    $inline.find(".fk-inline-rows").children(".fk-inline-row").each(function (index) {
+      $(this).attr("data-index", index);
+      $(this).find(".fk-field").each(function () {
+        var name = $(this).data("field");
+        var id = "inline-" + $inline.data("inline") + "-" + index + "-" + name;
+        $(this).find("label.form-label").attr("for", id);
+        $(this).find("[id]").attr("id", id);
+      });
+    });
+  }
+
+  function initInlines($form) {
+    $form.find(".fk-inline").each(function () {
+      var $inline = $(this);
+      reindexInline($inline);
+      $inline.find(".fk-inline-add").on("click", function () {
+        var max = $inline.data("max");
+        var count = $inline.find(".fk-inline-rows").children(".fk-inline-row").length;
+        if (max != null && count >= Number(max)) { return; }
+        var html = $inline.find(".fk-inline-prototype").html();
+        var $row = $(html);
+        $inline.find(".fk-inline-rows").append($row);
+        reindexInline($inline);
+        enhance($row[0]);
+      });
+      $inline.on("click", ".fk-inline-remove", function () {
+        var min = Number($inline.data("min") || 0);
+        if ($inline.find(".fk-inline-rows").children(".fk-inline-row").length <= min) { return; }
+        $(this).closest(".fk-inline-row").remove();
+        reindexInline($inline);
+      });
+    });
+  }
+
+  // ---------- form ----------
+
+  function initForm() {
+    var $form = $("form[data-resource][data-mode]");
+    if (!$form.length) { return; }
+    var resource = $form.data("resource");
+    var recordId = $form.data("record-id");
+    enhance($form[0]);
+    initInlines($form);
+
+    $form.find(".fk-cancel").on("click", function () { go(ADMIN + "/" + resource); });
+    $form.on("submit", function (event) {
+      event.preventDefault();
+      var $save = $form.find('[data-testid=form-save]');
+      $save.prop("disabled", true).text(t("form.saving"));
+      var payload = collect($form);
+      var request = recordId ? api("PATCH", "/resources/" + resource + "/" + recordId, payload) : api("POST", "/resources/" + resource, payload);
+      request.then(function (res) {
+        var identifier = recordId || res.data.id;
+        return saveMatrices($form, identifier).then(function () { return saveTranslations($form, identifier); }).then(function () {
+          FastKit.toast("success", recordId ? t("form.updated") : t("form.created"));
+          go(ADMIN + "/" + resource);
+        });
+      }).catch(function (err) {
+        $save.prop("disabled", false).text(t("form.save"));
+        FastKit.formErrors($form, err);
+      });
+    });
+  }
+
+  // ---------- detail ----------
+
+  function initDetail() {
+    if ($("[data-testid=screen-title]").length && $(".fk-matrix").length) { initMatrices(document); }
+  }
+
+  // ---------- report ----------
+
+  function initReport() {
+    var $report = $("#report");
+    if (!$report.length) { return; }
+    var name = $report.data("report");
+    var apiPath = $report.data("api-path");
+    var params = {};
+
+    function flatten() {
+      params = {};
+      $(".fk-filters").find(".fk-filter-input").each(function () {
+        var raw = $(this).attr("name") || "";
+        var match = raw.match(/^filter\[([^\]]+)\](?:\[([^\]]+)\])?$/);
+        if (!match) { return; }
+        var value = $(this).val();
+        if (value === "" || value == null) { return; }
+        params[match[2] ? match[1] + "_" + match[2] : match[1]] = value;
+      });
+    }
+    function query() { return $.param(params); }
+    function reload() {
+      var url = $report.data("base-url") + "?" + query() + (query() ? "&" : "") + "_fragment=table";
+      $.get(url).done(function (html) {
+        $report.html(html);
+        $report.find(".fk-report-export").each(function () { this.href = apiPath + "/reports/" + name + "/export." + $(this).data("fmt") + (query() ? "?" + query() : ""); });
+      });
+    }
+    $(".fk-filter-toggle").on("click", function () { $(".fk-filter-panel").toggleClass("d-none"); });
+    $(".fk-filters").on("submit", function (event) { event.preventDefault(); flatten(); reload(); });
+    $(".fk-filter-clear").on("click", function () { $(".fk-filters")[0].reset(); params = {}; reload(); });
+  }
+
+  // ---------- profile ----------
+
+  function initProfile() {
+    var $profile = $('[data-testid=profile]');
+    if (!$profile.length) { return; }
+
+    $profile.find(".fk-avatar-input").on("change", function (event) {
+      var file = event.target.files[0];
+      if (!file) { return; }
+      FastKit.upload(API + "/profile/avatar", file).then(function (res) {
+        $profile.find(".fk-profile-avatar").css("background-image", "url(" + res.data.url + ")").text("");
+        FastKit.toast("success", t("form.updated"));
+      }).catch(function (err) { FastKit.toast("error", err.message); });
+      event.target.value = "";
+    });
+
+    $profile.find(".fk-profile-details").on("submit", function (event) {
+      event.preventDefault();
+      var $card = $(this);
+      $card.find("[data-error]").text("");
+      api("PUT", "/profile", { display_name: $card.find('[data-testid=profile-display-name]').val(), first_name: $card.find('[data-testid=profile-first-name]').val(), last_name: $card.find('[data-testid=profile-last-name]').val() }).then(function () { FastKit.toast("success", t("form.updated")); }).catch(function (err) { FastKit.formErrors($card, err); });
+    });
+
+    $profile.find(".fk-profile-password").on("submit", function (event) {
+      event.preventDefault();
+      var $card = $(this);
+      $card.find("[data-error]").text("");
+      api("POST", "/profile/password", { current_password: $card.find('[data-testid=profile-current-password]').val(), new_password: $card.find('[data-testid=profile-new-password]').val() }).then(function () { FastKit.toast("success", t("profile.password-changed")); $card.find("input").val(""); }).catch(function (err) { FastKit.formErrors($card, err, { aliases: { password: "new_password" } }); });
+    });
+
+    $profile.find(".fk-identifier-add").on("click", function () {
+      var $card = $(this).closest(".fk-profile-methods");
+      api("POST", "/profile/identifiers", { type: $card.find('[data-testid=identifier-type]').val(), value: $card.find('[data-testid=identifier-value]').val() }).then(function () { FastKit.toast("success", t("form.created")); window.location.reload(); }).catch(function (err) { FastKit.formErrors($card, err); });
+    });
+    $profile.on("click", ".fk-identifier-delete", function () {
+      var id = $(this).data("id");
+      FastKit.confirm(t("confirm.delete")).then(function (ok) {
+        if (!ok) { return; }
+        api("DELETE", "/profile/identifiers/" + id).then(function () { FastKit.toast("success", t("form.deleted")); window.location.reload(); }).catch(function (err) { FastKit.toast("error", err.message); });
+      });
+    });
+  }
+
+  // ---------- dashboard ----------
+
+  function initDashboard() {
+    var element = document.getElementById("dashboard");
+    if (element && FastKit.dashboard) { FastKit.dashboard(element, CONFIG); }
+  }
+
+  // ---------- login ----------
+
+  function initLogin() {
+    var $form = $("#login-form-el");
+    if (!$form.length) { return; }
+    var $error = $("#login-error");
+
+    function submit(token) {
+      api("POST", "/auth/login", { identifier: $("#login-email").val(), password: $("#login-password").val(), recaptcha_token: token }).then(function () { go(ADMIN); }).catch(function (err) { $error.removeClass("d-none").text(err.message); });
+    }
+
+    $form.on("submit", function (event) {
+      event.preventDefault();
+      $error.addClass("d-none").text("");
+      var recaptcha = CONFIG.recaptcha;
+      if (recaptcha && recaptcha.enabled && window.grecaptcha) {
+        window.grecaptcha.ready(function () { window.grecaptcha.execute(recaptcha.siteKey, { action: recaptcha.action }).then(function (token) { submit(token); }); });
+      } else {
+        submit(null);
+      }
+    });
+  }
+
+  // ---------- chrome (theme + logout) ----------
+
+  function initChrome() {
+    $('[data-testid=theme-dark]').on("click", function (event) { event.preventDefault(); setTheme("dark"); });
+    $('[data-testid=theme-light]').on("click", function (event) { event.preventDefault(); setTheme("light"); });
+    $("#logout").on("click", function (event) {
+      event.preventDefault();
+      api("POST", "/auth/logout").then(function () { go(ADMIN + "/login"); }).catch(function () { go(ADMIN + "/login"); });
+    });
+  }
+
+  function setTheme(theme) {
+    document.documentElement.setAttribute("data-bs-theme", theme);
+    try { window.localStorage.setItem("fk-theme", theme); } catch (error) { return; }
+  }
+
+  $(function () {
+    if (FastKit.localize) { FastKit.localize(document); }
+    initChrome();
+    initLogin();
+    initGrid();
+    initForm();
+    initDetail();
+    initReport();
+    initProfile();
+    initDashboard();
+  });
+})(jQuery);

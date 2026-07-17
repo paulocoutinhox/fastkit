@@ -17,7 +17,10 @@ class SystemLogService:
     async def record(self, level: str, category: str, event: str, message: str, payload: dict | None = None, **fields) -> SystemLog | None:
         context = get_request_context()
 
-        logger.log(getattr(logging, level, logging.INFO), "%s.%s %s", category, event, message)
+        resolved_level = logging.getLevelName(level.upper())
+        numeric_level = resolved_level if isinstance(resolved_level, int) else logging.INFO
+
+        logger.log(numeric_level, "%s.%s %s", category, event, message)
 
         row = SystemLog(
             environment=self._environment,

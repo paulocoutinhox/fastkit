@@ -9,11 +9,18 @@ from fastkit_tasks.retry import RetryPolicy, compute_delay
 class TaskQueue:
     """Persistent task queue with a portable, contention-safe leasing protocol."""
 
-    def __init__(self, session_factory, clock=None):
+    def __init__(self, session_factory, registry=None, clock=None):
         self._session_factory = session_factory
+        self._registry = registry
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
-    async def enqueue(self, task_name: str, payload: dict | None = None, queue: str = "default", available_at: datetime | None = None, max_attempts: int = 1, timeout: int = 60, retry_delay: int = 5, idempotency_key: str | None = None, tenant_id: int | None = None, scheduled_task_id=None, scheduled_for: datetime | None = None) -> TaskExecution:
+    async def enqueue(self, task_name: str, payload: dict | None = None, queue: str = "default", available_at: datetime | None = None, max_attempts: int | None = None, timeout: int | None = None, retry_delay: int | None = None, idempotency_key: str | None = None, tenant_id: int | None = None, scheduled_task_id=None, scheduled_for: datetime | None = None) -> TaskExecution:
+        # the task's declared policy is the default, and an explicit argument still overrides it
+        definition = self._registry.get(task_name) if self._registry is not None and self._registry.contains(task_name) else None
+        attempts = max_attempts if max_attempts is not None else definition.max_attempts if definition is not None else 1
+        timeout_seconds = timeout if timeout is not None else definition.timeout if definition is not None else 60
+        delay = retry_delay if retry_delay is not None else definition.retry_delay if definition is not None else 5
+
         async with self._session_factory() as session:
             if idempotency_key is not None:
                 existing = (await session.execute(select(TaskExecution).where(TaskExecution.idempotency_key == idempotency_key))).scalar_one_or_none()
@@ -26,9 +33,9 @@ class TaskQueue:
                 payload=payload,
                 queue=queue,
                 available_at=available_at or self._clock(),
-                max_attempts=max_attempts,
-                timeout_seconds=timeout,
-                retry_delay_seconds=retry_delay,
+                max_attempts=attempts,
+                timeout_seconds=timeout_seconds,
+                retry_delay_seconds=delay,
                 idempotency_key=idempotency_key,
                 tenant_id=tenant_id,
                 scheduled_task_id=scheduled_task_id,

@@ -111,3 +111,9 @@ def test_stray_closing_script_is_ignored():
     result = sanitize_html("<p>x</p></script>")
 
     assert result == "<p>x</p>"
+
+
+def test_self_closing_drop_tag_does_not_truncate_following_content():
+    result = sanitize_html("<p>a</p><script/><p>b</p>")
+
+    assert result == "<p>a</p><p>b</p>"

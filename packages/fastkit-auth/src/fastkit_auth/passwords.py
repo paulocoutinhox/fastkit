@@ -32,6 +32,9 @@ class PasswordHashService:
 
         return self._hasher.hash(password)
 
+    def rehash(self, password: str) -> str:
+        return self._hasher.hash(password)
+
     def verify(self, password_hash: str, password: str) -> bool:
         try:
             self._hasher.verify(password_hash, password)

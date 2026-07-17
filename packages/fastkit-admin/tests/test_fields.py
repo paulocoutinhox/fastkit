@@ -115,6 +115,41 @@ def test_select_field():
         field.validate("")
 
 
+def test_temporal_and_decimal_fields_reject_non_string_input():
+    from fastkit_admin.fields import TimeField
+
+    for field in (DateField("d"), DateTimeField("dt"), TimeField("t")):
+        with pytest.raises(ValidationError):
+            field.parse_value([])
+
+        with pytest.raises(ValidationError):
+            field.parse_value(123)
+
+    decimal_field = DecimalField("price")
+
+    assert decimal_field.parse_value(9) == Decimal("9")
+
+    with pytest.raises(ValidationError):
+        decimal_field.parse_value(True)
+
+    with pytest.raises(ValidationError):
+        decimal_field.parse_value([])
+
+
+def test_select_fields_reject_unhashable_values():
+    from fastkit_admin.fields import MultiSelectField
+
+    select = SelectField("status", choices=[("a", "Active")])
+
+    with pytest.raises(ValidationError):
+        select.validate([])
+
+    multi = MultiSelectField("tags", choices=[("a", "A")])
+
+    with pytest.raises(ValidationError):
+        multi.validate([["nested"]])
+
+
 def test_base_field_passthrough():
     field = TextField("note")
 

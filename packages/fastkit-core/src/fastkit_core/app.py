@@ -2,11 +2,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from fastkit_core.context.middleware import RequestContextMiddleware
 from fastkit_core.errors.exceptions import FastKitError
 from fastkit_core.errors.handlers import (
     fastkit_exception_handler,
+    http_exception_handler,
     unhandled_exception_handler,
     validation_exception_handler,
 )
@@ -39,6 +41,7 @@ class FastKit:
         app.add_middleware(RequestContextMiddleware)
 
         app.add_exception_handler(RequestValidationError, validation_exception_handler)
+        app.add_exception_handler(StarletteHTTPException, http_exception_handler)
         app.add_exception_handler(FastKitError, fastkit_exception_handler)
         app.add_exception_handler(Exception, unhandled_exception_handler)
 

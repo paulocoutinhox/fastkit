@@ -1,0 +1,8 @@
+<div class="d-flex flex-column gap-1">
+  {% for choice in filter.choices or [] %}
+  <label class="form-check">
+    <input class="form-check-input fk-filter-input" type="checkbox" name="filter[{{ filter.field }}]" value="{{ choice.value }}"{% if filter.value and choice.value|string in filter.value %} checked{% endif %}>
+    <span class="form-check-label">{{ choice.label }}</span>
+  </label>
+  {% endfor %}
+</div>
