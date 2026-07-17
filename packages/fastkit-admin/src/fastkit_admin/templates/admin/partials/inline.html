@@ -6,14 +6,16 @@
   <div class="card-body">
     <div class="fk-inline-rows">
       {% for row in inline.rows %}
-      <div class="fk-inline-row border-bottom pb-3 mb-3" data-index="{{ loop.index0 }}">
+      <div class="fk-inline-row border-bottom pb-3 mb-3" data-index="{{ loop.index0 }}" data-testid="inline-row-{{ inline.name }}">
+        <input type="hidden" class="fk-inline-id" value="{{ row.id }}">
         <div class="d-flex justify-content-end"><button type="button" class="btn btn-sm btn-ghost-danger fk-inline-remove" aria-label="{{ t('grid.delete') }}"><i class="ti ti-trash"></i></button></div>
-        {% for field in row %}{% include "admin/partials/_field.html" %}{% endfor %}
+        {% for field in row.fields %}{% include "admin/partials/_field.html" %}{% endfor %}
       </div>
       {% endfor %}
     </div>
     <template class="fk-inline-prototype">
-      <div class="fk-inline-row border-bottom pb-3 mb-3">
+      <div class="fk-inline-row border-bottom pb-3 mb-3" data-testid="inline-row-{{ inline.name }}">
+        <input type="hidden" class="fk-inline-id" value="">
         <div class="d-flex justify-content-end"><button type="button" class="btn btn-sm btn-ghost-danger fk-inline-remove" aria-label="{{ t('grid.delete') }}"><i class="ti ti-trash"></i></button></div>
         {% for field in inline.fields %}{% include "admin/partials/_field.html" %}{% endfor %}
       </div>

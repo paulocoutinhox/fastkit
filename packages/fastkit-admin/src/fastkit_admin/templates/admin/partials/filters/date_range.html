@@ -1,4 +1,4 @@
 <div class="row g-1">
-  <div class="col"><input class="form-control fk-filter-input" type="date" name="filter[{{ filter.field }}][from]" value="{{ filter.value_from if filter.value_from is not none else '' }}" placeholder="{{ t('filter.from') }}"></div>
-  <div class="col"><input class="form-control fk-filter-input" type="date" name="filter[{{ filter.field }}][to]" value="{{ filter.value_to if filter.value_to is not none else '' }}" placeholder="{{ t('filter.to') }}"></div>
+  <div class="col"><input class="form-control fk-filter-input" type="date" name="filter[{{ filter.field }}][from]" data-testid="filter-{{ filter.field }}-from" value="{{ filter.value_from if filter.value_from is not none else '' }}" placeholder="{{ t('filter.from') }}"></div>
+  <div class="col"><input class="form-control fk-filter-input" type="date" name="filter[{{ filter.field }}][to]" data-testid="filter-{{ filter.field }}-to" value="{{ filter.value_to if filter.value_to is not none else '' }}" placeholder="{{ t('filter.to') }}"></div>
 </div>

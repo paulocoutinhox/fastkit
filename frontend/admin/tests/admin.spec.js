@@ -29,6 +29,7 @@ test("rejects invalid credentials without showing null", async ({ page }) => {
   await expect(error).toBeVisible();
   await expect(error).not.toHaveText("null");
   await expect(error).not.toBeEmpty();
+  await expect(error.locator(".alert-icon")).toBeVisible();
 });
 
 test("signs in and shows the grouped navigation", async ({ page }) => {
@@ -113,6 +114,57 @@ test("row action menu is not clipped by the table on the last row", async ({ pag
   const del = page.locator('[data-testid^="delete-"]:visible').last();
   await expect(del).toBeVisible();
   await expect(del).toBeInViewport();
+});
+
+async function openCategory(page, label) {
+  await page.getByTestId("grid-search").fill(label);
+  await page.getByTestId("grid-search").press("Enter");
+  await page.locator('[data-testid^="row-menu-"]').first().click();
+  await page.locator('[data-testid^="edit-"]:visible').first().click();
+  await expect(page.getByTestId("inline-subcategories")).toBeVisible();
+}
+
+test("creates and edits repeatable subcategory inline rows on the category form", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-categories").click();
+  await page.getByTestId("grid-new").click();
+
+  const label = "Inline " + Date.now();
+  await page.getByTestId("field-name").fill(label);
+
+  const inline = page.getByTestId("inline-subcategories");
+  await page.getByTestId("inline-add-subcategories").click();
+  await page.getByTestId("inline-add-subcategories").click();
+  await inline.getByTestId("field-name").nth(0).fill("Alpha");
+  await inline.getByTestId("field-name").nth(1).fill("Beta");
+  await page.getByTestId("form-save").click();
+  await expect(page.getByTestId("toast-success")).toBeVisible();
+
+  await openCategory(page, label);
+  const editInline = page.getByTestId("inline-subcategories");
+  await expect(editInline.getByTestId("field-name")).toHaveCount(2);
+  await expect(editInline.getByTestId("field-name").nth(0)).toHaveValue("Alpha");
+
+  await editInline.getByTestId("field-name").nth(0).fill("Alpha2");
+  await editInline.getByTestId("inline-row-subcategories").nth(1).locator(".fk-inline-remove").click();
+  await page.getByTestId("inline-add-subcategories").click();
+  await editInline.getByTestId("field-name").nth(1).fill("Gamma");
+  await page.getByTestId("form-save").click();
+  await expect(page.getByTestId("toast-success")).toBeVisible();
+
+  await openCategory(page, label);
+  const finalInline = page.getByTestId("inline-subcategories");
+  await expect(finalInline.getByTestId("field-name")).toHaveCount(2);
+  const values = await finalInline.getByTestId("field-name").evaluateAll((els) => els.map((el) => el.value).sort());
+  expect(values).toEqual(["Alpha2", "Gamma"]);
+
+  await page.getByTestId("nav-categories").click();
+  await page.getByTestId("grid-search").fill(label);
+  await page.getByTestId("grid-search").press("Enter");
+  await page.locator('[data-testid^="row-menu-"]').first().click();
+  await page.locator('[data-testid^="delete-"]:visible').first().click();
+  await page.getByTestId("confirm-accept").click();
+  await expect(page.getByTestId("toast-success")).toBeVisible();
 });
 
 test("deletes a row only after confirmation", async ({ page }) => {
@@ -333,6 +385,9 @@ test("profile: avatar upload, password validation, add and remove login method",
   await expect(page.getByTestId("toast-success")).toBeVisible();
   await expect(page.getByTestId("profile-avatar")).toHaveCSS("background-image", /url\(/);
 
+  // the navbar avatar updates live, without a reload
+  await expect(page.getByTestId("user-avatar")).toHaveCSS("background-image", /url\(/);
+
   // a full reload shows the avatar in the server-rendered header, and the stored file is a square webp
   await page.reload();
   const headerAvatar = page.getByTestId("user-avatar");
@@ -344,11 +399,12 @@ test("profile: avatar upload, password validation, add and remove login method",
   await page.getByTestId("profile-password-save").click();
   await expect(page.locator('[data-error="new_password"]')).toContainText(/at least/i);
 
-  // a wrong current password shows a field error under the current-password field
+  // a wrong current password shows a translated field error (not the raw validation code)
   await page.getByTestId("profile-current-password").fill("wrong-password");
   await page.getByTestId("profile-new-password").fill("valid-password-1234");
   await page.getByTestId("profile-password-save").click();
-  await expect(page.locator('[data-error="current_password"]')).not.toBeEmpty();
+  await expect(page.locator('[data-error="current_password"]')).toContainText(/incorrect/i);
+  await expect(page.locator('[data-error="current_password"]')).not.toContainText("validation.");
 
   // the uploaded avatar persists after navigating away and back
   await page.getByTestId("nav-products").click();
@@ -436,9 +492,9 @@ test("navigating away before a response resolves does not corrupt the new view",
   });
   await page.getByTestId("nav-products").click();
   await page.getByTestId("nav-categories").click();
-  await expect(page.getByTestId("page-title")).toHaveText("Categories");
+  await expect(page.getByTestId("screen-title")).toHaveText("Categories");
   await page.waitForTimeout(900);
-  await expect(page.getByTestId("page-title")).toHaveText("Categories");
+  await expect(page.getByTestId("screen-title")).toHaveText("Categories");
   await expect(page.getByTestId("header-name")).toBeVisible();
 });
 
@@ -503,7 +559,7 @@ test("rich text editor keeps absolute media urls (convert_urls off)", async ({ p
   await expect(page.locator(".tox-tinymce").first()).toBeVisible();
 
   const content = await page.evaluate(() => {
-    const editor = window.tinymce.get("fk-field-body_html");
+    const editor = window.tinymce.get("field-body_html");
     editor.setContent('<p><img src="/media/0/ab/pic.png"></p>');
     return editor.getContent();
   });
@@ -699,7 +755,7 @@ test("the activity log is read-only and records actions", async ({ page }) => {
   await page.getByTestId("nav-activity").click();
   await expect(page.getByTestId("grid-table")).toBeVisible();
   await expect(page.getByTestId("grid-new")).toHaveCount(0);
-  await expect(page.getByTestId("grid-row").first()).toBeVisible();
+  await expect(page.locator('[data-testid^="grid-row-"]').first()).toBeVisible();
 });
 
 test.describe("on a phone", () => {
@@ -753,4 +809,157 @@ test("signs out back to the login screen", async ({ page }) => {
   await page.getByTestId("user-menu").click();
   await page.getByTestId("logout").click();
   await expect(page.getByTestId("login-form")).toBeVisible();
+});
+
+test("dependent select shows a loading spinner and disables while fetching remote options", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/geo-samples/new");
+  await expect(page.getByTestId("form")).toBeVisible();
+
+  const country = page.getByTestId("field-sel_country");
+  await expect(page.getByTestId("loading-sel_country")).toBeVisible();
+  await expect(country).toBeDisabled();
+
+  await expect(page.getByTestId("loading-sel_country")).toBeHidden({ timeout: 15000 });
+  await expect(country).toBeEnabled();
+  await expect(country.locator('option[value="br"]')).toHaveCount(1);
+});
+
+test("triple dependent selects cascade country to state to city", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/geo-samples/new");
+  await expect(page.getByTestId("loading-sel_country")).toBeHidden({ timeout: 15000 });
+
+  await page.getByTestId("field-sel_country").selectOption("br");
+  await expect(page.getByTestId("loading-sel_state")).toBeVisible();
+  await expect(page.getByTestId("field-sel_state").locator('option[value="sp"]')).toHaveCount(1, { timeout: 15000 });
+
+  await page.getByTestId("field-sel_state").selectOption("sp");
+  await expect(page.getByTestId("field-sel_city").locator('option[value="sao"]')).toHaveCount(1, { timeout: 15000 });
+});
+
+test("dependent lookup shows a translated loading message while fetching", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/geo-samples/new");
+  await page.getByTestId("field-look_country").click();
+
+  const loading = page.getByTestId("lookup-loading");
+  await expect(loading).toBeVisible();
+  await expect(loading).toContainText("Loading");
+});
+
+test("the lookup loading message is translated for a pt user", async ({ page, context }) => {
+  await context.addCookies([{ name: "fastkit_locale", value: "pt", url: "http://127.0.0.1:8100" }]);
+  await login(page);
+  await page.goto("/admin/geo-samples/new");
+  await page.getByTestId("field-look_country").click();
+
+  await expect(page.getByTestId("lookup-loading")).toContainText("Carregando");
+});
+
+test("grid shows a loading overlay while the fragment reloads", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-geo-samples").click();
+  await expect(page.getByTestId("grid-table")).toBeVisible({ timeout: 15000 });
+
+  await page.getByTestId("grid-search").fill("Sample");
+  await page.getByTestId("grid-search").press("Enter");
+  await expect(page.getByTestId("content-loading")).toBeVisible();
+  await expect(page.getByTestId("content-loading")).toBeHidden({ timeout: 15000 });
+});
+
+test("a full-page navigation shows a progress indicator the instant a link is clicked", async ({ page }) => {
+  await login(page);
+
+  // click an internal nav link and check the bar synchronously, before the navigation commits
+  // (a late-registered listener cancels the real navigation so the assertion is deterministic)
+  const shown = await page.evaluate(() => {
+    document.addEventListener("click", (event) => event.preventDefault());
+    document.querySelector('[data-testid="nav-geo-samples"]').click();
+    return !!document.querySelector("#fk-nav-progress.fk-progress-active");
+  });
+
+  expect(shown).toBe(true);
+});
+
+async function pickGeoChain(page) {
+  await page.goto("/admin/geo-samples/new");
+  await expect(page.getByTestId("loading-sel_country")).toBeHidden({ timeout: 15000 });
+  await page.getByTestId("field-sel_country").selectOption("us");
+  await expect(page.getByTestId("field-sel_state").locator('option[value="ca"]')).toHaveCount(1, { timeout: 15000 });
+  await page.getByTestId("field-sel_state").selectOption("ca");
+  await expect(page.getByTestId("field-sel_city").locator('option[value="la"]')).toHaveCount(1, { timeout: 15000 });
+  await page.getByTestId("field-sel_city").selectOption("la");
+  await expect(page.getByTestId("field-sel_district").locator('option[value="hol"]')).toHaveCount(1, { timeout: 15000 });
+  await page.getByTestId("field-sel_district").selectOption("hol");
+  await expect(page.getByTestId("field-sel_district")).toHaveValue("hol");
+}
+
+test("changing the top select cascades a reset through every downstream select (4 levels deep)", async ({ page }) => {
+  await login(page);
+  await pickGeoChain(page);
+
+  await page.getByTestId("field-sel_country").selectOption("br");
+
+  // every level below the changed one must reset, not just the direct child
+  await expect(page.getByTestId("field-sel_district")).toHaveValue("", { timeout: 15000 });
+  await expect(page.getByTestId("field-sel_city")).toHaveValue("", { timeout: 15000 });
+  await expect(page.getByTestId("field-sel_district").locator('option[value="hol"]')).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByTestId("field-sel_city").locator('option[value="la"]')).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByTestId("field-sel_state").locator('option[value="sp"]')).toHaveCount(1, { timeout: 15000 });
+  await expect(page.getByTestId("field-sel_state").locator('option[value="ca"]')).toHaveCount(0);
+});
+
+test("changing a middle select reloads and clears the select below it", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/geo-samples/new");
+  await expect(page.getByTestId("loading-sel_country")).toBeHidden({ timeout: 15000 });
+
+  await page.getByTestId("field-sel_country").selectOption("br");
+  await expect(page.getByTestId("field-sel_state").locator('option[value="sp"]')).toHaveCount(1, { timeout: 15000 });
+  await page.getByTestId("field-sel_state").selectOption("sp");
+  await expect(page.getByTestId("field-sel_city").locator('option[value="sao"]')).toHaveCount(1, { timeout: 15000 });
+  await page.getByTestId("field-sel_city").selectOption("sao");
+
+  await page.getByTestId("field-sel_state").selectOption("rj");
+
+  await expect(page.getByTestId("field-sel_city")).toHaveValue("", { timeout: 15000 });
+  await expect(page.getByTestId("field-sel_city").locator('option[value="rio"]')).toHaveCount(1, { timeout: 15000 });
+  await expect(page.getByTestId("field-sel_city").locator('option[value="sao"]')).toHaveCount(0);
+});
+
+test("a failed dependent options request re-enables the select instead of leaving it stuck", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/geo-samples/new");
+  await expect(page.getByTestId("loading-sel_country")).toBeHidden({ timeout: 15000 });
+
+  await page.route("**/resources/geo-samples/options/sel_state**", (route) => route.abort());
+  await page.getByTestId("field-sel_country").selectOption("br");
+
+  await expect(page.getByTestId("loading-sel_state")).toBeHidden({ timeout: 15000 });
+  await expect(page.getByTestId("field-sel_state")).toBeEnabled();
+  await page.unroute("**/resources/geo-samples/options/sel_state**");
+});
+
+test("the filter panel cascades a reset through dependent filter selects", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-geo-samples").click();
+  await expect(page.getByTestId("grid-table")).toBeVisible({ timeout: 15000 });
+  await page.getByTestId("grid-filters").click();
+
+  const country = page.locator('.fk-filter[data-filter="sel_country"] select');
+  const state = page.locator('.fk-filter[data-filter="sel_state"] select');
+  const city = page.locator('.fk-filter[data-filter="sel_city"] select');
+
+  await expect(country.locator('option[value="us"]')).toHaveCount(1, { timeout: 15000 });
+  await country.selectOption("us");
+  await expect(state.locator('option[value="ca"]')).toHaveCount(1, { timeout: 15000 });
+  await state.selectOption("ca");
+  await expect(city.locator('option[value="la"]')).toHaveCount(1, { timeout: 15000 });
+  await city.selectOption("la");
+
+  await country.selectOption("br");
+  await expect(city).toHaveValue("", { timeout: 15000 });
+  await expect(city.locator('option[value="la"]')).toHaveCount(0, { timeout: 15000 });
+  await expect(state.locator('option[value="sp"]')).toHaveCount(1, { timeout: 15000 });
 });

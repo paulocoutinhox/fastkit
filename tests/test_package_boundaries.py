@@ -87,6 +87,32 @@ def test_every_pydantic_validation_key_has_a_catalog_entry():
         assert not missing, f"validation keys missing from {locale} catalog: {missing}"
 
 
+FIELD_ERROR_CODE_PATTERN = re.compile(r"""FieldError\(\s*(?:field\s*=\s*)?["'][^"']*["']\s*,\s*(?:code\s*=\s*)?["']([^"']+)["']""")
+CODE_LOCAL_PATTERN = re.compile(r"^[a-z0-9]+\.[a-z0-9-]+$")
+
+
+def test_every_framework_field_error_code_is_translated():
+    """Every inline FieldError code in framework source must be a kebab-case-local key present in
+    both catalogs, so a field error never surfaces a raw code (e.g. `validation.password.incorrect`)."""
+
+    from fastkit_i18n.catalogs import BASE_CATALOGS
+
+    codes: set[str] = set()
+
+    for path in PACKAGES_DIR.rglob("src/**/*.py"):
+        for match in FIELD_ERROR_CODE_PATTERN.finditer(path.read_text(encoding="utf-8")):
+            codes.add(match.group(1))
+
+    assert codes, "no FieldError codes discovered — the scanner regressed"
+
+    malformed = sorted(code for code in codes if not CODE_LOCAL_PATTERN.match(code))
+    assert not malformed, f"field error codes must be context.local kebab-case, not dotted: {malformed}"
+
+    for locale, catalog in BASE_CATALOGS.items():
+        missing = sorted(code for code in codes if code not in catalog)
+        assert not missing, f"field error codes missing from {locale} catalog: {missing}"
+
+
 def test_pydantic_code_map_covers_every_error_type():
     import typing
 

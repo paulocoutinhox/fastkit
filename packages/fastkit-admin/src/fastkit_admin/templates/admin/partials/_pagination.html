@@ -1,11 +1,9 @@
 {% set suffix %}{% if sort %}&sort={{ sort }}{% endif %}{% if search %}&search={{ search | urlencode }}{% endif %}{% endset %}
-<div class="text-secondary" data-testid="grid-showing">{{ t('grid.showing', **{'from': showing_from, 'to': showing_to, 'total': showing_total}) }}</div>
-{% if pagination.total_pages > 1 %}
-<ul class="pagination m-0">
-  <li class="page-item {% if not pagination.has_previous %}disabled{% endif %}"><a class="page-link fk-page" href="{{ base_url }}?page={{ pagination.page - 1 }}{{ suffix }}"><i class="ti ti-chevron-left"></i></a></li>
+<div class="text-secondary" data-testid="grid-total">{{ t('grid.showing', **{'from': showing_from, 'to': showing_to, 'total': showing_total}) }}</div>
+<ul class="pagination m-0" data-testid="grid-pagination">
+  <li class="page-item {% if not pagination.has_previous %}disabled{% endif %}"><a class="page-link fk-page" data-testid="grid-prev" href="{{ base_url }}?page={{ pagination.page - 1 }}{{ suffix }}"><i class="ti ti-chevron-left"></i></a></li>
   {% for number in page_numbers %}
   <li class="page-item {% if number == pagination.page %}active{% endif %}"><a class="page-link fk-page" href="{{ base_url }}?page={{ number }}{{ suffix }}">{{ number }}</a></li>
   {% endfor %}
-  <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"><a class="page-link fk-page" href="{{ base_url }}?page={{ pagination.page + 1 }}{{ suffix }}"><i class="ti ti-chevron-right"></i></a></li>
+  <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"><a class="page-link fk-page" data-testid="grid-next" href="{{ base_url }}?page={{ pagination.page + 1 }}{{ suffix }}"><i class="ti ti-chevron-right"></i></a></li>
 </ul>
-{% endif %}

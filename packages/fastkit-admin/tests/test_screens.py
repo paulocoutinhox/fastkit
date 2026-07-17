@@ -1,5 +1,22 @@
+from fastkit_admin.fields import NumberField, TextField
+from fastkit_admin.inlines import InlineResource
 from fastkit_admin.rendering import AdminRenderer
 from fastkit_admin.screens import detail_context, form_context, list_context, profile_context, report_context
+
+
+def test_inline_resource_schema():
+    inline = InlineResource("items", [TextField("name"), NumberField("qty")], model=object, fk_field="order_id", min_items=1, max_items=5)
+    schema = inline.schema()
+
+    assert schema["name"] == "items"
+    assert schema["label"] == "Items"
+    assert schema["min_items"] == 1
+    assert schema["max_items"] == 5
+    assert [field["name"] for field in schema["fields"]] == ["name", "qty"]
+
+
+def test_inline_resource_default_label():
+    assert InlineResource("order_lines", [TextField("sku")], model=object, fk_field="order_id").schema()["label"] == "Order Lines"
 
 
 def _schema():
@@ -58,10 +75,10 @@ def test_list_context_marks_the_active_sort_column_descending():
 def test_table_partial_renders_rows_cells_and_actions():
     html = _render(list_context(_schema(), _result(), "/admin", None, None))
 
-    assert 'data-testid="row-1"' in html
+    assert 'data-testid="grid-row-1"' in html
     assert "Widget" in html
-    assert "ti-check text-green" in html
-    assert "ti-x text-red" in html
+    assert 'data-testid="bool-true"' in html
+    assert 'data-testid="bool-false"' in html
     assert 'href="/admin/products/1/edit"' in html
     assert 'data-testid="view-1"' in html
     assert 'data-testid="delete-2"' in html
@@ -75,7 +92,7 @@ def _schema_with_filters():
         {"field": "created_at", "type": "date_range", "label": "Created"},
         {"field": "category", "type": "choice", "label": "Category", "choices": [{"value": "a", "label": "A"}]},
     ]
-    schema["filter_fieldsets"] = [{"title": "Dates", "description": None, "fields": ["created_at"]}]
+    schema["filter_fieldsets"] = [{"title": "Nope", "description": None, "fields": ["ghost"]}, {"title": "Dates", "description": None, "fields": ["created_at"]}]
 
     return schema
 
@@ -103,8 +120,8 @@ def test_filter_panel_renders_widgets_by_type():
     assert 'value="wid"' in html
     assert 'name="filter[is_active]"' in html
     assert 'name="filter[created_at][from]"' in html
-    assert 'data-testid="filter-apply"' in html
-    assert 'data-testid="filter-clear"' in html
+    assert 'data-testid="filters-apply"' in html
+    assert 'data-testid="filters-clear"' in html
 
 
 def _report():
@@ -167,12 +184,13 @@ def test_form_context_attaches_values_and_drops_empty_fieldsets():
         "fieldsets": [
             {"title": "Identity", "description": None, "fields": [_field(name="name", label="Name")]},
             {"title": "Empty", "description": None, "fields": []},
+            {"title": "Meta", "description": None, "fields": [_field(name="status", label="Status")]},
         ]
     }
 
-    context = form_context(schema, {"name": "Widget"}, "Products", "edit", "/admin", "products", record_id="1")
+    context = form_context(schema, {"name": "Widget", "status": "active"}, "Products", "edit", "/admin", "products", record_id="1")
 
-    assert len(context["fieldsets"]) == 1
+    assert len(context["fieldsets"]) == 2
     assert context["fieldsets"][0]["fields"][0]["value"] == "Widget"
     assert context["record_id"] == "1"
     assert context["base_url"] == "/admin/products"
@@ -228,13 +246,14 @@ def test_form_context_builds_inline_rows_from_data():
     price = _field(name="price", type="number", label="Price")
     schema = {"fieldsets": [], "inlines": [{"name": "items", "label": "Items", "fields": [price], "min_items": 0, "max_items": None}]}
 
-    context = form_context(schema, None, "Order", "edit", "/admin", "orders", record_id="1", inline_data={"items": [{"price": "10"}, {"price": "20"}]})
+    context = form_context(schema, None, "Order", "edit", "/admin", "orders", record_id="1", inline_data={"items": [{"id": "7", "price": "10"}, {"id": "8", "price": "20"}]})
 
     assert len(context["inlines"]) == 1
     inline = context["inlines"][0]
     assert len(inline["rows"]) == 2
-    assert inline["rows"][0][0]["value"] == "10"
-    assert inline["rows"][1][0]["value"] == "20"
+    assert inline["rows"][0]["id"] == "7"
+    assert inline["rows"][0]["fields"][0]["value"] == "10"
+    assert inline["rows"][1]["fields"][0]["value"] == "20"
 
 
 def test_inline_partial_renders_rows_prototype_and_controls():
@@ -244,7 +263,7 @@ def test_inline_partial_renders_rows_prototype_and_controls():
         "fields": [_field(name="price", type="number", label="Price")],
         "min_items": 0,
         "max_items": 3,
-        "rows": [[_field(name="price", type="number", label="Price", value="10")]],
+        "rows": [{"id": "5", "fields": [_field(name="price", type="number", label="Price", value="10")]}],
     }
 
     html = AdminRenderer().render("admin/partials/inline.html", t=lambda key, **params: key, inline=inline)
@@ -253,6 +272,7 @@ def test_inline_partial_renders_rows_prototype_and_controls():
     assert 'data-testid="inline-add-items"' in html
     assert 'data-max="3"' in html
     assert 'value="10"' in html
+    assert 'class="fk-inline-id" value="5"' in html
     assert "fk-inline-prototype" in html
     assert "fk-inline-remove" in html
 
@@ -262,7 +282,7 @@ def _render_detail_field(field, record_id=None):
 
 
 def test_detail_context_attaches_values_and_render_html():
-    schema = {"fieldsets": [{"title": "Info", "description": None, "fields": [_field(name="name", type="text", label="Name"), _field(name="status", type="text", label="Status")]}]}
+    schema = {"fieldsets": [{"title": "Empty", "description": None, "fields": []}, {"title": "Info", "description": None, "fields": [_field(name="name", type="text", label="Name"), _field(name="status", type="text", label="Status")]}]}
     data = {"id": "1", "_display": "Widget", "name": "Widget", "status": "active", "_html": {"status": "<span class='badge'>active</span>"}}
 
     context = detail_context(schema, data, "Products", "/admin", "products", "1", {"can_update": True})

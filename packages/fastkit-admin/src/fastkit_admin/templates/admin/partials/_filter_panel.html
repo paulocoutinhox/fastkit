@@ -1,4 +1,5 @@
-<div class="card mb-3 d-none fk-filter-panel" data-testid="filter-panel">
+<div class="card mb-3 {% if not filters_open %}d-none{% endif %} fk-filter-panel" data-testid="filters-panel">
+  <div class="card-header"><h3 class="card-title">{{ t('grid.filters') }}</h3></div>
   <div class="card-body">
     <form class="fk-filters">
       {% for group in filter_groups %}
@@ -8,8 +9,8 @@
       </div>
       {% endfor %}
       <div class="d-flex gap-2 mt-3">
-        <button type="submit" class="btn btn-primary btn-sm fk-filter-apply" data-testid="filter-apply">{{ t('grid.apply') }}</button>
-        <button type="button" class="btn btn-sm fk-filter-clear" data-testid="filter-clear">{{ t('grid.clear') }}</button>
+        <button type="submit" class="btn btn-primary btn-sm fk-filter-apply" data-testid="filters-apply">{{ t('grid.apply') }}</button>
+        <button type="button" class="btn btn-sm fk-filter-clear" data-testid="filters-clear">{{ t('grid.clear') }}</button>
       </div>
     </form>
   </div>

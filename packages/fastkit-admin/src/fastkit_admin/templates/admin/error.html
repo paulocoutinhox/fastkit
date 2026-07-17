@@ -1,0 +1,8 @@
+{% extends "admin/app.html" %}
+
+{% block screen %}
+<div class="alert alert-danger" role="alert" data-testid="content-error">
+  <i class="ti ti-alert-circle alert-icon"></i>
+  <div>{{ message }}</div>
+</div>
+{% endblock %}

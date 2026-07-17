@@ -20,7 +20,7 @@ coverage**. The admin frontend is verified end-to-end in a real browser.
 ```
 packages/fastkit-*        one installable distribution each (src layout)
   fastkit-admin/…/templates admin Jinja templates (Tabler shell, override partials)
-  fastkit-admin/…/static     admin.js (jQuery client) + admin.css
+  fastkit-admin/…/static     app.js (thin jQuery enhancement layer) + admin.css
 examples/demo             reference app wiring every package together
 frontend/admin            Playwright e2e harness (no framework; runs the demo)
 tests/                    cross-package boundary tests
@@ -264,22 +264,26 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     raising `TypeError` from `getattr(logging, "warning")` returning a function.
   - Local storage derives content type from the object key (`mimetypes`), never a module-global
     dict (which was lost on restart and grew unbounded).
-  - **Client stale-write / failed-request guards** (admin.js): the lookup widget's search + value
-    preload carry a per-widget sequence id (stale responses ignored) and `.catch` (a failed options
-    request never leaves an empty stuck dropdown); the permission-matrix and translations sub-loads
-    are render-token guarded and `.catch`; the extension `refreshRow` bails on a stale token; the
-    filter option-select `.catch`es; and the filter panel's **Apply iterates the built widgets**
-    (`Object.keys(reads)`), so a resource whose `filter_fieldsets` groups only some filters can't
-    throw on Apply.
+  - **Client stale-write / failed-request guards** (app.js): navigation is a **full page load** (the
+    server renders each screen), so there is no SPA render-race to token-guard — a response can never
+    write into a screen the user already left. What remains are the in-screen async guards: the
+    lookup widget's search carries a per-widget sequence id (`seq`; stale responses ignored) and
+    `.catch` (a failed options request never leaves an empty stuck dropdown); the filter select/lookup
+    loads `.catch`; the permission-matrix and translations sub-loads `.catch` to a rendered
+    empty state; the grid/report AJAX fragment swap `.fail`/`.catch`es with a toast; and the grid's
+    filter **Apply iterates the rendered `.fk-filter-input`/`.fk-filter-lookup` widgets**, so a
+    resource whose `filter_fieldsets` groups only some filters can't throw on Apply.
   - **XSS is defended by default**: the one shared HTML sanitizer lives in
     `fastkit_core.sanitize.sanitize_html` (allow-list tags/attrs/URL schemes, drops `on*`,
     `script`/`style`, `javascript:`/non-image `data:`) — a **self-closed** `<script/>`/`<style/>` drops
     only itself and never enters the skip state, so content after it is not silently truncated;
     `RichTextField` **sanitizes by default**
     (pass `sanitizer=None` to explicitly opt out), and content bodies use the same function — so a
-    stored rich value rendered via the detail view's `.html()` can't carry a payload. Grid cells go
-    through `formatCell` → `createTextNode` (a column only renders as markup when it has an author
-    `render_<column>`). The per-request `window.__FASTKIT__` JSON is escaped (`<`,`>`,`&`,U+2028/9 →
+    stored rich value rendered via the detail view's `.html()` can't carry a payload. Grid cells are
+    **server-rendered through Jinja autoescape** (the `_grid_macros.cell` macro) — a column only
+    renders as markup (`| safe`) when it is marked `html` (i.e. the resource has an author
+    `render_<column>`); `formatCells` only re-formats datetime/number cells via jQuery `.text()`,
+    never inserting markup. The per-request `window.__FASTKIT__` JSON is escaped (`<`,`>`,`&`,U+2028/9 →
     `\u…`) so a `</script>` inside a translation/brand string can't break out of the inline script.
 - **Known follow-ups** (documented, lower priority — do not silently "fix" with gambiarras):
   in-memory `RateLimiter`/`RecaptchaVerifier` sets are per-process and reset on restart (a shared
@@ -412,7 +416,7 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
 ## Admin engine (fastkit-admin)
 
 - `AdminResource[Model]` declares `list_columns`, `search_fields`, `filters`,
-  `actions`, `ordering`, `form_fields`, `fieldsets`, `permissions`, `select_all`.
+  `actions`, `ordering`, `form_fields`, `fieldsets`, `inlines`, `permissions`, `select_all`.
   `ordering` is empty by default: when nobody overrides it the grid orders by the
   resource's `pk_field` **descending** (`-pk_field` — newest first), exposed to the client as
   `grid.default_sort`.
@@ -492,25 +496,30 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
 
 ## Admin frontend — server-rendered Tabler + jQuery
 
-The admin is **server-rendered Jinja templates shipped by fastkit-admin**, styled
-with **Tabler (Bootstrap) + jQuery** served from vendored packages (never a CDN), driven
-by a jQuery client that consumes the JSON **`/api`**. There is no build step and no SPA
-framework. The
-layout uses Tabler's real **vertical layout** (`navbar-vertical` sidebar that
-collapses to a hamburger drawer on mobile, Bootstrap dropdowns/collapse from Tabler's
-JS). On mobile, picking a nav item calls `closeSidebarDrawer()` which hides the drawer
-**through the Bootstrap `Collapse` instance** (not a raw `removeClass("show")`) so the
-toggler's `aria-expanded` resets to `false` — otherwise the hamburger stays stuck as the
-`X` (Tabler flips the icon on `.navbar-toggler[aria-expanded=true]`). The sidebar renders **exactly like Tabler's `layout-vertical`**: each nav group is a
+The admin is **fully server-rendered Jinja templates shipped by fastkit-admin** (Django-admin
+style), styled with **Tabler (Bootstrap) + jQuery** served from vendored packages (never a CDN).
+**Every screen — login, dashboard, list/grid, form, detail, report, profile — is rendered on the
+server** from `pages.py`'s screen dispatch; a **thin jQuery client (`static/app.js`) only enhances
+the already-rendered DOM** (boots rich widgets from their `data-*`, submits writes to `/api`, and
+swaps the grid/report table via a `?_fragment=table` AJAX call). There is no build step, no SPA
+framework, no client-side routing or rendering. Navigation is real page loads (`<a href>`); the
+mobile hamburger drawer closes naturally on navigation (Bootstrap `Collapse` from Tabler's JS). The
+sidebar renders **exactly like Tabler's `layout-vertical`**: each nav group is a
 collapsible `nav-item dropdown` (`nav-link dropdown-toggle` + `data-bs-toggle="dropdown"` +
 `data-bs-auto-close="false"`) whose `dropdown-menu` holds the group's resources as
 `dropdown-item` links — expanded by default and collapsible per group. Inherit Tabler markup,
 do not hand-roll it. **Use Tabler's defaults for everything —
-never override its colors, shadows or styles.** `admin.css` holds only two genuinely-custom
-component rules (`.fk-upload-preview`, `.fk-lookup-menu`); there is no primary-color or
-shadow override. A consumer may opt into a brand primary color via `theme={"primary_color":
-…}` (which sets Tabler's own `--tblr-primary`), but the default is stock Tabler. Never use
-Tailwind.
+never override its colors, shadows or styles.** `admin.css` holds only a few genuinely-custom
+component rules — `.fk-upload-preview`, `.fk-lookup-menu`, the loading affordances
+(`.fk-load-spin` select spinner, `.fk-busy` grid/report overlay, `#fk-nav-progress` top bar) and
+`.ti.alert-icon` (sizes the icon **font** to match Tabler's SVG alert icon) — there is no
+primary-color or shadow override. A consumer may opt into a brand primary color via
+`theme={"primary_color": …}` (which sets Tabler's own `--tblr-primary`), but the default is stock
+Tabler. Never use Tailwind. **Alerts follow Tabler's real markup** (`alerts.html`): `.alert` is a
+flex row, so an alert is `<div class="alert alert-*"><i class="ti ti-… alert-icon"></i><div>text
+</div></div>` — an icon (colored by the variant via `.alert-icon`) is **required**, never a bare
+text alert (login error, `error.html`). The navbar user-menu link keeps horizontal padding so its
+Tabler hover highlight has breathing room (not a tight box).
 
 - **Rendering** (`fastkit_admin/rendering.py`): `AdminRenderer` is a Jinja
   environment with a `ChoiceLoader` that searches consumer override directories
@@ -526,11 +535,23 @@ Tailwind.
   you inject content without copying anything: `_extra_head.html`, `_extra_js.html`,
   `_pre_body.html`, `_pre_footer.html`, `_post_footer.html`, `_sidebar_footer.html`,
   `_navbar_end.html`. Template names use underscores; partials live under `partials/`.
-- **Pages router** (`fastkit_admin/pages.py`): `build_admin_pages_router` serves
-  `{path}/login` and the authenticated shell (`{path}` + `{path}/{sub}`), redirecting
-  anonymous users to login. `build_page_config` builds the template context and the
-  `window.__FASTKIT__` client bootstrap (api base, admin path, brand, forced locale,
-  reCAPTCHA). `STATIC_DIR` holds `admin.js` + `admin.css` (mount at `/admin-static`).
+- **Pages router** (`fastkit_admin/pages.py`): `build_admin_pages_router` **server-renders every
+  screen**. `render_screen` gathers request/user/session then `dispatch_screen` maps the path
+  (`resolve_route`) to a screen: `` `` (root)→dashboard, `{resource}`→list, `{resource}/new`→create
+  form, `{resource}/{id}/edit`→edit form, `{resource}/{id}`→detail, `reports/{name}`→report,
+  `profile`→profile. Each screen is permission-gated (an `AuthorizationError` renders `error.html`
+  with 403, not a raw JSON envelope), builds its context via `screens.py` (`list_context`/
+  `form_context`/`detail_context`/`report_context`/`profile_context`) and renders. **A
+  `?_fragment=table` request renders only `partials/_table.html`/`_report_table.html`** (no shell) —
+  that's what the client swaps on grid/report AJAX. A `t(key, **params)` callable (bound to
+  `translator.gettext` + the resolved locale, key-fallback) is injected into every render, so
+  templates translate everything. `report_data(name, session, locale, params)` and
+  `profile_data(user, locale)` are async providers the consumer wires from its report/account
+  services (the demo does at `demo_app.py`). The module-level screen builders are unit-tested via
+  direct `await` for 100% coverage (route handlers are thin `return await render_*(...)` wrappers).
+  `build_page_config` builds the shell context + the per-request `window.__FASTKIT__` client
+  bootstrap (api base, admin path, brand, locale, timezone, messages, reCAPTCHA). `STATIC_DIR` holds
+  `app.js` + `admin.css` (mount at `/admin-static`).
 - **Vendored assets, no CDN** (`fastkit_admin/assets.py`): `AssetRegistry.discover()`
   collects every front-end library from installed `fastkit.assets` entry-point providers
   (each `fastkit-vendor-*` package ships its files under `static/` and declares a `MOUNT`,
@@ -549,30 +570,47 @@ Tailwind.
   way to surface API errors on a form — never hand-roll a `.catch`). Build all new UI through
   these — internally they speak low level to Tabler/jQuery. Apply this "public interface, private
   internals" split everywhere it makes sense.
-- **Client** (`static/admin.js`): jQuery app built on `FastKit`. It reads
-  `window.__FASTKIT__`, routes under the admin path, and renders login, grid, form,
-  detail and profile from `/api`. It renders every field type as a Tabler widget,
-  applies masks, drives lookups/relations/dependent selects, edits per-language
-  content, and shows a **confirmation dialog before every destructive action**
-  (row delete, bulk delete, profile identifier removal). Uploads are keyed by kind:
-  `POST /api/uploads/{kind}` (`image` via the asset pipeline, `file` to storage).
-  **Every navigation bumps a render token** (`beginRender()` in `route()`): each screen renderer
-  captures the token and every async `.then` bails via `isCurrent(token)` — so a response that
-  arrives after the user navigated away can never write into the new view (no content mixing, no
-  editor-init-after-teardown, no stale grid/report writes). `route()` also resets
-  `FastKitAdmin.refreshGrid/refreshRow` to no-ops so a stale extension callback can't refresh the
-  previous resource. Dependent relation/lookup loads carry a per-entry sequence id (older
-  responses are ignored) and always `.catch` (re-enable the select, clear `loading`, toast) so a
-  failed options request can never leave the form permanently unsubmittable.
+- **Client** (`static/app.js`): a **thin jQuery enhancement layer** (≈700 lines, down from the old
+  1373-line SPA renderer) built on `FastKit`. It does **not route or render screens** — the server
+  does. On DOM-ready it reads `window.__FASTKIT__`, restores a `sessionStorage` **flash** toast
+  (so a "Created"/"Updated" message survives the post-save full-page navigation), fires
+  `fastkit:ready` (so `FastKitAdmin` extensions register), and runs per-screen `init*` functions
+  that detect their screen by DOM markers (`#grid`, `form[data-resource]`, `#report`, `#dashboard`,
+  `[data-testid=profile]`, `#login-form-el`). `enhance(root)` boots the rich widgets **from their
+  server-rendered `data-*`**: masks, color, uploads, TinyMCE richtext, JSONEditor, relation/lookup
+  selects (options + `depends_on` cascades, value-first on edit), permission-matrix and translations.
+  `collect($form)` reads every `.fk-field[data-type]` (skipping the virtual matrix/translations,
+  which save through their own endpoints) into a payload — including nested inline rows as
+  `{<inline>: [{...}, ...]}` — and submits to `/api`; errors go through `FastKit.formErrors`. The
+  grid does **jQuery AJAX**: search/sort/paginate/filter and row-delete/bulk swap the server's
+  `?_fragment=table` HTML into `#grid` (never a full reload); datetime/number cells are formatted
+  client-side in the user's timezone/locale (`formatCells`, reading each cell's raw value from the
+  row's `data-row` JSON). Every destructive action goes behind `FastKit.confirm`. Uploads are keyed
+  by kind: `POST /api/uploads/{kind}`. Because navigation is real page loads, there is no client
+  render-race to guard.
 - **Rich text** is **TinyMCE 7** (self-hosted from `fastkit-vendor-tinymce`, GPL license
-  key, no cloud account). `initRichtexts` boots one editor per `RichTextField` after
-  the form renders and `route()` disposes them on navigation; `readField` reads content
-  back through `tinymce.get(...)`. Image toolbar uploads go through
+  key, no cloud account). `initRichtexts` boots one editor per server-rendered
+  `RichTextField` mount on DOM-ready (navigation is a full page load, so editors are torn
+  down by the browser and re-init on the fresh page — no SPA disposal); `readField` reads
+  content back through `tinymce.get(...)`. Image toolbar uploads go through
   `FastKit.upload(field.upload_url, blob)` → `/api/uploads/image`.
 - **JSON fields** use **JSONEditor** (self-hosted from `fastkit-vendor-jsoneditor`, tree +
-  text modes). `initJsons` boots one editor per `JsonField`, `route()` disposes them, and
+  text modes). `initJsons` boots one editor per `JsonField` mount on DOM-ready, and
   `readField` returns `editor.get()` (a real object, so the API gets native JSON). The
   detail view shows JSON in a `<pre>`.
+- **Inlines — a parent form with infinite repeatable sub-items** (`inlines.py` +
+  `partials/inline.html`). `AdminResource.inlines = [InlineResource(name, form_fields, model,
+  fk_field, label, min_items, max_items, pk_field="id")]` renders each child sub-form as a
+  card of repeatable rows below the parent fieldsets (server-rendered pre-filled on edit via
+  `resource.inline_values` → `InlineResource.load`). The client (`initInlines`) clones the
+  `<template class="fk-inline-prototype">` on **Add**, removes a row on **Remove** (honouring
+  `min_items`/`max_items`), and `reindexInline` keeps input ids unique; `collect` serializes
+  every row (with its hidden `fk-inline-id`) into `{<inline>: [{id?, ...}, ...]}`. The parent
+  resource **persists children in the same transaction** (`_save_inlines` → `InlineResource.save`):
+  an **id-diff formset** — rows with a persisted `pk_field` are updated, new rows inserted, and
+  rows no longer present deleted (never delete-then-insert, so a child referenced elsewhere keeps
+  its id across an edit). A partial `PATCH` that omits an inline key leaves those children
+  untouched. The demo's Categories form manages its Subcategories inline.
 - **Grid screen = three decoupled stacked parts** (the toolbar/filters are NOT baked into the
   grid card): (1) a **toolbar card** (`card > card-body > row g-2`) holding the search (only when
   the resource has `search_fields`, in a growing `col-md`) and a right-aligned `btn-list`
@@ -585,19 +623,17 @@ Tailwind.
   are a clickable label + a single chevron/`selector` icon (no Tabler `table-sort` class, so
   the icon is never doubled, and the header text stays aligned with the body cells), the
   footer shows `grid.showing` ("Showing X to Y of Z entries") next to **numeric pagination**
-  (windowed page numbers with prev/next chevrons). Boolean columns (header **and** cells) are
-  **center-aligned by default** (`Column.align` is `None` → the client centers booleans,
-  left-aligns the rest) unless the column sets `align`. The **floating menus (row-actions
-  and bulk-actions dropdowns) are marked `fk-menu-fixed`** and positioned by the client with
-  `position: fixed` on open (and re-placed on scroll/resize), so the menu escapes the table's
-  `overflow` instead of being clipped inside it — Tabler 1.4.0 bundles Bootstrap under
-  `window.tabler.bootstrap` (bridged to `window.bootstrap`) and does **not** Popper-position
-  these dropdowns, so the client places them itself. The scoping class keeps this away from the
-  sidebar's in-flow collapsible groups. Because a `position: fixed` menu can render with the wrong
-  theme if it relies purely on DOM inheritance, the client also **stamps the active `data-bs-theme`
-  onto each floating menu when it opens** (read from `<html>`), so a row/bulk menu is always
-  self-sufficiently light or dark.
-- **Cell formatting** (`formatCell`): a column marked `html` (its resource has a
+  (windowed page numbers with prev/next chevrons). The grid is **server-rendered** (`_table.html` via `list_context`) and its search/sort/paginate/
+  filter and row-delete/bulk **swap the `?_fragment=table` HTML into `#grid` by jQuery AJAX** — no
+  full reload. Boolean columns (header **and** cells) are **center-aligned by default** (`Column.align`
+  is `None`) unless the column sets `align`, and cells render an inline SVG check/✕. The **row-action
+  dropdown (a `⋮` button) is marked `fk-menu-fixed` with `data-bs-display="static"`** (so Bootstrap
+  does NOT Popper-position it — no `transform`/`inset` to fight); on `shown.bs.dropdown` the client
+  positions it `position: fixed` (clearing Popper's `inset`/`transform`, flipping **up** when the
+  row is near the viewport bottom), so the menu escapes the table's `overflow` instead of being
+  clipped. On `show.bs.dropdown` the client also **stamps the active `data-bs-theme`** onto the menu
+  (read from `<html>`) so a floating menu is always self-sufficiently light or dark.
+- **Cell formatting** (`formatCells`): a column marked `html` (its resource has a
   `render_<column>`) is rendered as markup, never escaped; otherwise the client formats by
   the column's type — booleans as a green check / red ✕ inline SVG, `date`/`datetime`/`time`
   and `number`/`decimal` in the **user's timezone** (`window.__FASTKIT__.timezone`, injected
@@ -615,9 +651,11 @@ Tailwind.
   toolbar buttons that run with no selection (the demo Task runs "Enqueue welcome email"
   button enqueues a `fastkit-tasks` job this way).
 - **Screen-level permission guard**: every data endpoint checks its permission
-  (`list`/`detail`/`create`/`update`/`delete`/action), and the client also refuses to render
-  the create/edit form when `flags.can_create`/`can_update` is false, so both the buttons
-  and the screens require permission.
+  (`list`/`detail`/`create`/`update`/`delete`/action). The **server** also guards each rendered
+  screen — `dispatch_screen` calls `check_permission` for the screen's action and renders
+  `error.html` with status **403** on `AuthorizationError`, and the toolbar only emits the New/Edit
+  affordances when `flags.can_create`/`can_update` — so both the buttons and the screens require
+  permission.
 - **Filter panel**: when a resource has filters the toolbar shows a **Filters** toggle that
   reveals a panel grouped by the resource's `filter_fieldsets`. Each filter renders the
   widget for its type — text/number/date/datetime/time inputs, a from–to date range,
@@ -627,24 +665,50 @@ Tailwind.
   `filter[field][from]`/`[to]` for ranges — the exact shape `parse_grid_query` expects);
   Clear resets them.
 - **Dependent selects load value-first**: independent selects load, then each one loads its
-  own dependents once its value is set (so an edit form fills every level of a chain), a
-  loading select is disabled and shows `form.loading`, and **submit is blocked with a
-  warning while any dependent options are still loading** so a record is never saved with
-  cleared fields.
+  own dependents once its value is set (so an edit form fills every level of a chain), and
+  **submit is blocked with a warning while any dependent options are still loading** so a record
+  is never saved with cleared fields.
+- **Dependent resets cascade recursively to any depth** (`resetDependent` in app.js): changing a
+  select/lookup resets its direct children **and re-fires a `change` on each reset child**, so the
+  reset propagates down the whole chain — a 4-level `country → state → city → district` chain (or
+  deeper) fully clears/reloads every level below the one that changed, never leaving a stale
+  grandchild value (a select's programmatic `.val()` fires no native `change`, so the explicit
+  re-trigger is what makes N-level chains correct). Applies identically to form selects/lookups and
+  to filter-panel select/lookup filters. The demo's **Geo samples** resource runs a real 4-level
+  chain to lock this in.
+- **Loading feedback is built into every async widget** (`setLoading`/`loadingMenu`/`setBusy` in
+  app.js, styled by `admin.css`): while a relation/filter **select** fetches remote options it is
+  **disabled** and shows a small Tabler `spinner-border` in the field corner
+  (`data-testid=loading-<field>`); while a **lookup** fetches, its dropdown shows a spinner + the
+  **translated** `form.loading` message (`data-testid=lookup-loading`, text from the client catalog —
+  never a hardcoded English string); the **grid/report** table shows a centered overlay spinner
+  (`.fk-busy`, `data-testid=content-loading`) over the card while the `?_fragment=table` AJAX runs,
+  cleared when the fragment swaps in (or on `.fail`); and because navigation is a **full page load**,
+  a **top progress bar** (`#fk-nav-progress`, `data-testid=nav-progress`) starts the instant any
+  internal link is clicked (`initNavProgress` delegates on `a[href]`, skipping AJAX-handled links via
+  `event.isDefaultPrevented()`, `#`/external/download/`fk-report-export` links) and while `go()`
+  navigates — so a slow server response never leaves the user with zero feedback; it vanishes with the
+  old document when the new page renders. The demo's **Geo samples** resource (`geo.py` +
+  `GeoSampleAdmin`) exercises all of it: a **4-level** `country → state → city → district` dependent
+  chain rendered **both** as `RelationField` selects and `LookupField` lookups (and as `SelectFilter`
+  + `LookupFilter` chains in the filter panel), with deliberately slow option handlers and a slow
+  `list` so the spinners/overlay/bar are visible.
 - **Profile** screen edits the avatar (upload), display/first/last name, password, and the
   user's login methods, all through the profile router. The login-method **Type is a select
   of the account service's registered identifier types** (`identifier_types`), and the
   server validates it (422, never a 500) — wrong current password is also a 422 field error,
-  not a 401, so it does not log the user out. Every profile sub-form shows **field-level
-  errors** (`applyFieldErrors($scope, err, aliases)` fills each `[data-error]` — the password
+  not a 401, so it does not log the user out. Every profile sub-form surfaces **field-level
+  errors** through the one shared `FastKit.formErrors($scope, err, {aliases})` helper (the password
   service raises them under `field="password"`, aliased to the `new_password` field), falling
-  back to a toast only when no field matched. Saving details **updates the header identity live**
-  (`updateHeaderIdentity` rewrites the navbar `user-name` + `user-avatar`), and the avatar
+  back to a toast only when no field matched. Saving details **updates the navbar identity live**
+  (the client rewrites the `user-name` text) and **uploading a new avatar updates the navbar avatar
+  live too** (`[data-testid=user-avatar]` background-image, not only the profile card — no reload
+  needed), and the avatar
   **persists**: `_profile_summary` returns a resolved `avatar_url` (the profile router takes an
   `avatar_url(asset_id)` resolver — the demo builds it from `asset_service.get(id).object_key` +
   the storage base URL), which both the profile screen and the header read. The server-rendered
   header also resolves it on load: `build_admin_pages_router(..., avatar_url=…)` fills the navbar
-  avatar in `render_shell`, so a full reload shows the photo (not just the live update).
+  avatar in `shell_context`, so a full reload shows the photo (not just the live update).
   **Avatars are cropped to a centered square** on upload — the profile uses a dedicated
   `build_avatar_upload_handler` that runs the bytes through `process_variant(mode="cover",
   512×512, webp)` before storing, so a rectangular upload is normalized (the general image
@@ -652,22 +716,22 @@ Tailwind.
 - **Light / dark theme**: the navbar has a sun/moon toggle (`data-bs-theme` on `<html>` and
   `<body>`, persisted in `localStorage.fk-theme`, applied early in `<head>` to avoid a
   flash). Everything uses Tabler's theme variables, so both themes work everywhere.
-- **Reports** (`renderReport`): **one report = one screen = one menu item** (path
-  `{admin}/reports/{name}`) — never several reports on one page. **Report filters have full
-  parity with CRUD grid filters** — they ARE the same filters: `ReportDefinition.filters` holds
-  the same `fastkit_admin.filters.*` objects (any type — text, number, boolean, select, enum,
-  date/range, and `LookupFilter`/`SelectFilter` with `options` + `depends_on` cascades), and
-  the client renders them with the **same `buildFilterPanel`** used by the grid (extracted to a
-  reusable top-level fn; grid `buildFilters()` is now a thin wrapper). fastkit-reports never
-  imports fastkit-admin — `ReportDefinition.filters` is a plain `list` of `to_schema()`-able
-  objects (duck-typed), and `to_schema()` serializes them, so a consumer that has both packages
-  (the demo) passes admin filters straight in. Select/lookup options come from
-  `ReportDefinition.options` (`{field: async handler(session, params, locale)}`), served by
+- **Reports** (server-rendered `report.html` + `initReport`): **one report = one screen = one menu
+  item** (path `{admin}/reports/{name}`) — never several reports on one page. The report screen and
+  its `_report_table.html` are rendered by the pages router (`report_context`); `initReport` only
+  wires the filter panel and swaps the `?_fragment=table` HTML into `#report` by jQuery AJAX on
+  Apply/Clear. **Report filters have full parity with CRUD grid filters** — they ARE the same
+  filters: `ReportDefinition.filters` holds the same `fastkit_admin.filters.*` objects (any type —
+  text, number, boolean, select, enum, date/range, and `LookupFilter`/`SelectFilter` with `options`
+  + `depends_on` cascades), rendered by the **same `_filter_panel.html`** used by the grid and
+  enhanced by the **same `enhanceFilters`** client fn (grid and report pass their own options URL
+  builder). fastkit-reports never imports fastkit-admin — `ReportDefinition.filters` is a plain
+  `list` of `to_schema()`-able objects (duck-typed), and `to_schema()` serializes them, so a
+  consumer that has both packages (the demo) passes admin filters straight in. Select/lookup options
+  come from `ReportDefinition.options` (`{field: async handler(session, params, locale)}`), served by
   `ReportService.resolve_options` via `/reports/{name}/options/{field}` (mirrors the resource
-  `options_<field>` endpoint), so `buildLookup` fetches options through a per-context
-  `form.optionsUrl` (report vs resource URL). The panel is built **once** and Apply/Clear only
-  refresh the table (filter selections persist); values are sent flat via `flattenReportParams`
-  (`field=…`, ranges as `field_from`/`field_to`) and re-point the export links. The demo's
+  `options_<field>` endpoint). Apply flattens the filter values (`field=…`, ranges as
+  `field_from`/`field_to`) into the fragment request and re-points the export links. The demo's
   Product-prices report uses Category + Subcategory lookups (cascade) + a Max-price number
   filter, reusing the very same `category_options`/`subcategory_options` handlers as the grid.
   `ReportService.export_formats()` lists the non-screen renderers — the demo adds an
@@ -720,7 +784,12 @@ Tailwind.
     `translator.gettext(code, locale, **params)` (`localize_field_errors`). This covers **every
     FastAPI/pydantic validation error** (`PYDANTIC_CODE_MAP` maps every pydantic v2 error type to
     a `validation.*` key, ctx → params) **and** admin field/normalizer/password validation — all
-    translated, no scattered English. `_fail(code)` and normalizers raise code-only.
+    translated, no scattered English. `_fail(code)` and normalizers raise code-only. A `FieldError`
+    **never carries an inline `message`** and its `code` is a `context.local` **kebab-case-local** key
+    (`validation.password-incorrect`, never dotted `validation.password.incorrect`) present in both
+    catalogs — a boundary test (`test_every_framework_field_error_code_is_translated`) scans every
+    framework `FieldError(...)` in source and fails on a dotted or missing-from-catalog code, so a raw
+    key can never surface under a field again.
   - **Resource-declared strings** (author labels: resource/column/filter/fieldset/field titles)
     stay **gettext-style — the English string is its own key** and falls back to itself, translated
     server-side by `resource.translate_schema` (`grid_schema`/`form_schema` take a `translate`)

@@ -82,7 +82,7 @@ def build_profile_router(deps: AdminDeps, account_service, password_service, upl
     @router.post("/profile/password")
     async def change_password(payload: PasswordChange, user=Depends(deps.get_current_user)):
         if not password_service.verify(user.password_hash or "", payload.current_password):
-            raise ValidationError(VALIDATION_FAILED, message="current password is incorrect", field_errors=[FieldError(field="current_password", code="validation.password.incorrect", message="Current password is incorrect.")])
+            raise ValidationError(VALIDATION_FAILED, message="current password is incorrect", field_errors=[FieldError("current_password", "validation.password-incorrect")])
 
         await account_service.set_password_hash(user.id, password_service.hash(payload.new_password))
         await _audit("password_change", user)
@@ -92,7 +92,7 @@ def build_profile_router(deps: AdminDeps, account_service, password_service, upl
     @router.post("/profile/identifiers")
     async def add_identifier(payload: IdentifierCreate, user=Depends(deps.get_current_user)):
         if payload.type not in account_service.identifier_types():
-            raise ValidationError(VALIDATION_FAILED, message=f"'{payload.type}' is not a valid login method type", field_errors=[FieldError(field="type", code="validation.identifier.type", message="Choose a valid login method type.")])
+            raise ValidationError(VALIDATION_FAILED, message=f"'{payload.type}' is not a valid login method type", field_errors=[FieldError("type", "validation.identifier-type")])
 
         await account_service.add_identifier(user.id, _tenant_of(user), payload.type, payload.value)
         await _audit("identifier_add", user)

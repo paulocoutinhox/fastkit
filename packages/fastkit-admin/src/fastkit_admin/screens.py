@@ -17,7 +17,7 @@ def form_context(schema: dict, values: dict | None, label: str, mode: str, path:
     inlines = []
 
     for inline in schema.get("inlines", []):
-        rows = [[_field_with_value(field, row.get(field["name"])) for field in inline["fields"]] for row in (inline_data or {}).get(inline["name"], [])]
+        rows = [{"id": row.get("id"), "fields": [_field_with_value(field, row.get(field["name"])) for field in inline["fields"]]} for row in (inline_data or {}).get(inline["name"], [])]
         inlines.append({
             "name": inline["name"],
             "label": inline["label"],
@@ -69,6 +69,7 @@ def report_context(report: dict, name: str, path: str, api_path: str, query: str
         "filters": filters,
         "filter_groups": _filter_groups(filters, []),
         "has_filters": bool(filters),
+        "filters_open": True,
         "query": query,
     }
 

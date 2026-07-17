@@ -2,7 +2,7 @@
 {%- if column.html -%}
   {%- if value -%}{{ value | safe }}{%- else -%}<span class="text-secondary">—</span>{%- endif -%}
 {%- elif column.field_type == "boolean" -%}
-  {%- if value -%}<i class="ti ti-check text-green" data-testid="bool-true"></i>{%- else -%}<i class="ti ti-x text-red" data-testid="bool-false"></i>{%- endif -%}
+  {%- if value -%}<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green" data-testid="bool-true"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10"/></svg>{%- else -%}<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red" data-testid="bool-false"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>{%- endif -%}
 {%- elif value is none or value == "" -%}
   <span class="text-secondary">—</span>
 {%- else -%}
@@ -17,9 +17,9 @@
 {% endmacro %}
 
 {% macro row_actions(row, flags, path, resource) %}
-<div class="dropdown">
-  <button class="btn btn-action fk-menu-toggle" data-bs-toggle="dropdown" aria-label="{{ t('grid.actions') }}"><i class="ti ti-dots-vertical"></i></button>
-  <div class="dropdown-menu dropdown-menu-end fk-menu-fixed">
+<div class="dropdown fk-menu-fixed">
+  <button class="btn btn-action" data-bs-toggle="dropdown" data-bs-display="static" data-testid="row-menu-{{ row.id }}" aria-label="{{ t('grid.actions') }}"><i class="ti ti-dots-vertical"></i></button>
+  <div class="dropdown-menu dropdown-menu-end">
     {% if flags.can_detail %}<a class="dropdown-item" href="{{ path }}/{{ resource }}/{{ row.id }}" data-testid="view-{{ row.id }}"><i class="ti ti-eye me-2"></i>{{ t('grid.view') }}</a>{% endif %}
     {% if flags.can_update %}<a class="dropdown-item" href="{{ path }}/{{ resource }}/{{ row.id }}/edit" data-testid="edit-{{ row.id }}"><i class="ti ti-edit me-2"></i>{{ t('grid.edit') }}</a>{% endif %}
     {% if flags.can_delete %}<button type="button" class="dropdown-item text-danger fk-delete" data-id="{{ row.id }}" data-testid="delete-{{ row.id }}"><i class="ti ti-trash me-2"></i>{{ t('grid.delete') }}</button>{% endif %}

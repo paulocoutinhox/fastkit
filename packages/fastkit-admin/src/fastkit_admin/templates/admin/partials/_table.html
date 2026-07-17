@@ -1,12 +1,12 @@
 {% import "admin/partials/_grid_macros.html" as g with context %}
 <div class="table-responsive">
-  <table class="table table-selectable card-table table-vcenter text-nowrap datatable">
+  <table class="table table-selectable card-table table-vcenter text-nowrap datatable" data-testid="grid-table">
     <thead>
       <tr>
-        {% if has_bulk %}<th class="w-1 text-center"><input type="checkbox" class="form-check-input" data-testid="select-all"></th>{% endif %}
+        {% if has_bulk %}<th class="w-1 text-center"><input type="checkbox" class="form-check-input" data-testid="grid-select-all"></th>{% endif %}
         {% for column in columns %}
-        <th class="{% if column.align == 'center' or (column.align is none and column.field_type == 'boolean') %}text-center{% endif %}">
-          {% if column.sortable %}<a class="text-reset fk-sort" href="{{ base_url }}?sort={{ column.sort_value }}{% if search %}&search={{ search | urlencode }}{% endif %}">{{ t(column.label) }} <i class="ti {{ g.sort_icon(column) | trim }}"></i></a>{% else %}{{ t(column.label) }}{% endif %}
+        <th data-testid="header-{{ column.name }}" class="{% if column.align == 'center' or (column.align is none and column.field_type == 'boolean') %}text-center{% endif %}">
+          {% if column.sortable %}<a class="text-reset fk-sort" data-testid="sort-{{ column.name }}" href="{{ base_url }}?sort={{ column.sort_value }}{% if search %}&search={{ search | urlencode }}{% endif %}">{{ t(column.label) }} <i class="ti {{ g.sort_icon(column) | trim }}"></i></a>{% else %}{{ t(column.label) }}{% endif %}
         </th>
         {% endfor %}
         <th class="w-1"></th>
@@ -14,9 +14,13 @@
     </thead>
     <tbody>
       {% for row in rows %}
-      <tr data-id="{{ row.id }}" data-testid="row-{{ row.id }}">
-        {% if has_bulk %}<td class="text-center"><input type="checkbox" class="form-check-input fk-row-select" value="{{ row.id }}"></td>{% endif %}
-        {% for column in columns %}<td class="{% if column.align == 'center' or (column.align is none and column.field_type == 'boolean') %}text-center{% endif %}">{{ g.cell(column, row[column.name]) }}</td>{% endfor %}
+      <tr data-id="{{ row.id }}" data-testid="grid-row-{{ row.id }}" data-row='{{ row | tojson }}'>
+        {% if has_bulk %}<td class="text-center"><input type="checkbox" class="form-check-input fk-row-select" data-testid="select-{{ row.id }}" value="{{ row.id }}"></td>{% endif %}
+        {% for column in columns %}
+        <td data-testid="cell-{{ column.name }}-{{ row.id }}" data-col="{{ column.name }}" data-type="{{ column.field_type }}" class="{% if column.align == 'center' or (column.align is none and column.field_type == 'boolean') %}text-center{% endif %}">
+          {% if column.clickable %}<a class="text-reset d-block" href="{{ path }}/{{ resource }}/{{ row.id }}/edit">{{ g.cell(column, row[column.name]) }}</a>{% else %}{{ g.cell(column, row[column.name]) }}{% endif %}
+        </td>
+        {% endfor %}
         <td>{{ g.row_actions(row, flags, path, resource) }}</td>
       </tr>
       {% else %}

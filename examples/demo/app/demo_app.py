@@ -42,6 +42,7 @@ MENU_ITEMS = [
     ("Categories", "catalog", "categories"),
     ("Subcategories", "catalog", "subcategories"),
     ("Field showcase", "content", "showcase"),
+    ("Geo samples", "catalog", "geo-samples"),
     ("Content", "content", "content"),
     ("Languages", "content", "languages"),
     ("Scheduled tasks", "operations", "scheduled-tasks"),

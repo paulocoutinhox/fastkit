@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -7,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from fastkit_core.errors.codes import RESOURCE_NOT_FOUND
-from fastkit_core.errors.exceptions import NotFoundError
+from fastkit_core.errors.exceptions import AuthorizationError, NotFoundError
 from fastkit_admin.api import check_permission, make_check
 from fastkit_admin.assets import AssetRegistry
 from fastkit_admin.query import parse_grid_query
@@ -130,11 +131,14 @@ async def list_screen(target, session, check, locale: str, path: str, params) ->
 
 async def form_screen(target, session, locale: str, path: str, record_id, mode: str) -> dict:
     values = None
+    inline_data = None
 
     if record_id is not None:
-        values = target.serialize_detail(await target.get_object(session, record_id), locale)
+        row = await target.get_object(session, record_id)
+        values = target.serialize_detail(row, locale)
+        inline_data = await target.inline_values(session, row, locale)
 
-    return form_context(target.form_schema(mode), values, target.label or target.name, mode, path, target.name, record_id=record_id)
+    return form_context(target.form_schema(mode), values, target.label or target.name, mode, path, target.name, record_id=record_id, inline_data=inline_data)
 
 
 async def detail_screen(target, session, check, locale: str, path: str, record_id) -> dict:
@@ -150,6 +154,119 @@ def _screen_query(params) -> str:
     return f"?{urlencode(items)}" if items else ""
 
 
+@dataclass(frozen=True)
+class PagesDeps:
+    renderer: object
+    site: object
+    deps: object
+    config: dict
+    translator: object
+    avatar_url: object
+    report_data: object
+    profile_data: object
+
+
+def make_t(translator, locale: str):
+    if translator is None:
+        return lambda key, **params: key
+
+    return lambda key, **params: translator.gettext(key, locale=locale, **params)
+
+
+def request_config(config: dict, translator, locale: str) -> dict:
+    messages = translator.messages(locale) if translator is not None else {}
+
+    return {**config, "client_json": render_client_json(config, locale, messages)}
+
+
+async def shell_context(pages: PagesDeps, user, locale: str) -> dict:
+    navigation = await pages.site.navigation(make_check(pages.deps.authorize, user))
+
+    if pages.deps.translate is not None:
+        for group in navigation:
+            group["label"] = pages.deps.translate(group["label"], locale)
+
+            for item in group["items"]:
+                item["label"] = pages.deps.translate(item["label"], locale)
+
+    asset_id = user.profile.avatar_asset_id if getattr(user, "profile", None) else None
+    avatar = await pages.avatar_url(asset_id) if (pages.avatar_url is not None and asset_id) else None
+    display_name = user.display_name or getattr(user, "email", None) or "User"
+
+    return {"config": request_config(pages.config, pages.translator, locale), "navigation": navigation, "user": {"display_name": display_name, "timezone": getattr(user, "timezone", None) or "UTC", "avatar_url": avatar}, "t": make_t(pages.translator, locale)}
+
+
+async def dispatch_screen(pages: PagesDeps, sub: str, params, user, session, locale: str) -> HTMLResponse:
+    path = pages.config["path"]
+    api_path = pages.config["api_path"]
+    render = pages.renderer.render
+    kind, args = resolve_route(sub)
+    fragment = params.get("_fragment") == "table"
+
+    if kind == "dashboard":
+        return HTMLResponse(render("admin/dashboard.html", **await shell_context(pages, user, locale)))
+
+    if kind == "profile":
+        data = await pages.profile_data(user, locale) if pages.profile_data is not None else {}
+
+        return HTMLResponse(render("admin/profile.html", **await shell_context(pages, user, locale), **profile_context(data, path, api_path)))
+
+    if kind == "report":
+        if pages.report_data is None:
+            raise NotFoundError(RESOURCE_NOT_FOUND, message="report not found")
+
+        context = report_context(await pages.report_data(args["name"], session, locale, dict(params)), args["name"], path, api_path, _screen_query(params))
+
+        if fragment:
+            return HTMLResponse(render("admin/partials/_report_table.html", t=make_t(pages.translator, locale), **context))
+
+        return HTMLResponse(render("admin/report.html", **await shell_context(pages, user, locale), **context))
+
+    if kind == "notfound":
+        raise NotFoundError(RESOURCE_NOT_FOUND, message="not found")
+
+    target = pages.site.get(args["resource"])
+    check = make_check(pages.deps.authorize, user)
+
+    try:
+        if kind == "list":
+            await check_permission(pages.deps.authorize, user, target, "list")
+            context = await list_screen(target, session, check, locale, path, params)
+
+            if fragment:
+                return HTMLResponse(render("admin/partials/_table.html", t=make_t(pages.translator, locale), **context))
+
+            return HTMLResponse(render("admin/list.html", **await shell_context(pages, user, locale), **context))
+
+        if kind == "form":
+            await check_permission(pages.deps.authorize, user, target, "create" if args["mode"] == "create" else "update")
+
+            return HTMLResponse(render("admin/form.html", **await shell_context(pages, user, locale), **await form_screen(target, session, locale, path, args["record_id"], args["mode"])))
+
+        await check_permission(pages.deps.authorize, user, target, "detail")
+
+        return HTMLResponse(render("admin/detail.html", **await shell_context(pages, user, locale), **await detail_screen(target, session, check, locale, path, args["record_id"])))
+    except AuthorizationError:
+        message = make_t(pages.translator, locale)("error.forbidden")
+
+        return HTMLResponse(render("admin/error.html", **await shell_context(pages, user, locale), message=message), status_code=403)
+
+
+async def render_login(pages: PagesDeps, request: Request) -> HTMLResponse:
+    locale = pages.config["forced_locale"] or await pages.deps.get_locale(request)
+
+    return HTMLResponse(pages.renderer.render("admin/login.html", config=request_config(pages.config, pages.translator, locale)))
+
+
+async def render_screen(pages: PagesDeps, request: Request, sub: str, user, session):
+    if user is None:
+        return RedirectResponse(f'{pages.config["path"]}/login', status_code=303)
+
+    locale = pages.config["forced_locale"] or await pages.deps.get_locale(request)
+
+    return await dispatch_screen(pages, sub, request.query_params, user, session, locale)
+
+
 def build_admin_pages_router(renderer, site, deps, config: dict, avatar_url=None, translator=None, report_data=None, profile_data=None) -> APIRouter:
     """Serve the server-rendered admin (login, dashboard, and every resource/report/profile screen).
 
@@ -161,105 +278,18 @@ def build_admin_pages_router(renderer, site, deps, config: dict, avatar_url=None
 
     router = APIRouter()
     path = config["path"]
-    api_path = config["api_path"]
-    translator = translator if translator is not None else deps.translator
-
-    async def resolve_locale(request: Request) -> str:
-        return config["forced_locale"] or await deps.get_locale(request)
-
-    def make_t(locale: str):
-        if translator is None:
-            return lambda key, **params: key
-
-        return lambda key, **params: translator.gettext(key, locale=locale, **params)
-
-    def request_config(locale: str) -> dict:
-        messages = translator.messages(locale) if translator is not None else {}
-
-        return {**config, "client_json": render_client_json(config, locale, messages)}
-
-    async def shell(user, locale: str) -> dict:
-        navigation = await site.navigation(make_check(deps.authorize, user))
-
-        if deps.translate is not None:
-            for group in navigation:
-                group["label"] = deps.translate(group["label"], locale)
-
-                for item in group["items"]:
-                    item["label"] = deps.translate(item["label"], locale)
-
-        asset_id = user.profile.avatar_asset_id if getattr(user, "profile", None) else None
-        avatar = await avatar_url(asset_id) if (avatar_url is not None and asset_id) else None
-
-        display_name = user.display_name or getattr(user, "email", None) or "User"
-
-        return {"config": request_config(locale), "navigation": navigation, "user": {"display_name": display_name, "timezone": getattr(user, "timezone", None) or "UTC", "avatar_url": avatar}, "t": make_t(locale)}
+    pages = PagesDeps(renderer, site, deps, config, translator if translator is not None else deps.translator, avatar_url, report_data, profile_data)
 
     @router.get(f"{path}/login", response_class=HTMLResponse)
     async def login_page(request: Request):
-        locale = await resolve_locale(request)
-
-        return HTMLResponse(renderer.render("admin/login.html", config=request_config(locale)))
+        return await render_login(pages, request)
 
     @router.get(path, response_class=HTMLResponse)
     async def root_page(request: Request, user=Depends(deps.get_optional_user)):
-        if user is None:
-            return RedirectResponse(f"{path}/login", status_code=303)
-
-        locale = await resolve_locale(request)
-
-        return HTMLResponse(renderer.render("admin/dashboard.html", **await shell(user, locale)))
+        return await render_screen(pages, request, "", user, None)
 
     @router.get(f"{path}/{{sub:path}}", response_class=HTMLResponse)
     async def sub_page(request: Request, sub: str, user=Depends(deps.get_optional_user), session=Depends(deps.get_session)):
-        if user is None:
-            return RedirectResponse(f"{path}/login", status_code=303)
-
-        locale = await resolve_locale(request)
-        check = make_check(deps.authorize, user)
-        kind, args = resolve_route(sub)
-        fragment = request.query_params.get("_fragment") == "table"
-
-        if kind == "dashboard":
-            return HTMLResponse(renderer.render("admin/dashboard.html", **await shell(user, locale)))
-
-        if kind == "profile":
-            data = await profile_data(user, locale) if profile_data is not None else {}
-
-            return HTMLResponse(renderer.render("admin/profile.html", **await shell(user, locale), **profile_context(data, path, api_path)))
-
-        if kind == "report":
-            if report_data is None:
-                raise NotFoundError(RESOURCE_NOT_FOUND, message="report not found")
-
-            context = report_context(await report_data(args["name"], session, locale, dict(request.query_params)), args["name"], path, api_path, _screen_query(request.query_params))
-
-            if fragment:
-                return HTMLResponse(renderer.render("admin/partials/_report_table.html", t=make_t(locale), **context))
-
-            return HTMLResponse(renderer.render("admin/report.html", **await shell(user, locale), **context))
-
-        if kind == "notfound":
-            raise NotFoundError(RESOURCE_NOT_FOUND, message="not found")
-
-        target = site.get(args["resource"])
-
-        if kind == "list":
-            await check_permission(deps.authorize, user, target, "list")
-            context = await list_screen(target, session, check, locale, path, request.query_params)
-
-            if fragment:
-                return HTMLResponse(renderer.render("admin/partials/_table.html", t=make_t(locale), **context))
-
-            return HTMLResponse(renderer.render("admin/list.html", **await shell(user, locale), **context))
-
-        if kind == "form":
-            await check_permission(deps.authorize, user, target, "create" if args["mode"] == "create" else "update")
-
-            return HTMLResponse(renderer.render("admin/form.html", **await shell(user, locale), **await form_screen(target, session, locale, path, args["record_id"], args["mode"])))
-
-        await check_permission(deps.authorize, user, target, "detail")
-
-        return HTMLResponse(renderer.render("admin/detail.html", **await shell(user, locale), **await detail_screen(target, session, check, locale, path, args["record_id"])))
+        return await render_screen(pages, request, sub, user, session)
 
     return router

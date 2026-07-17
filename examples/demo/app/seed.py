@@ -5,7 +5,7 @@ from fastkit_db.base import Base
 from fastkit_reports.models import ReportExecution
 from fastkit_tasks.models import ScheduledTask, TaskExecution
 from fastkit_tenancy.models import Tenant
-from app.models import Category, Product, Showcase, Subcategory
+from app.models import Category, GeoSample, Product, Showcase, Subcategory
 
 PERMISSIONS = [
     ("users.view", "View users", "Users"),
@@ -153,6 +153,9 @@ async def seed(runtime) -> dict:
                 attributes={"weight": "1kg", "warranty": "2y"},
             )
         )
+
+        session.add(GeoSample(name="Sample A", sel_country="br", sel_state="sp", sel_city="sao", sel_district="pin", look_country="br", look_state="sp", look_city="sao", look_district="pin"))
+        session.add(GeoSample(name="Sample B", sel_country="us", sel_state="ca", sel_city="la", sel_district="hol", look_country="us", look_state="ca", look_city="la", look_district="hol"))
 
         moment = datetime(2026, 7, 15, 9, 0, tzinfo=timezone.utc)
         session.add(ScheduledTask(name="Nightly cleanup", task_name="demo.cleanup", schedule_type="cron", cron_expression="0 3 * * *", queue="default", next_run_at=moment))

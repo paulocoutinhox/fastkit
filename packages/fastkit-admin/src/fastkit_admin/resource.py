@@ -266,6 +266,20 @@ class AdminResource(Generic[ModelT]):
         if self.read_only:
             raise AuthorizationError(AUTHORIZATION_DENIED, message=f"{self.label or self.name} is read-only")
 
+    async def _save_inlines(self, session, row, data: dict, locale: str) -> None:
+        parent_id = getattr(row, self.pk_field)
+
+        for inline in self.inlines:
+            submitted = data.get(inline.name)
+
+            if submitted is not None:
+                await inline.save(session, parent_id, submitted, locale)
+
+    async def inline_values(self, session, row, locale: str = "en") -> dict:
+        parent_id = getattr(row, self.pk_field)
+
+        return {inline.name: await inline.load(session, parent_id, locale) for inline in self.inlines}
+
     async def create(self, session, data: dict, locale: str = "en"):
         self._guard_writable()
         parsed = self._parse_and_validate(data, locale, partial=False)
@@ -277,6 +291,7 @@ class AdminResource(Generic[ModelT]):
         try:
             await session.flush()
             await self.after_create(session, row)
+            await self._save_inlines(session, row, data, locale)
             await session.commit()
         except IntegrityError as error:
             await session.rollback()
@@ -298,6 +313,7 @@ class AdminResource(Generic[ModelT]):
         await self.after_update(session, row)
 
         try:
+            await self._save_inlines(session, row, data, locale)
             await session.commit()
         except IntegrityError as error:
             await session.rollback()

@@ -21,3 +21,48 @@
   max-height: 14rem;
   overflow-y: auto;
 }
+
+.ti.alert-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.fk-field,
+.fk-filter {
+  position: relative;
+}
+
+.fk-load-spin {
+  position: absolute;
+  top: 0.15rem;
+  right: 0;
+}
+
+.fk-busy {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
+  background: color-mix(in srgb, var(--tblr-bg-surface) 72%, transparent);
+}
+
+#fk-nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  background: var(--tblr-primary);
+  box-shadow: 0 0 10px var(--tblr-primary), 0 0 5px var(--tblr-primary);
+  z-index: 2000;
+  opacity: 0;
+}
+
+#fk-nav-progress.fk-progress-active {
+  width: 92%;
+  opacity: 1;
+  transition: width 6s cubic-bezier(0.15, 0.85, 0.25, 1);
+}
