@@ -103,8 +103,13 @@ class AccountService:
             return identifier
 
     async def remove_identifier(self, user_id, identifier_id) -> bool:
+        identifier_pk = _as_int(identifier_id)
+
+        if identifier_pk is None:
+            return False
+
         async with self._session_factory() as session:
-            identifier = await session.get(LoginIdentifier, identifier_id)
+            identifier = await session.get(LoginIdentifier, identifier_pk)
 
             if identifier is None or identifier.user_id != user_id:
                 return False
@@ -180,3 +185,13 @@ class AccountService:
 
             if identifier_type == "phone" and user.phone is None:
                 user.phone = normalized
+
+
+def _as_int(value):
+    if isinstance(value, int):
+        return value
+
+    if isinstance(value, str) and value.lstrip("-").isdigit():
+        return int(value)
+
+    return None

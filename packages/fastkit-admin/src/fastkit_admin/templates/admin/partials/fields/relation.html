@@ -1,3 +1,6 @@
-<select class="form-select fk-relation" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}" data-field="{{ field.name }}" data-depends-on="{{ field.depends_on | join(',') }}" data-value="{{ field.value if field.value is not none else '' }}">
-  <option value="">—</option>
-</select>
+<div class="d-flex align-items-start gap-1{% if field.related %} fk-related{% endif %}"{% if field.related %} data-related="{{ field.related }}"{% endif %}>
+  <select class="form-select fk-relation flex-fill" id="field-{{ field.name }}" name="{{ field.name }}" data-testid="field-{{ field.name }}" data-field="{{ field.name }}" data-depends-on="{{ field.depends_on | join(',') }}" data-value="{{ field.value if field.value is not none else '' }}">
+    <option value="">—</option>
+  </select>
+  {% include "admin/partials/_related_buttons.html" %}
+</div>

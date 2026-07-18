@@ -84,6 +84,20 @@ def test_table_partial_renders_rows_cells_and_actions():
     assert 'data-testid="delete-2"' in html
 
 
+def test_clickable_cell_targets_edit_when_updatable_else_detail():
+    editable = _schema()
+    editable["columns"][0]["clickable"] = True
+    html = _render(list_context(editable, _result(), "/admin", None, None))
+    assert '<a class="fk-cell-link d-block" href="/admin/products/1/edit">' in html
+
+    view_only = _schema()
+    view_only["columns"][0]["clickable"] = True
+    view_only["flags"] = {"can_list": True, "can_detail": True, "can_create": False, "can_update": False, "can_delete": False}
+    html = _render(list_context(view_only, _result(), "/admin", None, None))
+    assert '<a class="fk-cell-link d-block" href="/admin/products/1">' in html
+    assert "/admin/products/1/edit" not in html
+
+
 def _schema_with_filters():
     schema = _schema()
     schema["filters"] = [
@@ -217,13 +231,34 @@ def test_field_partial_renders_password_and_boolean_and_select():
     assert 'value="a" selected' in select
 
 
+def test_related_buttons_respect_permission_flags():
+    field = _field(name="category_id", type="relation", depends_on=[], value="3", related="categories", related_flags={"add": True, "edit": False, "delete": False})
+    html = _render_field(field)
+
+    assert 'data-related="categories"' in html
+    assert 'data-testid="related-add-category_id"' in html
+    assert 'data-testid="related-edit-category_id"' not in html
+    assert 'data-testid="related-delete-category_id"' not in html
+
+
+def test_related_edit_and_delete_are_disabled_without_a_value():
+    import re
+
+    field = _field(name="category_id", type="relation", depends_on=[], value=None, related="categories", related_flags={"add": True, "edit": True, "delete": True})
+    html = _render_field(field)
+
+    assert re.search(r'related-edit-category_id"[^>]*\bdisabled\b', html)
+    assert re.search(r'related-delete-category_id"[^>]*\bdisabled\b', html)
+    assert not re.search(r'related-add-category_id"[^>]*\bdisabled\b', html)
+
+
 def test_complex_field_partials_render_mount_containers():
     richtext = _render_field(_field(name="body", type="richtext", upload_url="/api/uploads/image", value="<p>Hi</p>"))
     assert 'class="fk-richtext"' in richtext
     assert 'data-upload-url="/api/uploads/image"' in richtext
 
     lookup = _render_field(_field(name="cat", type="lookup", depends_on=[], min_chars=0, initial_limit=10, search_limit=20, value="5"))
-    assert 'class="fk-lookup"' in lookup
+    assert 'class="fk-lookup flex-fill"' in lookup
     assert 'data-search-limit="20"' in lookup
     assert 'value="5"' in lookup
 

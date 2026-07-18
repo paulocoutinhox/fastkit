@@ -9,6 +9,9 @@ _SKIP = object()
 def _coerce_for_column(column, value):
     """Coerce a query-string value to the column's Python type; return _SKIP if it does not parse."""
 
+    if isinstance(value, (dict, list, set, tuple)):
+        return _SKIP
+
     if isinstance(value, (int, float, Decimal, date, time, datetime)):
         return value
 

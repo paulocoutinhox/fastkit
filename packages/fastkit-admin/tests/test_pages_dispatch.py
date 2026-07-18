@@ -20,7 +20,10 @@ async def _seed(session, model, count=3):
     await session.commit()
 
 
-async def _report_data(name, session, locale, params):
+async def _report_data(name, session, locale, params, check):
+    if not await check("reports.view"):
+        raise AuthorizationError(AUTHORIZATION_DENIED, message="denied")
+
     return {"title": "Sales", "columns": [{"key": "c", "label": "C", "align": "left"}], "rows": [{"c": "x"}], "formats": ["csv"], "filters": []}
 
 
@@ -70,6 +73,39 @@ async def test_dispatch_form_create_and_edit(session, product_model, site):
     assert 'data-record-id="1"' in _body(edit)
 
 
+async def test_dispatch_form_fragment_renders_related_widget(session, product_model, tag_model):
+    from fastkit_admin.fields import RelationField, TextField
+    from fastkit_admin.resource import AdminResource
+    from fastkit_admin.site import AdminSite
+
+    class Owners(AdminResource):
+        name = "owners"
+        model = tag_model
+        list_columns = ["slug"]
+        form_fields = [TextField("slug")]
+        permissions = {}
+
+    class Things(AdminResource):
+        name = "things"
+        model = product_model
+        list_columns = ["name"]
+        form_fields = [TextField("name"), RelationField("owner_id", related="owners")]
+        permissions = {}
+
+    local = AdminSite()
+    local.register(Owners())
+    local.register(Things())
+
+    fragment = await dispatch_screen(_pages(local), "things/new", QueryParams("_fragment=form"), _USER, session, "en")
+    body = _body(fragment)
+
+    assert 'data-testid="form"' in body
+    assert 'data-testid="sidebar"' not in body
+    assert 'data-related="owners"' in body
+    assert 'data-testid="related-add-owner_id"' in body
+    assert 'data-testid="related-edit-owner_id"' in body
+
+
 async def test_dispatch_detail(session, product_model, site):
     await _seed(session, product_model, 1)
 
@@ -93,6 +129,16 @@ async def test_dispatch_report_full_and_fragment(site):
 async def test_dispatch_report_without_provider_is_not_found(site):
     with pytest.raises(NotFoundError):
         await dispatch_screen(_pages(site, report_data=None), "reports/sales", QueryParams(""), _USER, None, "en")
+
+
+async def test_dispatch_report_enforces_permission(site):
+    async def deny(user, permission):
+        raise AuthorizationError(AUTHORIZATION_DENIED, message="denied")
+
+    response = await dispatch_screen(_pages(site, authorize=deny), "reports/sales", QueryParams(""), _USER, None, "en")
+
+    assert response.status_code == 403
+    assert 'data-testid="content-error"' in _body(response)
 
 
 async def test_dispatch_profile(site):

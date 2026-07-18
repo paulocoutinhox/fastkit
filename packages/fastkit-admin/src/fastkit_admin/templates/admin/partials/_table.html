@@ -6,7 +6,7 @@
         {% if has_bulk %}<th class="w-1 text-center"><input type="checkbox" class="form-check-input" data-testid="grid-select-all"></th>{% endif %}
         {% for column in columns %}
         <th data-testid="header-{{ column.name }}" class="{% if column.align == 'center' or (column.align is none and column.field_type == 'boolean') %}text-center{% endif %}">
-          {% if column.sortable %}<a class="text-reset fk-sort" data-testid="sort-{{ column.name }}" href="{{ base_url }}?sort={{ column.sort_value }}{% if search %}&search={{ search | urlencode }}{% endif %}">{{ t(column.label) }} <i class="ti {{ g.sort_icon(column) | trim }}"></i></a>{% else %}{{ t(column.label) }}{% endif %}
+          {% if column.sortable %}<a class="fk-sort" data-testid="sort-{{ column.name }}" href="{{ base_url }}?sort={{ column.sort_value }}{% if search %}&search={{ search | urlencode }}{% endif %}">{{ t(column.label) }} <i class="ti {{ g.sort_icon(column) | trim }}"></i></a>{% else %}{{ t(column.label) }}{% endif %}
         </th>
         {% endfor %}
         <th class="w-1"></th>
@@ -18,7 +18,7 @@
         {% if has_bulk %}<td class="text-center"><input type="checkbox" class="form-check-input fk-row-select" data-testid="select-{{ row.id }}" value="{{ row.id }}"></td>{% endif %}
         {% for column in columns %}
         <td data-testid="cell-{{ column.name }}-{{ row.id }}" data-col="{{ column.name }}" data-type="{{ column.field_type }}" class="{% if column.align == 'center' or (column.align is none and column.field_type == 'boolean') %}text-center{% endif %}">
-          {% if column.clickable %}<a class="text-reset d-block" href="{{ path }}/{{ resource }}/{{ row.id }}/edit">{{ g.cell(column, row[column.name]) }}</a>{% else %}{{ g.cell(column, row[column.name]) }}{% endif %}
+          {% if column.clickable and (flags.can_update or flags.can_detail) %}<a class="fk-cell-link d-block" href="{{ path }}/{{ resource }}/{{ row.id }}{{ '/edit' if flags.can_update else '' }}">{{ g.cell(column, row[column.name]) }}</a>{% else %}{{ g.cell(column, row[column.name]) }}{% endif %}
         </td>
         {% endfor %}
         <td>{{ g.row_actions(row, flags, path, resource) }}</td>

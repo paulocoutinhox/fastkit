@@ -12,6 +12,7 @@ class Category(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "demo_categories"
 
     name: Mapped[str] = mapped_column(String(80), nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     def display_label(self) -> str:
@@ -22,6 +23,7 @@ class Subcategory(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "demo_subcategories"
 
     name: Mapped[str] = mapped_column(String(80), nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     category_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("demo_categories.id", ondelete="CASCADE"), nullable=False, index=True)
 
     def display_label(self) -> str:
@@ -33,6 +35,7 @@ class Product(PrimaryKeyMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     sku: Mapped[str] = mapped_column(String(40), nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
     category_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_categories.id", ondelete="SET NULL"), nullable=True, index=True)
     subcategory_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_subcategories.id", ondelete="SET NULL"), nullable=True, index=True)

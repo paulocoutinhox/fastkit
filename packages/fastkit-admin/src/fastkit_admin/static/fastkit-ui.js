@@ -58,7 +58,10 @@
     if (typeof opts.body === "string") { $body.html(opts.body); } else if (opts.body) { $body.append(opts.body); }
     $content.append($body);
 
-    function close() { $modal.remove(); }
+    function close() {
+      if (opts.onClose) { opts.onClose(); }
+      $modal.remove();
+    }
 
     if (opts.buttons && opts.buttons.length) {
       var $footer = $('<div class="modal-footer"></div>');
@@ -143,25 +146,31 @@
     });
   }
 
+  function errorSlot($scope, fieldError, aliases) {
+    var path = fieldError.path && fieldError.path.length ? fieldError.path : [fieldError.field];
+    if (path.length === 3) {
+      return $scope.find('.fk-inline[data-inline="' + path[0] + '"] .fk-inline-rows > .fk-inline-row').eq(path[1]).find('[data-error="' + path[2] + '"]');
+    }
+    return $scope.find('[data-error="' + (aliases[fieldError.field] || fieldError.field) + '"]');
+  }
+
   function formErrors($scope, error, options) {
     var opts = options || {};
     var aliases = opts.aliases || {};
     $scope.find("[data-error]").text("");
-    var firstKey = null;
+    var $first = null;
     (error.fieldErrors || []).forEach(function (fieldError) {
-      var key = aliases[fieldError.field] || fieldError.field;
-      var $slot = $scope.find('[data-error="' + key + '"]');
+      var $slot = errorSlot($scope, fieldError, aliases).first();
       if ($slot.length) {
         $slot.text(fieldError.message);
-        if (firstKey === null) { firstKey = key; }
+        if ($first === null) { $first = $slot; }
       }
     });
-    if (firstKey === null) {
+    if ($first === null) {
       toast("error", error.message);
       return false;
     }
-    var $slot = $scope.find('[data-error="' + firstKey + '"]').first();
-    var $field = $slot.closest(".mb-3, .col-12, .col").find("input, select, textarea").filter(":visible").first();
+    var $field = $first.closest(".mb-3, .col-12, .col").find("input, select, textarea").filter(":visible").first();
     if ($field.length) {
       $field[0].scrollIntoView({ behavior: "smooth", block: "center" });
       $field.trigger("focus");

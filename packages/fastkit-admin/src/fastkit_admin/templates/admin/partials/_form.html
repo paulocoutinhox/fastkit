@@ -1,0 +1,20 @@
+<form data-testid="form" autocomplete="off" novalidate data-resource="{{ resource }}" data-mode="{{ mode }}"{% if record_id %} data-record-id="{{ record_id }}"{% endif %}>
+  {% for fieldset in fieldsets %}
+  <div class="card mb-3" data-testid="fieldset-{{ loop.index0 }}">
+    {% if fieldset.title %}
+    <div class="card-header flex-column align-items-start py-2">
+      <h3 class="card-title mb-0">{{ t(fieldset.title) }}</h3>
+      {% if fieldset.description %}<div class="text-secondary small">{{ t(fieldset.description) }}</div>{% endif %}
+    </div>
+    {% endif %}
+    <div class="card-body">
+      {% for field in fieldset.fields %}{% include "admin/partials/_field.html" %}{% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  {% for inline in inlines %}{% include "admin/partials/inline.html" %}{% endfor %}
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary" data-testid="form-save">{{ t('form.save') }}</button>
+    <button type="button" class="btn fk-cancel" data-testid="form-cancel">{{ t('form.cancel') }}</button>
+  </div>
+</form>

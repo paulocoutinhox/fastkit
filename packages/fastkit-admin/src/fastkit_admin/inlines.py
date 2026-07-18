@@ -1,5 +1,7 @@
 from sqlalchemy import select
 
+from fastkit_core.errors.exceptions import ValidationError
+
 
 class InlineResource:
     """A repeatable child sub-form rendered inside a parent resource's form.
@@ -30,7 +32,7 @@ class InlineResource:
         }
 
     def serialize(self, child, locale: str) -> dict:
-        data = {self.pk_field: str(getattr(child, self.pk_field))}
+        data = {"id": str(getattr(child, self.pk_field))}
 
         for admin_field in self.form_fields:
             data[admin_field.name] = admin_field.format_value(getattr(child, admin_field.name, None), locale)
@@ -44,13 +46,41 @@ class InlineResource:
 
         return [self.serialize(child, locale) for child in children]
 
-    async def save(self, session, parent_id, rows: list, locale: str) -> None:
+    def validate(self, rows: list, locale: str, errors: list) -> list | None:
+        if not all(isinstance(item, dict) for item in rows):
+            return None
+
+        parsed = []
+
+        for index, item in enumerate(rows):
+            values = {}
+
+            for admin_field in self.form_fields:
+                if admin_field.virtual or admin_field.readonly:
+                    continue
+
+                try:
+                    value = admin_field.parse_value(item.get(admin_field.name), locale)
+                    admin_field.validate(value)
+                except ValidationError as error:
+                    for field_error in error.field_errors:
+                        field_error.path = [self.name, index, admin_field.name]
+                        errors.append(field_error)
+                    continue
+
+                values[admin_field.name] = value
+
+            parsed.append((item.get("id"), values))
+
+        return parsed
+
+    async def persist(self, session, parent_id, parsed: list) -> None:
         column = getattr(self.model, self.fk_field)
         existing = {getattr(child, self.pk_field): child for child in (await session.execute(select(self.model).where(column == parent_id))).scalars()}
         seen = set()
 
-        for item in rows:
-            child = existing.get(_match(item.get(self.pk_field)))
+        for raw_id, values in parsed:
+            child = existing.get(_match(raw_id))
 
             if child is None:
                 child = self.model(**{self.fk_field: parent_id})
@@ -58,13 +88,8 @@ class InlineResource:
             else:
                 seen.add(getattr(child, self.pk_field))
 
-            for admin_field in self.form_fields:
-                if admin_field.virtual or admin_field.readonly:
-                    continue
-
-                value = admin_field.parse_value(item.get(admin_field.name), locale)
-                admin_field.validate(value)
-                setattr(child, admin_field.name, value)
+            for name, value in values.items():
+                setattr(child, name, value)
 
         for child_id, child in existing.items():
             if child_id not in seen:

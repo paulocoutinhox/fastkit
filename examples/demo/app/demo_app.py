@@ -4,6 +4,8 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 
 from fastkit_core.apps.base import BootstrapContext, FastKitApp
+from fastkit_core.errors.codes import AUTHORIZATION_DENIED
+from fastkit_core.errors.exceptions import AuthorizationError
 from fastkit_admin.api import build_admin_router
 from fastkit_admin.pages import build_admin_pages_router, build_page_config
 from fastkit_admin.profile import build_profile_router
@@ -154,7 +156,10 @@ class DemoApp(FastKitApp):
         report_service = runtime.component("report_service")
         report_registry = runtime.component("report_registry")
 
-        async def report_data(name, session, locale, params):
+        async def report_data(name, session, locale, params, check):
+            if not await check("reports.view"):
+                raise AuthorizationError(AUTHORIZATION_DENIED, message="reports.view is required")
+
             schema = report_registry.get(name).to_schema()
             result = await report_service.build_result(name, session, dict(params))
 

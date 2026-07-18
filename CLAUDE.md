@@ -118,10 +118,17 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   normalizer raises under `field="value"`, not the identifier type) and carry a `code` + `params`
   **but no inline message** — the exception handlers resolve the text from the catalog
   (`localize_field_errors` → `translator.gettext(code, locale, **params)`), so pydantic and admin
-  validation are both translated (see the Translations section). Client side, **one helper
-  `FastKit.formErrors($scope, err, {aliases})`** fills every `[data-error]` slot, focuses/scrolls
-  the first errored field, and toasts only when no field matched — every form (resource
-  create/edit, all profile sub-forms, add-identifier) goes through it, never a bespoke `.catch`.
+  validation are both translated (see the Translations section). **Inline-formset errors are
+  per-row**: `InlineResource.validate` runs **before any DB write** (no partial persist), validates
+  **every** row, and tags each `FieldError` with `path = [inline_name, row_index, field_name]`
+  (`_serialize_field_error` already emits `path`, defaulting to `[field]` for a plain field); the
+  row index is the submitted-payload order, which equals the client's DOM row order. Client side,
+  **one helper `FastKit.formErrors($scope, err, {aliases})`** routes each error by its `path` — a
+  3-element inline path fills the `index`-th `.fk-inline-row`'s `[data-error=<field>]`, a plain path
+  fills the main `[data-error]` slot — so an error on one inline row **never lights up the same-named
+  field on the other rows**; it clears all slots first, focuses/scrolls the first errored field, and
+  toasts only when no field matched. Every form (resource create/edit, the related-object modal, all
+  profile sub-forms, add-identifier) goes through it, never a bespoke `.catch`.
 - **The admin never 500s on ordinary bad input.** Field parsers that coerce (`NumberField`,
   `RelationField`/`LookupField` `int()`, `MultiSelectField` list) raise a 422 `FieldError`, not a
   raw `ValueError`/`TypeError`. `DateField`/`TimeField`/`DateTimeField` reject a non-string JSON value
@@ -136,7 +143,9 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   flat `filter[created_at]=abc` can't raise `AttributeError`). `get_object` **coerces the id to
   `int` only when the PK column is `Integer`** (a non-numeric id against an integer PK returns
   `NotFound`, and a numeric id against a String PK stays a string — no `varchar = integer` Postgres
-  `DataError`), and `bulk_action` ignores a non-list `ids`. A genuinely **out-of-range** integer
+  `DataError`), `bulk_action` ignores a non-list `ids`, and a **malformed inline payload** (a
+  non-`list`, or a list with a non-dict item) is ignored rather than raising or wiping children.
+  A genuinely **out-of-range** integer
   (a 40-digit id/filter/page) is deliberately **left to error at the driver** (a clean, non-leaking
   `internal.error` 500) — bound-checking every int against its column range is not worth the code;
   absurd numeric input is not "ordinary bad input".
@@ -219,7 +228,9 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     `run_action` raises `NotFound` when a declared action has no `action_<name>` method;
     `AccountService.update_profile`/`set_password_hash` raise `NotFound` for a missing user;
     `images.process_variant` raises `FastKitError` (not a bare `KeyError`) for an unknown output
-    format. **A translation lookup never crashes**: `Translator.gettext` formats leniently
+    format **and wraps the whole `Image.open`/decode in a guard that raises `NOT_AN_IMAGE`** for a
+    non-image (or a decode/bomb error) — so a direct caller that skips `inspect` (the avatar handler
+    feeds raw bytes to `process_variant`) returns a clean 422, never a 500 from `UnidentifiedImageError`. **A translation lookup never crashes**: `Translator.gettext` formats leniently
     (`format_map` with a lenient dict, catching `ValueError`/`IndexError`), so a catalog string with
     a wrong or literal-brace placeholder degrades to the raw template instead of raising inside the
     exception handler.
@@ -268,11 +279,15 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     server renders each screen), so there is no SPA render-race to token-guard — a response can never
     write into a screen the user already left. What remains are the in-screen async guards: the
     lookup widget's search carries a per-widget sequence id (`seq`; stale responses ignored) and
-    `.catch` (a failed options request never leaves an empty stuck dropdown); the filter select/lookup
-    loads `.catch`; the permission-matrix and translations sub-loads `.catch` to a rendered
-    empty state; the grid/report AJAX fragment swap `.fail`/`.catch`es with a toast; and the grid's
-    filter **Apply iterates the rendered `.fk-filter-input`/`.fk-filter-lookup` widgets**, so a
-    resource whose `filter_fieldsets` groups only some filters can't throw on Apply.
+    `.catch` (a failed options request never leaves an empty stuck dropdown); the relation/filter
+    **option-select loads carry the same per-select `seq`** so a rapid parent change can't let an
+    earlier response overwrite a later one (the child never shows options for a stale parent); the
+    filter select/lookup loads `.catch`; the permission-matrix and translations sub-loads `.catch` to
+    a rendered empty state; the grid/report AJAX fragment swap `.fail`/`.catch`es with a toast; the
+    grid's filter **Apply iterates the rendered `.fk-filter-input`/`.fk-filter-lookup` widgets** (a
+    resource whose `filter_fieldsets` groups only some filters can't throw on Apply); and **Clear
+    resets the synthetic `.fk-filter-lookup` widgets** (`data-value` + input), so a cleared lookup
+    filter is never silently re-applied on the next Apply.
   - **XSS is defended by default**: the one shared HTML sanitizer lives in
     `fastkit_core.sanitize.sanitize_html` (allow-list tags/attrs/URL schemes, drops `on*`,
     `script`/`style`, `javascript:`/non-image `data:`) — a **self-closed** `<script/>`/`<style/>` drops
@@ -299,8 +314,14 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   it needs a lifecycle to enter/close the client and its own `bucket` setting. Swapping the rate
   limiter / reCAPTCHA verifier for a shared-store implementation is part of the multi-worker
   follow-up (they are collaborators of `AuthService`, not yet settings-selected). The CLI has no
-  third-party subcommand mechanism yet (unlike apps/assets/tasks/reports/webhooks). None of these
-  are wired half-way — implement them fully when needed.
+  third-party subcommand mechanism yet (unlike apps/assets/tasks/reports/webhooks). Also,
+  `AssetService.cleanup_orphans` reaps every asset still at `status=uploaded` past a cutoff, but a
+  **directly-referenced** upload (avatar, rich-text image, a resource cover) stays at `uploaded`
+  (only `process_image` promotes to `ready`, and direct-URL usage creates no `AssetAttachment`), so
+  wiring the sweep as-is would delete in-use objects — it is deliberately **not scheduled anywhere**
+  and needs the full attach-on-use lifecycle (the consumer marking a used asset, or the sweep scoping
+  to genuinely unreferenced ones) before it can run. None of these are wired half-way — implement
+  them fully when needed.
 - **Extensibility contracts** (a consumer extends every subsystem without editing the framework):
   apps + lifecycle hooks (`register_settings/models/services/templates/translations/tasks/admin/
   routers` + `startup/shutdown`) discovered via the `fastkit.apps` entry point; the model / router /
@@ -415,7 +436,7 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
 
 ## Admin engine (fastkit-admin)
 
-- `AdminResource[Model]` declares `list_columns`, `search_fields`, `filters`,
+- `AdminResource[Model]` declares `list_columns`, `clickable_columns`, `search_fields`, `filters`,
   `actions`, `ordering`, `form_fields`, `fieldsets`, `inlines`, `permissions`, `select_all`.
   `ordering` is empty by default: when nobody overrides it the grid orders by the
   resource's `pk_field` **descending** (`-pk_field` — newest first), exposed to the client as
@@ -430,9 +451,15 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
   through their own endpoints. `hide_label=True` renders a field without its label
   (use the fieldset title instead). A `Fieldset(title, [names], description=…)`
   renders `description` as a small hint under the title.
-- **File cleanup on delete**: a resource lists `file_fields` and receives a `storage`
-  provider + `media_base_url`; deleting a record (single or via the grid's bulk
-  delete) removes the referenced objects from storage, best-effort and logged.
+- **File cleanup on delete and on replace**: a resource lists `file_fields` and receives a `storage`
+  provider + `media_base_url`; deleting a record (single or via the grid's bulk delete) removes the
+  referenced objects from storage, and **updating a record to a new file value removes the previously
+  stored object** (only the changed fields, after the commit) — both best-effort and logged, both
+  skipping empty/external URLs via `_object_key`. An
+  **uploaded cover image** is just an `ImageField(upload_url=…)` (the upload widget) plus a
+  `render_<column>` returning an `<img>` thumbnail for the grid/detail and the field in
+  `file_fields` — the demo's **Categories, Subcategories and Products** each carry a `image_url`
+  cover this way (a shared `cover_thumb` helper renders the rounded thumbnail, `—` when empty).
 - **Django-style overrides** on `AdminResource`: `get_queryset()` returns the base
   SQLAlchemy `select` (filter, join, restrict columns); `render_<column>(row, locale)`
   returns a cell's HTML (marks that column `html` in the schema so the client renders it
@@ -473,13 +500,51 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
   search_limit=20)`: the client opens the dropdown **on focus** with `initial_limit`
   results (no typing needed), then sends `search_limit` while the user searches — the
   handler honours `params["limit"]`. The dropdown is a Tabler `dropdown-menu`.
-- **Columns** (`columns.py`): `Column(name, align, sortable, clickable, type)`. Sorting is
+- **Related-object widget (Django-style add/edit/delete in a modal)**: a `RelationField` or
+  `LookupField` with `related="<resource name>"` renders **+ / pencil / trash** icons beside the
+  control (`_related_buttons.html`) that manage the related record **without leaving the form**. The
+  icons open the *related* resource's own form in a `FastKit.modal` — fetched from a new
+  **`?_fragment=form`** render (`partials/_form.html`, the `<form>` alone, no shell) so the modal
+  reuses the entire server-rendered form pipeline (fields, inlines, validation). `openRelatedModal`
+  runs `enhance()`+`initInlines` on the modal form and submits through the same `collect()`+`/api`
+  (POST create / PATCH edit, plus matrix/translation sub-saves) with errors shown **inside** the
+  modal via `FastKit.formErrors`. On success it closes and refreshes the parent control: **add**
+  reloads options + selects the new id (and resets its dependents, since the value changed);
+  **delete** clears the control, reloads its options so the deleted record drops out of the dropdown
+  (not merely deselected) and resets dependents; **edit** keeps the value and runs
+  `refreshRelatedChain` — a general walk of the `depends_on` graph that reloads the edited field and
+  **every field that (transitively) depends on it, each keeping its current value if it still
+  exists** (`loadOptions(current=value)` keeps a surviving option and clears a deleted one;
+  `setLookupValue` clears a lookup whose id no longer resolves). This is why editing a related
+  record's own inline children (e.g. a Category's Subcategories in the modal) **refreshes the
+  dependent sub-select** on the parent form — no hardcoding, works to any depth and for
+  selects/lookups, form-level or inline-row-scoped (`scopeOf`). The icons are **permission-gated per related resource**: `form_screen` attaches
+  `related_flags` (`add`/`edit`/`delete` = the related resource's `can_create`/`update`/`delete` for
+  the acting user), so an icon renders only when allowed and edit/delete are **server-rendered
+  disabled until a value is selected** (toggled on `change` client-side). Works nested (a modal
+  form's own related fields open further modals). The demo wires Product's category/subcategory
+  selects and Field showcase's category/subcategory lookups to the `categories`/`subcategories`
+  resources.
+- **Columns** (`columns.py`): `Column(name, align, sortable, type)`. Sorting is
   applied per column; override how a column sorts with a `sort_<column>()` method
   returning a SQLAlchemy expression. Render a cell with `render_<column>(row, locale)`.
   `type` (else the mapped field's `field_type`, else `"text"`) drives client-side, locale
   aware cell formatting: `date`/`datetime`/`time` and `number`/`decimal` are sent raw and
   formatted in the browser's locale, `boolean` renders a green check / red ✕ icon, and
   `null`/empty renders a Django-style dash. A `render_<column>` always wins.
+- **Click-through is resource-level, every column by default**: `AdminResource.clickable_columns`
+  is `None` by default → **every cell links to the record** (to `{id}/edit` when the user
+  `can_update`, else the `{id}` detail view when `can_detail`, else not a link — so a read-only
+  resource still opens the view, never a broken edit URL). Override with a list to make only those
+  columns clickable, or `[]` to disable click-through entirely (the demo Categories sets
+  `clickable_columns = ["name"]`). Click-through is **not** a per-`Column` flag. A column whose
+  `render_<column>` returns its own `<a>`/interactive markup should be excluded via
+  `clickable_columns` to avoid a nested link; `formatCells` formats datetime/number **inside** the
+  cell's click-through `<a>` so localized values still render. The click-through link is
+  **visually neutral** (`.fk-cell-link`: inherits the cell's color and font-weight, no underline, no
+  hover color shift) so a linked cell reads as plain text — custom `render_<column>` markup inside it
+  keeps its own styling. Sortable **headers** (`.fk-sort`) are neutral the same way — **no underline
+  on hover**.
 - **Filters** (`filters.py`): `TextFilter`, `ExactFilter`, `BooleanFilter`, `NumberFilter`,
   `ChoiceFilter`, `EnumFilter`, `DateFilter`/`TimeFilter`/`DateTimeFilter`/`DateRangeFilter`,
   `MultiChoiceFilter`, plus `SelectFilter(field, choices|options, depends_on)` and
@@ -488,8 +553,10 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
   lookups work as filters with `depends_on` cascades. A `filters` list may also contain
   `Fieldset(title, [fields])` entries to group filters; `grid_schema` returns them under
   `filter_fieldsets` and the client renders the filter panel grouped, with Apply/Clear.
-- **Grid endpoints**: list, detail, `GET /resources/{r}/{id}/row` (single serialized
-  row for JS refresh), create/update/patch/delete, actions, options.
+- **Grid endpoints**: list, detail, `GET /resources/{r}/{id}/row` (a single grid-serialized
+  row as JSON — part of the general permission-gated `/api`, for a consumer's own scripts; the
+  shipped client refreshes by swapping the `?_fragment=table` HTML, not this), create/update/patch/
+  delete, actions, options.
 - **Schema**: `grid_schema` exposes columns (each carrying its `field_type`), filters,
   actions, `select_all`, `default_sort`, flags; `form_schema` returns `fieldsets`
   (each rendered as its own card).
@@ -511,8 +578,9 @@ collapsible `nav-item dropdown` (`nav-link dropdown-toggle` + `data-bs-toggle="d
 do not hand-roll it. **Use Tabler's defaults for everything —
 never override its colors, shadows or styles.** `admin.css` holds only a few genuinely-custom
 component rules — `.fk-upload-preview`, `.fk-lookup-menu`, the loading affordances
-(`.fk-load-spin` select spinner, `.fk-busy` grid/report overlay, `#fk-nav-progress` top bar) and
-`.ti.alert-icon` (sizes the icon **font** to match Tabler's SVG alert icon) — there is no
+(`.fk-load-spin` select spinner, `.fk-busy` grid/report overlay, `#fk-nav-progress` top bar),
+`.ti.alert-icon` (sizes the icon **font** to match Tabler's SVG alert icon) and the neutral
+click-through/header links (`.fk-cell-link`/`.fk-sort`: color/weight inherit, no underline) — there is no
 primary-color or shadow override. A consumer may opt into a brand primary color via
 `theme={"primary_color": …}` (which sets Tabler's own `--tblr-primary`), but the default is stock
 Tabler. Never use Tailwind. **Alerts follow Tabler's real markup** (`alerts.html`): `.alert` is a
@@ -543,11 +611,16 @@ Tabler hover highlight has breathing room (not a tight box).
   with 403, not a raw JSON envelope), builds its context via `screens.py` (`list_context`/
   `form_context`/`detail_context`/`report_context`/`profile_context`) and renders. **A
   `?_fragment=table` request renders only `partials/_table.html`/`_report_table.html`** (no shell) —
-  that's what the client swaps on grid/report AJAX. A `t(key, **params)` callable (bound to
+  that's what the client swaps on grid/report AJAX — and **`?_fragment=form`** renders only
+  `partials/_form.html` (the bare `<form>`), which the related-object modal loads. A `t(key, **params)` callable (bound to
   `translator.gettext` + the resolved locale, key-fallback) is injected into every render, so
-  templates translate everything. `report_data(name, session, locale, params)` and
+  templates translate everything. `report_data(name, session, locale, params, check)` and
   `profile_data(user, locale)` are async providers the consumer wires from its report/account
-  services (the demo does at `demo_app.py`). The module-level screen builders are unit-tested via
+  services (the demo does at `demo_app.py`). The **report screen is authorization-gated like every
+  other screen**: `dispatch_screen` passes the per-user `check(permission)->bool` into `report_data`,
+  the consumer raises `AuthorizationError` when denied (the demo requires `reports.view`), and the
+  branch renders `error.html` 403 — so a staff user lacking the report permission can't reach the
+  rendered report by URL even though the API already 403s. The module-level screen builders are unit-tested via
   direct `await` for 100% coverage (route handlers are thin `return await render_*(...)` wrappers).
   `build_page_config` builds the shell context + the per-request `window.__FASTKIT__` client
   bootstrap (api base, admin path, brand, locale, timezone, messages, reCAPTCHA). `STATIC_DIR` holds
@@ -585,7 +658,9 @@ Tabler hover highlight has breathing room (not a tight box).
   grid does **jQuery AJAX**: search/sort/paginate/filter and row-delete/bulk swap the server's
   `?_fragment=table` HTML into `#grid` (never a full reload); datetime/number cells are formatted
   client-side in the user's timezone/locale (`formatCells`, reading each cell's raw value from the
-  row's `data-row` JSON). Every destructive action goes behind `FastKit.confirm`. Uploads are keyed
+  row's `data-row` JSON — a bare `time` value is parsed as `1970-01-01T<value>` so time columns
+  localize too, and it formats **inside** a click-through `.fk-cell-link` so a linked cell still
+  localizes). Every destructive action goes behind `FastKit.confirm`. Uploads are keyed
   by kind: `POST /api/uploads/{kind}`. Because navigation is real page loads, there is no client
   render-race to guard.
 - **Rich text** is **TinyMCE 7** (self-hosted from `fastkit-vendor-tinymce`, GPL license
@@ -606,11 +681,18 @@ Tabler hover highlight has breathing room (not a tight box).
   `<template class="fk-inline-prototype">` on **Add**, removes a row on **Remove** (honouring
   `min_items`/`max_items`), and `reindexInline` keeps input ids unique; `collect` serializes
   every row (with its hidden `fk-inline-id`) into `{<inline>: [{id?, ...}, ...]}`. The parent
-  resource **persists children in the same transaction** (`_save_inlines` → `InlineResource.save`):
-  an **id-diff formset** — rows with a persisted `pk_field` are updated, new rows inserted, and
-  rows no longer present deleted (never delete-then-insert, so a child referenced elsewhere keeps
-  its id across an edit). A partial `PATCH` that omits an inline key leaves those children
-  untouched. The demo's Categories form manages its Subcategories inline.
+  resource **validates then persists children in the same transaction**
+  (`_validate_inlines` → `InlineResource.validate`, then `_save_inlines` → `InlineResource.persist`):
+  validation runs **before any DB write** (a parent is never flushed for an invalid child) and
+  collects **every** row's field errors at once with a per-row `path` (see the field-errors bullet).
+  Persistence is an **id-diff formset** — a row's id travels under the **`id` key** (mapped to the
+  child model's `pk_field`, so a non-default `pk_field` works), rows with a persisted id are updated,
+  new rows inserted, and rows no longer present deleted (never delete-then-insert, so a child
+  referenced elsewhere keeps its id across an edit). A partial `PATCH` that omits an inline key leaves
+  those children untouched, and a **malformed inline payload never 500s or wipes children**:
+  `_validate_inlines` only processes a `list` and `validate` returns `None` for a list containing a
+  non-dict — so `"x"`, `123`, `{}` or `[1,2]` leave the existing rows intact. The demo's Categories
+  form manages its Subcategories inline.
 - **Grid screen = three decoupled stacked parts** (the toolbar/filters are NOT baked into the
   grid card): (1) a **toolbar card** (`card > card-body > row g-2`) holding the search (only when
   the resource has `search_fields`, in a growing `col-md`) and a right-aligned `btn-list`
@@ -675,7 +757,11 @@ Tabler hover highlight has breathing room (not a tight box).
   grandchild value (a select's programmatic `.val()` fires no native `change`, so the explicit
   re-trigger is what makes N-level chains correct). Applies identically to form selects/lookups and
   to filter-panel select/lookup filters. The demo's **Geo samples** resource runs a real 4-level
-  chain to lock this in.
+  chain to lock this in. Parent lookup is **scoped to the enclosing `.fk-inline-row`** when the field
+  lives in an inline (`scopeOf`), so a per-row dependent chain reads *its own* row's parent and its
+  change handlers die with the row (no cross-row bleed, no leaked handler on row-remove). The
+  **initial** relation-option load is also submit-blocking (`pending`), so a fast Save on an edit
+  form can't persist an empty FK before its options finished loading.
 - **Loading feedback is built into every async widget** (`setLoading`/`loadingMenu`/`setBusy` in
   app.js, styled by `admin.css`): while a relation/filter **select** fetches remote options it is
   **disabled** and shows a small Tabler `spinner-border` in the field corner

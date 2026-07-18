@@ -1,0 +1,7 @@
+{% if field.related and field.related_flags %}
+<div class="btn-list flex-nowrap fk-related-actions">
+  {% if field.related_flags.add %}<button type="button" class="btn btn-icon fk-related-add" data-testid="related-add-{{ field.name }}" aria-label="{{ t('related.add') }}" title="{{ t('related.add') }}"><i class="ti ti-plus"></i></button>{% endif %}
+  {% if field.related_flags.edit %}<button type="button" class="btn btn-icon fk-related-edit" data-testid="related-edit-{{ field.name }}" aria-label="{{ t('related.edit') }}" title="{{ t('related.edit') }}"{% if not field.value %} disabled{% endif %}><i class="ti ti-pencil"></i></button>{% endif %}
+  {% if field.related_flags.delete %}<button type="button" class="btn btn-icon fk-related-delete" data-testid="related-delete-{{ field.name }}" aria-label="{{ t('related.delete') }}" title="{{ t('related.delete') }}"{% if not field.value %} disabled{% endif %}><i class="ti ti-trash"></i></button>{% endif %}
+</div>
+{% endif %}

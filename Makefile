@@ -35,7 +35,7 @@ install:
 	$(UV) venv --python 3.12 $(VENV)
 	$(UV) pip install $(foreach pkg,$(PACKAGES),-e packages/$(pkg)) -e examples/demo \
 		"uvicorn[standard]" pytest pytest-asyncio pytest-cov httpx ruff \
-		argon2-cffi pyjwt pillow jinja2 redis
+		argon2-cffi pyjwt pillow jinja2 redis asyncpg
 
 install-admin:
 	cd frontend/admin && $(NPM) install

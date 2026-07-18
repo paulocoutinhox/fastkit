@@ -85,29 +85,28 @@ def process_variant(data: bytes, spec: ImageVariantSpec) -> ProcessedVariant:
     if spec.format not in _FORMAT_MAP:
         raise FastKitError(NOT_AN_IMAGE, message=f"unknown output format '{spec.format}'")
 
-    with Image.open(io.BytesIO(data)) as source:
-        oriented = ImageOps.exif_transpose(source)
-        pillow_format = _FORMAT_MAP[spec.format]
+    pillow_format = _FORMAT_MAP[spec.format]
 
-        if pillow_format in ("JPEG",) and oriented.mode not in ("RGB", "L"):
-            oriented = oriented.convert("RGB")
+    try:
+        with Image.open(io.BytesIO(data)) as source:
+            oriented = ImageOps.exif_transpose(source)
 
-        resized = _resize(oriented, spec)
+            if pillow_format == "JPEG" and oriented.mode not in ("RGB", "L"):
+                oriented = oriented.convert("RGB")
 
-        buffer = io.BytesIO()
-        save_kwargs = {"format": pillow_format}
+            resized = _resize(oriented, spec)
+            buffer = io.BytesIO()
+            save_kwargs = {"format": pillow_format}
 
-        if pillow_format in ("JPEG", "WEBP"):
-            save_kwargs["quality"] = spec.quality
+            if pillow_format in ("JPEG", "WEBP"):
+                save_kwargs["quality"] = spec.quality
 
-        resized.save(buffer, **save_kwargs)
-        payload = buffer.getvalue()
+            resized.save(buffer, **save_kwargs)
+            payload = buffer.getvalue()
+            width, height = resized.width, resized.height
+    except FastKitError:
+        raise
+    except Exception as error:
+        raise FastKitError(NOT_AN_IMAGE, message="uploaded file is not a valid image") from error
 
-        return ProcessedVariant(
-            data=payload,
-            format=spec.format,
-            mime_type=_MIME_MAP[pillow_format],
-            width=resized.width,
-            height=resized.height,
-            size_bytes=len(payload),
-        )
+    return ProcessedVariant(data=payload, format=spec.format, mime_type=_MIME_MAP[pillow_format], width=width, height=height, size_bytes=len(payload))

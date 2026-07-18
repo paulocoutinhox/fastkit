@@ -49,6 +49,9 @@ class AdminSite:
 
         return resource
 
+    def find(self, name: str):
+        return self._resources.get(name)
+
     def resources(self) -> list:
         return list(self._resources.values())
 

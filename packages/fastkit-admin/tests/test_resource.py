@@ -274,7 +274,7 @@ def test_grid_columns_carry_field_type():
     assert columns["code"]["field_type"] == "text"
 
 
-def test_grid_schema_exposes_select_all_and_clickable():
+def test_grid_schema_exposes_select_all_and_defaults_every_column_clickable():
     from fastkit_admin.columns import Column
     from fastkit_admin.fields import TextField
     from fastkit_admin.resource import AdminResource
@@ -282,7 +282,7 @@ def test_grid_schema_exposes_select_all_and_clickable():
     class DemoAdmin(AdminResource):
         name = "demo"
         select_all = False
-        list_columns = [Column("name", clickable=True), "code"]
+        list_columns = [Column("name"), "code"]
         form_fields = [TextField("name")]
 
     grid = DemoAdmin().grid_schema()
@@ -290,7 +290,29 @@ def test_grid_schema_exposes_select_all_and_clickable():
 
     assert grid["select_all"] is False
     assert columns["name"]["clickable"] is True
-    assert columns["code"]["clickable"] is False
+    assert columns["code"]["clickable"] is True
+
+
+def test_clickable_columns_restricts_or_disables_click_through():
+    from fastkit_admin.resource import AdminResource
+
+    class SubsetAdmin(AdminResource):
+        name = "subset"
+        list_columns = ["name", "code"]
+        clickable_columns = ["name"]
+
+    class NoneAdmin(AdminResource):
+        name = "none"
+        list_columns = ["name", "code"]
+        clickable_columns = []
+
+    subset = {column["name"]: column for column in SubsetAdmin().grid_schema()["columns"]}
+    assert subset["name"]["clickable"] is True
+    assert subset["code"]["clickable"] is False
+
+    disabled = {column["name"]: column for column in NoneAdmin().grid_schema()["columns"]}
+    assert disabled["name"]["clickable"] is False
+    assert disabled["code"]["clickable"] is False
 
 
 async def test_sort_override_is_used(session, product_model):
@@ -424,6 +446,41 @@ async def test_delete_removes_owned_files(session, product_model):
     await session.commit()
     await admin.delete(session, external.id)
     assert admin.storage.deleted == []
+
+
+async def test_update_removes_a_replaced_file(session, product_model):
+    from fastkit_admin.fields import TextField
+    from fastkit_admin.resource import AdminResource
+
+    class RecordingStorage:
+        def __init__(self):
+            self.deleted = []
+
+        async def delete(self, key):
+            self.deleted.append(key)
+
+    storage = RecordingStorage()
+
+    class DemoAdmin(AdminResource):
+        name = "products"
+        model = product_model
+        file_fields = ["name"]
+        media_base_url = "/media"
+        form_fields = [TextField("name")]
+
+    admin = DemoAdmin()
+    admin.storage = storage
+
+    row = product_model(name="/media/covers/old.png", price=1)
+    session.add(row)
+    await session.commit()
+
+    await admin.update(session, row.id, {"name": "/media/covers/new.png"})
+    assert storage.deleted == ["covers/old.png"]
+
+    storage.deleted.clear()
+    await admin.update(session, row.id, {"name": "/media/covers/new.png"})
+    assert storage.deleted == []
 
 
 def test_object_key_resolution():

@@ -129,7 +129,21 @@ async def list_screen(target, session, check, locale: str, path: str, params) ->
     return list_context(target.grid_schema(flags), result, path, query.search, query.sort, query.filters)
 
 
-async def form_screen(target, session, locale: str, path: str, record_id, mode: str) -> dict:
+async def _attach_related_flags(schema: dict, site, check) -> None:
+    for group in schema["fieldsets"] + schema.get("inlines", []):
+        for field in group["fields"]:
+            related = site.find(field["related"]) if field.get("related") else None
+
+            if related is None:
+                continue
+
+            flags = await related.permission_flags(check)
+            field["related_flags"] = {"add": flags["can_create"], "edit": flags["can_update"], "delete": flags["can_delete"]}
+
+
+async def form_screen(target, session, check, site, locale: str, path: str, record_id, mode: str) -> dict:
+    schema = target.form_schema(mode)
+    await _attach_related_flags(schema, site, check)
     values = None
     inline_data = None
 
@@ -138,7 +152,7 @@ async def form_screen(target, session, locale: str, path: str, record_id, mode: 
         values = target.serialize_detail(row, locale)
         inline_data = await target.inline_values(session, row, locale)
 
-    return form_context(target.form_schema(mode), values, target.label or target.name, mode, path, target.name, record_id=record_id, inline_data=inline_data)
+    return form_context(schema, values, target.label or target.name, mode, path, target.name, record_id=record_id, inline_data=inline_data)
 
 
 async def detail_screen(target, session, check, locale: str, path: str, record_id) -> dict:
@@ -196,12 +210,19 @@ async def shell_context(pages: PagesDeps, user, locale: str) -> dict:
     return {"config": request_config(pages.config, pages.translator, locale), "navigation": navigation, "user": {"display_name": display_name, "timezone": getattr(user, "timezone", None) or "UTC", "avatar_url": avatar}, "t": make_t(pages.translator, locale)}
 
 
+async def _forbidden(pages: PagesDeps, user, locale: str) -> HTMLResponse:
+    message = make_t(pages.translator, locale)("error.forbidden")
+
+    return HTMLResponse(pages.renderer.render("admin/error.html", **await shell_context(pages, user, locale), message=message), status_code=403)
+
+
 async def dispatch_screen(pages: PagesDeps, sub: str, params, user, session, locale: str) -> HTMLResponse:
     path = pages.config["path"]
     api_path = pages.config["api_path"]
     render = pages.renderer.render
     kind, args = resolve_route(sub)
-    fragment = params.get("_fragment") == "table"
+    fragment = params.get("_fragment")
+    check = make_check(pages.deps.authorize, user)
 
     if kind == "dashboard":
         return HTMLResponse(render("admin/dashboard.html", **await shell_context(pages, user, locale)))
@@ -215,9 +236,14 @@ async def dispatch_screen(pages: PagesDeps, sub: str, params, user, session, loc
         if pages.report_data is None:
             raise NotFoundError(RESOURCE_NOT_FOUND, message="report not found")
 
-        context = report_context(await pages.report_data(args["name"], session, locale, dict(params)), args["name"], path, api_path, _screen_query(params))
+        try:
+            data = await pages.report_data(args["name"], session, locale, dict(params), check)
+        except AuthorizationError:
+            return await _forbidden(pages, user, locale)
 
-        if fragment:
+        context = report_context(data, args["name"], path, api_path, _screen_query(params))
+
+        if fragment == "table":
             return HTMLResponse(render("admin/partials/_report_table.html", t=make_t(pages.translator, locale), **context))
 
         return HTMLResponse(render("admin/report.html", **await shell_context(pages, user, locale), **context))
@@ -226,30 +252,31 @@ async def dispatch_screen(pages: PagesDeps, sub: str, params, user, session, loc
         raise NotFoundError(RESOURCE_NOT_FOUND, message="not found")
 
     target = pages.site.get(args["resource"])
-    check = make_check(pages.deps.authorize, user)
 
     try:
         if kind == "list":
             await check_permission(pages.deps.authorize, user, target, "list")
             context = await list_screen(target, session, check, locale, path, params)
 
-            if fragment:
+            if fragment == "table":
                 return HTMLResponse(render("admin/partials/_table.html", t=make_t(pages.translator, locale), **context))
 
             return HTMLResponse(render("admin/list.html", **await shell_context(pages, user, locale), **context))
 
         if kind == "form":
             await check_permission(pages.deps.authorize, user, target, "create" if args["mode"] == "create" else "update")
+            context = await form_screen(target, session, check, pages.site, locale, path, args["record_id"], args["mode"])
 
-            return HTMLResponse(render("admin/form.html", **await shell_context(pages, user, locale), **await form_screen(target, session, locale, path, args["record_id"], args["mode"])))
+            if fragment == "form":
+                return HTMLResponse(render("admin/partials/_form.html", t=make_t(pages.translator, locale), **context))
+
+            return HTMLResponse(render("admin/form.html", **await shell_context(pages, user, locale), **context))
 
         await check_permission(pages.deps.authorize, user, target, "detail")
 
         return HTMLResponse(render("admin/detail.html", **await shell_context(pages, user, locale), **await detail_screen(target, session, check, locale, path, args["record_id"])))
     except AuthorizationError:
-        message = make_t(pages.translator, locale)("error.forbidden")
-
-        return HTMLResponse(render("admin/error.html", **await shell_context(pages, user, locale), message=message), status_code=403)
+        return await _forbidden(pages, user, locale)
 
 
 async def render_login(pages: PagesDeps, request: Request) -> HTMLResponse:

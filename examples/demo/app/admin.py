@@ -94,6 +94,13 @@ async def subcategory_options(session, params, locale):
     return [{"value": row.id, "label": row.name} for row in rows]
 
 
+def cover_thumb(value):
+    if not value:
+        return None
+
+    return f'<img src="{value}" alt="cover" style="height:2rem;width:2rem;object-fit:cover;border-radius:6px">'
+
+
 class UserAdmin(AdminResource[User]):
     name = "users"
     label = "Users"
@@ -147,12 +154,21 @@ class CategoryAdmin(AdminResource[Category]):
     icon = "folder"
     model = Category
 
-    list_columns = ["id", "name", "is_active", Column("created_at", type="datetime")]
+    list_columns = [Column("image_url", label="Cover", sortable=False), "id", "name", "is_active", Column("created_at", type="datetime")]
+    clickable_columns = ["name"]
     search_fields = ["name"]
     filters = [BooleanFilter("is_active")]
     ordering = ["name"]
+    file_fields = ["image_url"]
 
-    form_fields = [TextField("name", required=True, max_length=80), BooleanField("is_active", label="Active")]
+    form_fields = [
+        TextField("name", required=True, max_length=80),
+        ImageField("image_url", label="Cover", upload_url=IMAGE_UPLOAD_URL),
+        BooleanField("is_active", label="Active"),
+    ]
+
+    def render_image_url(self, row, locale):
+        return cover_thumb(row.image_url)
 
     inlines = [
         InlineResource(
@@ -173,18 +189,23 @@ class SubcategoryAdmin(AdminResource[Subcategory]):
     icon = "sitemap"
     model = Subcategory
 
-    list_columns = ["id", "name", Column("created_at", type="datetime")]
+    list_columns = [Column("image_url", label="Cover", sortable=False), "id", "name", Column("created_at", type="datetime")]
     search_fields = ["name"]
     ordering = ["name"]
+    file_fields = ["image_url"]
 
     form_fields = [
         TextField("name", required=True, max_length=80),
+        ImageField("image_url", label="Cover", upload_url=IMAGE_UPLOAD_URL),
         RelationField("category_id", label="Category", required=True),
     ]
 
     permissions = {"list": "products.view", "detail": "products.view", "create": "products.create", "update": "products.update", "delete": "products.delete"}
 
     options_category_id = staticmethod(category_options)
+
+    def render_image_url(self, row, locale):
+        return cover_thumb(row.image_url)
 
 
 class ProductAdmin(AdminResource[Product]):
@@ -193,8 +214,9 @@ class ProductAdmin(AdminResource[Product]):
     icon = "package"
     model = Product
 
-    list_columns = ["id", Column("name", clickable=True), "sku", Column("category", sortable=False), Column("subcategory", sortable=False), Column("price", align="right"), "is_active"]
+    list_columns = [Column("image_url", label="Cover", sortable=False), "id", "name", "sku", Column("category", sortable=False), Column("subcategory", sortable=False), Column("price", align="right"), "is_active"]
     search_fields = ["name", "sku"]
+    file_fields = ["image_url"]
     filters = [
         Fieldset("Product", ["name", "is_active"]),
         Fieldset("Classification", ["category_id", "subcategory_id"]),
@@ -208,9 +230,10 @@ class ProductAdmin(AdminResource[Product]):
     form_fields = [
         TextField("name", required=True, max_length=120),
         TextField("sku", required=True, max_length=40),
+        ImageField("image_url", label="Cover", upload_url=IMAGE_UPLOAD_URL),
         DecimalField("price", required=True, decimal_places=2),
-        RelationField("category_id", label="Category"),
-        RelationField("subcategory_id", label="Subcategory", depends_on=["category_id"]),
+        RelationField("category_id", label="Category", related="categories"),
+        RelationField("subcategory_id", label="Subcategory", depends_on=["category_id"], related="subcategories"),
         BooleanField("is_active", label="Active"),
         NumberField("id", label="ID", readonly=True),
         DateTimeField("created_at", label="Created at", readonly=True),
@@ -218,7 +241,7 @@ class ProductAdmin(AdminResource[Product]):
     ]
 
     fieldsets = [
-        Fieldset("Details", ["name", "sku", "price"], description="Basic product information."),
+        Fieldset("Details", ["name", "sku", "image_url", "price"], description="Basic product information."),
         Fieldset("Classification", ["category_id", "subcategory_id"], description="Subcategory depends on the selected category."),
         Fieldset("Status", ["is_active"]),
         Fieldset("Record", ["id", "created_at", "updated_at"], description="Read-only metadata shown on the detail screen."),
@@ -231,6 +254,9 @@ class ProductAdmin(AdminResource[Product]):
 
     def get_queryset(self):
         return select(Product).options(selectinload(Product.category), selectinload(Product.subcategory))
+
+    def render_image_url(self, row, locale):
+        return cover_thumb(row.image_url)
 
     def render_category(self, row, locale):
         return row.category.name if row.category else None
@@ -283,8 +309,8 @@ class ShowcaseAdmin(AdminResource[Showcase]):
         DecimalField("price", decimal_places=2),
         SelectField("status", choices=STATUS_CHOICES),
         MultiSelectField("tags", choices=TAG_CHOICES),
-        LookupField("category_id", label="Category"),
-        LookupField("subcategory_id", label="Subcategory", depends_on=["category_id"]),
+        LookupField("category_id", label="Category", related="categories"),
+        LookupField("subcategory_id", label="Subcategory", depends_on=["category_id"], related="subcategories"),
         URLField("website", label="Website"),
         EmailField("contact_email", label="Contact email"),
         MaskedField("reference_code", label="Reference code", mask="##-####-##", pattern=r"\d{2}-\d{4}-\d{2}"),

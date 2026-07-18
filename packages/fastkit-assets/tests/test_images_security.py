@@ -70,6 +70,13 @@ def test_process_variant_rejects_unknown_format(image_factory):
         process_variant(image_factory(width=64, height=64), spec)
 
 
+def test_process_variant_rejects_a_non_image():
+    spec = ImageVariantSpec(name="v", width=64, height=64, mode="cover", format="webp")
+
+    with pytest.raises(FastKitError, match="not a valid image"):
+        process_variant(b"this is not an image", spec)
+
+
 def test_process_variant_max_width_and_height(image_factory):
     data = image_factory(width=400, height=200)
 

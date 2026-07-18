@@ -101,19 +101,22 @@
     $grid.find("tr[data-row]").each(function () {
       var row = $(this).data("row");
       $(this).find("td[data-type]").each(function () {
-        if ($(this).children().length) { return; }
-        var type = $(this).data("type");
-        var value = row[$(this).data("col")];
+        var $cell = $(this);
+        var $link = $cell.children("a.fk-cell-link");
+        var $target = $link.length ? $link : $cell;
+        if ($target.children().length) { return; }
+        var type = $cell.data("type");
+        var value = row[$cell.data("col")];
         if (value == null || value === "") { return; }
         if (type === "datetime" || type === "date" || type === "time") {
-          var parsed = new Date(value);
+          var parsed = type === "time" ? new Date("1970-01-01T" + value) : new Date(value);
           if (isNaN(parsed.getTime())) { return; }
           var options = type === "date" ? { dateStyle: "medium" } : type === "time" ? { timeStyle: "short" } : { dateStyle: "medium", timeStyle: "short" };
           options.timeZone = tz;
-          $(this).text(new Intl.DateTimeFormat(locale, options).format(parsed));
+          $target.text(new Intl.DateTimeFormat(locale, options).format(parsed));
         } else if (type === "number" || type === "decimal") {
           var number = Number(value);
-          if (!isNaN(number)) { $(this).text(new Intl.NumberFormat(locale).format(number)); }
+          if (!isNaN(number)) { $target.text(new Intl.NumberFormat(locale).format(number)); }
         }
       });
     });
@@ -286,8 +289,13 @@
     return $el.closest("[data-resource]").data("resource");
   }
 
-  function readParent($form, name) {
-    var $wrap = $form.find('.fk-field[data-field="' + name + '"]').first();
+  function scopeOf($el) {
+    var $row = $el.closest(".fk-inline-row");
+    return $row.length ? $row : $el.closest("form");
+  }
+
+  function readParent($scope, name) {
+    var $wrap = $scope.find('.fk-field[data-field="' + name + '"]').first();
     if (!$wrap.length) { return null; }
     var $relation = $wrap.find(".fk-relation");
     if ($relation.length) { return $relation.val() || $relation.data("value") || ""; }
@@ -296,40 +304,42 @@
     return readField($wrap);
   }
 
-  function relationParams($form, $node) {
+  function relationParams($scope, $node) {
     var params = {};
     String($node.data("depends-on") || "").split(",").filter(Boolean).forEach(function (parent) {
-      var value = readParent($form, parent);
+      var value = readParent($scope, parent);
       if (value != null && value !== "") { params[parent] = value; }
     });
     return params;
   }
 
   function initRelations(root) {
-    var $form = $(root).closest("form");
     $(root).find(".fk-relation").each(function () {
       var $select = $(this);
-      loadOptions($select, resourceOf($select), $select.data("field"), relationParams($form, $select), $select.data("value"));
+      loadOptions($select, resourceOf($select), $select.data("field"), relationParams(scopeOf($select), $select), $select.data("value"), true);
     });
-    bindDependents($form, root);
+    bindDependents(root);
   }
 
   function loadOptions($select, resource, field, params, current, blocking) {
     $select.data("pending", !!blocking);
+    var seq = (Number($select.data("seq")) || 0) + 1;
+    $select.data("seq", seq);
     setLoading($select, true);
     return api("GET", optionsUrl(resource, field, params)).then(function (res) {
+      if ($select.data("seq") !== seq) { return; }
       $select.find("option:not(:first)").remove();
       res.data.forEach(function (option) { $select.append($("<option></option>").attr("value", option.value).text(option.label)); });
       if (current != null && current !== "") { $select.val(String(current)); }
       $select.data("pending", false);
       setLoading($select, false);
-    }).catch(function () { $select.data("pending", false); setLoading($select, false); });
+    }).catch(function () { if ($select.data("seq") !== seq) { return; } $select.data("pending", false); setLoading($select, false); });
   }
 
-  function resetDependent($form, $child) {
+  function resetDependent($scope, $child) {
     if ($child.hasClass("fk-relation")) {
       $child.val("").data("value", "");
-      loadOptions($child, resourceOf($child), $child.data("field"), relationParams($form, $child), null, true);
+      loadOptions($child, resourceOf($child), $child.data("field"), relationParams($scope, $child), null, true);
     } else {
       $child.data("value", "").find('input[type=hidden]').val("");
       $child.find('input[type=text]').val("");
@@ -337,19 +347,19 @@
     $child.closest(".fk-field").trigger("change");
   }
 
-  function bindDependents($form, root) {
+  function bindDependents(root) {
     $(root).find(".fk-relation,.fk-lookup").each(function () {
       var $child = $(this);
+      var $scope = scopeOf($child);
       String($child.data("depends-on") || "").split(",").filter(Boolean).forEach(function (parent) {
-        $form.find('.fk-field[data-field="' + parent + '"]').on("change", function () {
-          resetDependent($form, $child);
+        $scope.find('.fk-field[data-field="' + parent + '"]').on("change", function () {
+          resetDependent($scope, $child);
         });
       });
     });
   }
 
   function initLookups(root) {
-    var $form = $(root).closest("form");
     $(root).find(".fk-lookup").each(function () {
       var $container = $(this);
       var resource = resourceOf($container);
@@ -367,8 +377,9 @@
 
       function params() {
         var result = {};
+        var $scope = scopeOf($container);
         String($container.data("depends-on") || "").split(",").filter(Boolean).forEach(function (parent) {
-          var value = readParent($form, parent);
+          var value = readParent($scope, parent);
           if (value != null && value !== "") { result[parent] = value; }
         });
         return result;
@@ -386,7 +397,7 @@
           if (!res.data.length) { $menu.append('<span class="dropdown-item disabled">' + FastKit.esc(t("lookup.empty")) + "</span>"); }
           res.data.forEach(function (option) {
             var $item = $('<a class="dropdown-item" href="#"></a>').text(option.label).attr("data-testid", "lookup-option-" + option.value);
-            $item.on("mousedown", function (event) { event.preventDefault(); $container.data("value", option.value); $hidden.val(option.value); $input.val(option.label); $menu.removeClass("show"); $container.trigger("change"); });
+            $item.on("mousedown", function (event) { event.preventDefault(); bumpLookupSeq($container); $container.data("value", option.value); $hidden.val(option.value); $input.val(option.label); $menu.removeClass("show"); $container.trigger("change"); });
             $menu.append($item);
           });
           $menu.addClass("show");
@@ -500,6 +511,164 @@
     initLookups(root);
     initMatrices(root);
     initTranslations(root);
+    initRelatedWidgets(root);
+  }
+
+  // ---------- related-object widgets (Django-style +/edit/delete via modal) ----------
+
+  function bumpLookupSeq($container) {
+    var seq = (Number($container.data("value-seq")) || 0) + 1;
+    $container.data("value-seq", seq);
+    return seq;
+  }
+
+  function setLookupValue($container, resource, field, id) {
+    var seq = bumpLookupSeq($container);
+    return api("GET", optionsUrl(resource, field, { value: id })).then(function (res) {
+      if ($container.data("value-seq") !== seq) { return; }
+      var option = res.data[0];
+      if (option) {
+        $container.data("value", option.value).find("input[type=hidden]").val(option.value);
+        $container.find("input[type=text]").val(option.label);
+      } else {
+        $container.data("value", "").find("input[type=hidden]").val("");
+        $container.find("input[type=text]").val("");
+      }
+    }).catch(function () { return; });
+  }
+
+  function relatedNodeValue($node) {
+    return String(($node.hasClass("fk-relation") ? $node.val() : $node.data("value")) || "");
+  }
+
+  function reloadDependent($node) {
+    var $scope = scopeOf($node);
+    var field = $node.data("field");
+    var resource = resourceOf($node);
+    var task = $node.hasClass("fk-relation")
+      ? loadOptions($node, resource, field, relationParams($scope, $node), $node.val())
+      : ($node.data("value") ? setLookupValue($node, resource, field, $node.data("value")) : Promise.resolve());
+    return task.then(function () {
+      var $wrap = $node.closest(".fk-related");
+      if ($wrap.length) { $wrap.find(".fk-related-edit,.fk-related-delete").prop("disabled", !relatedNodeValue($node)); }
+    });
+  }
+
+  function refreshRelatedChain($scope, fieldName, seen) {
+    seen = seen || {};
+    $scope.find(".fk-relation,.fk-lookup").each(function () {
+      var $node = $(this);
+      var childField = $node.data("field");
+      if (String($node.data("depends-on") || "").split(",").filter(Boolean).indexOf(fieldName) < 0 || seen[childField]) { return; }
+      seen[childField] = true;
+      var hadValue = !!relatedNodeValue($node);
+      reloadDependent($node).then(function () {
+        if (hadValue && !relatedNodeValue($node)) {
+          $node.closest(".fk-field").trigger("change");
+        } else {
+          refreshRelatedChain($scope, childField, seen);
+        }
+      });
+    });
+  }
+
+  var relatedModalSeq = 0;
+
+  function namespaceModalIds($form) {
+    var token = "rm" + (relatedModalSeq += 1);
+    $form.find("[id]").each(function () {
+      var previous = this.id;
+      if (!previous) { return; }
+      this.id = previous + "-" + token;
+      $form.find('label[for="' + previous + '"]').attr("for", this.id);
+    });
+  }
+
+  function teardownModalEditors($form) {
+    if (window.tinymce) { $form.find(".fk-richtext").each(function () { window.tinymce.remove("#" + this.id); }); }
+    $form.find(".fk-json").each(function () { var editor = $(this).data("jsonEditor"); if (editor) { editor.destroy(); } });
+  }
+
+  function openRelatedModal(resource, recordId, onSaved) {
+    var url = ADMIN + "/" + resource + (recordId ? "/" + recordId + "/edit" : "/new") + "?_fragment=form";
+    $.get(url).done(function (html) {
+      var modal = FastKit.modal({ title: recordId ? t("form.edit") : t("grid.new"), size: "lg", body: html, testid: "related-modal", onClose: function () { teardownModalEditors(modal.element.find("form[data-resource]")); } });
+      var $form = modal.element.find("form[data-resource]");
+      namespaceModalIds($form);
+      enhance($form[0]);
+      initInlines($form);
+      $form.find(".fk-cancel").on("click", function () { modal.close(); });
+      $form.on("submit", function (event) {
+        event.preventDefault();
+        if ($form.find(".fk-relation").filter(function () { return $(this).data("pending"); }).length) { FastKit.toast("warning", t("form.still-loading")); return; }
+        var $save = $form.find("[data-testid=form-save]");
+        $save.prop("disabled", true).text(t("form.saving"));
+        var payload = collect($form);
+        var request = recordId ? api("PATCH", "/resources/" + resource + "/" + recordId, payload) : api("POST", "/resources/" + resource, payload);
+        request.then(function (res) {
+          var id = recordId || res.data.id;
+          return saveMatrices($form, id).then(function () { return saveTranslations($form, id); }).then(function () {
+            modal.close();
+            FastKit.toast("success", recordId ? t("form.updated") : t("form.created"));
+            onSaved(id);
+          });
+        }).catch(function (err) {
+          $save.prop("disabled", false).text(t("form.save"));
+          FastKit.formErrors($form, err);
+        });
+      });
+    }).fail(function () { FastKit.toast("error", t("error.unexpected")); });
+  }
+
+  function initRelatedWidgets(root) {
+    $(root).find(".fk-related").each(function () {
+      var $wrap = $(this);
+      var resource = $wrap.data("related");
+      var $relation = $wrap.find(".fk-relation");
+      var $lookup = $wrap.find(".fk-lookup");
+      var $control = $relation.length ? $relation : $lookup;
+      var field = $control.data("field");
+      var parentResource = resourceOf($wrap);
+      var $field = $control.closest(".fk-field");
+
+      function currentValue() { return String(($relation.length ? $relation.val() : $lookup.data("value")) || ""); }
+      function toggle() { $wrap.find(".fk-related-edit,.fk-related-delete").prop("disabled", !currentValue()); }
+
+      function select(id) {
+        var loaded = $relation.length ? loadOptions($relation, parentResource, field, relationParams(scopeOf($relation), $relation), id) : setLookupValue($lookup, parentResource, field, id);
+        return loaded.then(function () { $field.trigger("change"); });
+      }
+
+      function refresh() {
+        return reloadDependent($control).then(function () { refreshRelatedChain(scopeOf($control), field); });
+      }
+
+      $wrap.find(".fk-related-add").on("click", function () { openRelatedModal(resource, null, function (id) { select(id); }); });
+      $wrap.find(".fk-related-edit").on("click", function () {
+        var value = currentValue();
+        if (value) { openRelatedModal(resource, value, function () { refresh(); }); }
+      });
+      $wrap.find(".fk-related-delete").on("click", function () {
+        var value = currentValue();
+        if (!value) { return; }
+        FastKit.confirm(t("confirm.delete")).then(function (ok) {
+          if (!ok) { return; }
+          api("DELETE", "/resources/" + resource + "/" + value).then(function () {
+            if ($relation.length) {
+              $relation.val("").data("value", "");
+              loadOptions($relation, parentResource, field, relationParams(scopeOf($relation), $relation), "");
+            } else {
+              $lookup.data("value", "").find("input[type=hidden]").val("");
+              $lookup.find("input[type=text]").val("");
+            }
+            $field.trigger("change");
+            FastKit.toast("success", t("form.deleted"));
+          }).catch(function (err) { FastKit.toast("error", err.message); });
+        });
+      });
+
+      $field.on("change", toggle);
+    });
   }
 
   // ---------- filter enhancement ----------
@@ -521,13 +690,16 @@
   }
 
   function loadFilterSelect($select, urlFn, params, current) {
+    var seq = (Number($select.data("seq")) || 0) + 1;
+    $select.data("seq", seq);
     setLoading($select, true);
     return api("GET", urlFn($select.data("filter"), params)).then(function (res) {
+      if ($select.data("seq") !== seq) { return; }
       $select.find("option:not(:first)").remove();
       res.data.forEach(function (option) { $select.append($("<option></option>").attr("value", option.value).text(option.label)); });
       if (current != null && current !== "") { $select.val(String(current)); }
       setLoading($select, false);
-    }).catch(function () { setLoading($select, false); });
+    }).catch(function () { if ($select.data("seq") !== seq) { return; } setLoading($select, false); });
   }
 
   function initFilterLookup($panel, $container, urlFn) {
@@ -559,6 +731,10 @@
     $input.on("focus", search);
     $input.on("input", function () { clearTimeout(timer); timer = setTimeout(search, 200); });
     $input.on("blur", function () { setTimeout(function () { $menu.removeClass("show"); }, 150); });
+  }
+
+  function clearFilterLookups($scope) {
+    $scope.find(".fk-filter-lookup").each(function () { $(this).data("value", "").find("input[type=text]").val(""); });
   }
 
   function enhanceFilters($panel, urlFn) {
@@ -630,7 +806,7 @@
       state.page = 1;
       reload();
     });
-    $(".fk-filter-clear").on("click", function () { state.filters = {}; $(".fk-filters")[0].reset(); state.page = 1; reload(); });
+    $(".fk-filter-clear").on("click", function () { state.filters = {}; $(".fk-filters")[0].reset(); clearFilterLookups($(".fk-filters")); state.page = 1; reload(); });
 
     enhanceFilters($(".fk-filter-panel"), function (field, params) { return optionsUrl(resource, field, params); });
 
@@ -783,7 +959,7 @@
     }
     $(".fk-filter-toggle").on("click", function () { $(".fk-filter-panel").toggleClass("d-none"); });
     $(".fk-filters").on("submit", function (event) { event.preventDefault(); flatten(); reload(); });
-    $(".fk-filter-clear").on("click", function () { $(".fk-filters")[0].reset(); params = {}; reload(); });
+    $(".fk-filter-clear").on("click", function () { $(".fk-filters")[0].reset(); clearFilterLookups($(".fk-filters")); params = {}; reload(); });
 
     enhanceFilters($(".fk-filter-panel"), function (field, payload) { var query = $.param(payload || {}); return "/reports/" + name + "/options/" + field + (query ? "?" + query : ""); });
   }

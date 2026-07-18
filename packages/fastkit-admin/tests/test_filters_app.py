@@ -15,6 +15,7 @@ from fastkit_admin.filters import (
     ChoiceFilter,
     DateRangeFilter,
     ExactFilter,
+    MultiChoiceFilter,
     NumberFilter,
     TextFilter,
 )
@@ -67,6 +68,16 @@ def test_choice_filter(product_model):
     assert "= 'a'" in _compiled(filt.apply(base, product_model, "a"))
 
 
+def test_string_column_filters_skip_a_non_scalar_value(product_model):
+    base = select(product_model)
+
+    # a range/list shape (e.g. filter[category][from]=x) on an equality/choice/multichoice filter over a
+    # string column must be skipped, never compiled into `column == {...}` which would 500 at the driver
+    assert "WHERE" not in _compiled(ExactFilter("category").apply(base, product_model, {"from": "x"}))
+    assert "WHERE" not in _compiled(ChoiceFilter("category", choices=[("a", "A")]).apply(base, product_model, {"from": "x"}))
+    assert "WHERE" not in _compiled(MultiChoiceFilter("category", choices=[("a", "A")]).apply(base, product_model, {"from": "x"}))
+
+
 def test_date_range_filter(product_model):
     filt = DateRangeFilter("created_at")
     base = select(product_model)
@@ -108,6 +119,9 @@ def test_coerce_for_column_by_type():
     assert _coerce_for_column(Column("x", String()), "kept") == "kept"
     assert _coerce_for_column(Column("x", Integer()), 7) == 7
     assert _coerce_for_column(Column("x", Integer()), "bad") is _SKIP
+    # a non-scalar (a range/list shape) is skipped on any column type, including string, so it never reaches the driver
+    assert _coerce_for_column(Column("x", String()), {"from": "a"}) is _SKIP
+    assert _coerce_for_column(Column("x", String()), ["a", "b"]) is _SKIP
 
 
 def test_coerce_for_column_falls_back_when_no_python_type():

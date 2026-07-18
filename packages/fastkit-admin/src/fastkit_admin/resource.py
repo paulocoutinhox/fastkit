@@ -10,8 +10,8 @@ from sqlalchemy import Integer, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from fastkit_core.api.pagination import OffsetPage, clamp_page_size
-from fastkit_core.errors.codes import AUTHORIZATION_DENIED, CONFLICT_UNIQUE, RESOURCE_NOT_FOUND
-from fastkit_core.errors.exceptions import AuthorizationError, ConflictError, NotFoundError
+from fastkit_core.errors.codes import AUTHORIZATION_DENIED, CONFLICT_UNIQUE, RESOURCE_NOT_FOUND, VALIDATION_FAILED
+from fastkit_core.errors.exceptions import AuthorizationError, ConflictError, NotFoundError, ValidationError
 from fastkit_admin.columns import normalize_columns
 from fastkit_admin.fields import PasswordField
 from fastkit_admin.filters import Filter
@@ -64,6 +64,7 @@ class AdminResource(Generic[ModelT]):
     model: type = object
 
     list_columns: list = []
+    clickable_columns: list[str] | None = None
     search_fields: list[str] = []
     filters: list = []
     actions: list = []
@@ -266,14 +267,30 @@ class AdminResource(Generic[ModelT]):
         if self.read_only:
             raise AuthorizationError(AUTHORIZATION_DENIED, message=f"{self.label or self.name} is read-only")
 
-    async def _save_inlines(self, session, row, data: dict, locale: str) -> None:
-        parent_id = getattr(row, self.pk_field)
+    def _validate_inlines(self, data: dict, locale: str) -> dict:
+        validated = {}
+        errors = []
 
         for inline in self.inlines:
             submitted = data.get(inline.name)
 
-            if submitted is not None:
-                await inline.save(session, parent_id, submitted, locale)
+            if isinstance(submitted, list):
+                parsed = inline.validate(submitted, locale, errors)
+
+                if parsed is not None:
+                    validated[inline.name] = parsed
+
+        if errors:
+            raise ValidationError(VALIDATION_FAILED, field_errors=errors)
+
+        return validated
+
+    async def _save_inlines(self, session, row, validated: dict) -> None:
+        parent_id = getattr(row, self.pk_field)
+
+        for inline in self.inlines:
+            if inline.name in validated:
+                await inline.persist(session, parent_id, validated[inline.name])
 
     async def inline_values(self, session, row, locale: str = "en") -> dict:
         parent_id = getattr(row, self.pk_field)
@@ -283,6 +300,7 @@ class AdminResource(Generic[ModelT]):
     async def create(self, session, data: dict, locale: str = "en"):
         self._guard_writable()
         parsed = self._parse_and_validate(data, locale, partial=False)
+        validated = self._validate_inlines(data, locale)
         parsed = await self.before_create(session, parsed)
 
         row = self.model(**parsed)
@@ -291,7 +309,7 @@ class AdminResource(Generic[ModelT]):
         try:
             await session.flush()
             await self.after_create(session, row)
-            await self._save_inlines(session, row, data, locale)
+            await self._save_inlines(session, row, validated)
             await session.commit()
         except IntegrityError as error:
             await session.rollback()
@@ -305,7 +323,10 @@ class AdminResource(Generic[ModelT]):
         self._guard_writable()
         row = await self.get_object(session, identifier)
         parsed = self._parse_and_validate(data, locale, partial=partial)
+        validated = self._validate_inlines(data, locale)
         parsed = await self.before_update(session, row, parsed)
+
+        replaced = [getattr(row, name) for name in self.file_fields if name in parsed and parsed[name] != getattr(row, name)]
 
         for name, value in parsed.items():
             setattr(row, name, value)
@@ -313,13 +334,14 @@ class AdminResource(Generic[ModelT]):
         await self.after_update(session, row)
 
         try:
-            await self._save_inlines(session, row, data, locale)
+            await self._save_inlines(session, row, validated)
             await session.commit()
         except IntegrityError as error:
             await session.rollback()
             raise ConflictError(CONFLICT_UNIQUE, message=f"a {self.label or self.name} with these values already exists") from error
 
         await session.refresh(row)
+        await self._remove_files(replaced)
 
         return row
 
@@ -392,10 +414,17 @@ class AdminResource(Generic[ModelT]):
 
         return flags
 
+    def _is_clickable(self, column) -> bool:
+        if self.clickable_columns is None:
+            return True
+
+        return column.name in self.clickable_columns
+
     def _column_schema(self, column) -> dict:
         schema = column.to_schema()
         schema["field_type"] = self._column_type(column)
         schema["html"] = getattr(self, f"render_{column.name}", None) is not None
+        schema["clickable"] = self._is_clickable(column)
 
         return schema
 

@@ -106,6 +106,42 @@ test("sorts by header, selects all, and opens a clickable cell", async ({ page }
   await expect(page.getByTestId("form")).toBeVisible();
 });
 
+test("click-through cells and sortable headers stay visually neutral", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-products").click();
+  await expect(page.getByTestId("grid-table")).toBeVisible();
+
+  const cell = page.locator('[data-testid^="cell-name-"] a.fk-cell-link').first();
+  await expect(cell).toHaveCSS("text-decoration-line", "none");
+  await expect(cell).toHaveCSS("font-weight", "400");
+  await cell.hover();
+  await expect(cell).toHaveCSS("text-decoration-line", "none");
+
+  const header = page.getByTestId("sort-name");
+  await header.hover();
+  await expect(header).toHaveCSS("text-decoration-line", "none");
+});
+
+test("every column opens the edit form by default (not just the first)", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-products").click();
+  await expect(page.getByTestId("grid-table")).toBeVisible();
+
+  // a non-name column cell (sku) is clickable too, by default
+  await page.locator('[data-testid^="cell-sku-"] a').first().click();
+  await expect(page.getByTestId("form")).toBeVisible();
+});
+
+test("clickable_columns restricts which cells are click-through", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-categories").click();
+  await expect(page.getByTestId("grid-table")).toBeVisible();
+
+  // Categories declares clickable_columns = ["name"]: only name is a link
+  await expect(page.locator('[data-testid^="cell-name-"] a').first()).toHaveAttribute("href", /\/edit$/);
+  await expect(page.locator('[data-testid^="cell-is_active-"] a')).toHaveCount(0);
+});
+
 test("row action menu is not clipped by the table on the last row", async ({ page }) => {
   await login(page);
   await page.getByTestId("nav-categories").click();
@@ -263,6 +299,20 @@ test("blocks saving while dependent options are still loading", async ({ page })
   await page.getByTestId("field-sku").fill("SKU-RACE");
   await page.getByTestId("field-price").fill("5.00");
   await page.getByTestId("field-category_id").selectOption({ index: 1 });
+  await page.getByTestId("form-save").click();
+  await expect(page.getByTestId("toast-warning")).toBeVisible();
+});
+
+test("editing a record blocks save until its relation options finish the initial slow load", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-geo-samples").click();
+  await expect(page.getByTestId("grid-table")).toBeVisible({ timeout: 15000 });
+
+  // open the first record's edit form; its country select is still doing its slow initial load
+  await page.locator('[data-testid^="cell-name-"] a').first().click();
+  await expect(page.getByTestId("form")).toBeVisible();
+
+  // saving now must be blocked (not silently wipe the FK with an empty select value)
   await page.getByTestId("form-save").click();
   await expect(page.getByTestId("toast-warning")).toBeVisible();
 });
@@ -962,4 +1012,217 @@ test("the filter panel cascades a reset through dependent filter selects", async
   await expect(city).toHaveValue("", { timeout: 15000 });
   await expect(city.locator('option[value="la"]')).toHaveCount(0, { timeout: 15000 });
   await expect(state.locator('option[value="sp"]')).toHaveCount(1, { timeout: 15000 });
+});
+
+test("manages a related category (add, edit, delete) from the product form without leaving it", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/products/new");
+  await expect(page.getByTestId("form")).toBeVisible();
+
+  const label = "Rel " + Date.now();
+  const select = page.getByTestId("field-category_id");
+
+  // ADD: the + icon opens the category form in a modal
+  await page.getByTestId("related-add-category_id").click();
+  let modal = page.getByTestId("related-modal");
+  await expect(modal).toBeVisible();
+  await modal.getByTestId("field-name").fill(label);
+  await modal.getByTestId("field-is_active").check();
+  await modal.getByTestId("form-save").click();
+  await expect(modal).toBeHidden();
+  await expect(select.locator("option:checked")).toHaveText(label);
+  await expect(page.getByTestId("related-edit-category_id")).toBeEnabled();
+
+  // EDIT: the pencil opens the selected category prefilled, and the option label updates on save
+  await page.getByTestId("related-edit-category_id").click();
+  modal = page.getByTestId("related-modal");
+  await expect(modal.getByTestId("field-name")).toHaveValue(label);
+  await modal.getByTestId("field-name").fill(label + " edited");
+  await modal.getByTestId("form-save").click();
+  await expect(modal).toBeHidden();
+  await expect(select.locator("option:checked")).toHaveText(label + " edited");
+
+  const categoryId = await select.inputValue();
+
+  // DELETE: the trash removes it behind a confirmation, clears the selection AND drops the option from the list
+  await page.getByTestId("related-delete-category_id").click();
+  await page.getByTestId("confirm-accept").click();
+  await expect(select).toHaveValue("");
+  await expect(page.getByTestId("related-edit-category_id")).toBeDisabled();
+  await expect(select.locator(`option[value="${categoryId}"]`)).toHaveCount(0);
+});
+
+test("deleting a dependent (subitem) related record drops it from that select too", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/products/new");
+  await expect(page.getByTestId("form")).toBeVisible();
+
+  const category = page.getByTestId("field-category_id");
+  const subcategory = page.getByTestId("field-subcategory_id");
+
+  await expect(category.locator("option")).not.toHaveCount(1, { timeout: 10000 });
+  await category.selectOption({ index: 1 });
+  const categoryValue = await category.inputValue();
+
+  // add a fresh subcategory under the selected category via its + modal
+  const subLabel = "Sub " + Date.now();
+  await page.getByTestId("related-add-subcategory_id").click();
+  const modal = page.getByTestId("related-modal");
+  await expect(modal).toBeVisible();
+  await modal.getByTestId("field-name").first().fill(subLabel);
+  await modal.getByTestId("field-category_id").selectOption(categoryValue);
+  await modal.getByTestId("form-save").click();
+  await expect(modal).toBeHidden();
+  await expect(subcategory.locator("option:checked")).toHaveText(subLabel);
+  const subId = await subcategory.inputValue();
+
+  // delete it via its own trash icon: value cleared AND option removed from the list
+  await page.getByTestId("related-delete-subcategory_id").click();
+  await page.getByTestId("confirm-accept").click();
+  await expect(subcategory).toHaveValue("");
+  await expect(subcategory.locator(`option[value="${subId}"]`)).toHaveCount(0);
+});
+
+test("the related add modal validates and shows field errors inside itself", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/products/new");
+  await page.getByTestId("related-add-category_id").click();
+  const modal = page.getByTestId("related-modal");
+  await expect(modal).toBeVisible();
+
+  await modal.getByTestId("form-save").click();
+  await expect(modal.locator('[data-error="name"]')).not.toBeEmpty();
+  await expect(modal).toBeVisible();
+});
+
+test("the related widget also works on a lookup field", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/showcase/new");
+  await expect(page.getByTestId("form")).toBeVisible();
+
+  const label = "Look " + Date.now();
+  const lookup = page.locator('.fk-field[data-field="category_id"]');
+
+  await page.getByTestId("related-add-category_id").click();
+  const modal = page.getByTestId("related-modal");
+  await expect(modal).toBeVisible();
+  await modal.getByTestId("field-name").fill(label);
+  await modal.getByTestId("field-is_active").check();
+  await modal.getByTestId("form-save").click();
+  await expect(modal).toBeHidden();
+  await expect(lookup.locator('input[type=text]')).toHaveValue(label);
+
+  // clean up the created category through the trash icon
+  await page.getByTestId("related-delete-category_id").click();
+  await page.getByTestId("confirm-accept").click();
+  await expect(lookup.locator('input[type=text]')).toHaveValue("");
+});
+
+test("an inline validation error targets only the offending row, not every row", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/categories/new");
+  await expect(page.getByTestId("form")).toBeVisible();
+  await page.getByTestId("field-name").first().fill("Inline err " + Date.now());
+
+  await page.getByTestId("inline-add-subcategories").click();
+  await page.getByTestId("inline-add-subcategories").click();
+  const rows = page.getByTestId("inline-row-subcategories");
+  await rows.nth(0).getByTestId("field-name").fill("Filled row");
+  // row 1 name left empty on purpose
+
+  await page.getByTestId("form-save").click();
+
+  // only the empty second row shows the required error; the filled first row stays clean
+  await expect(rows.nth(1).locator('[data-error="name"]')).not.toBeEmpty();
+  await expect(rows.nth(0).locator('[data-error="name"]')).toBeEmpty();
+});
+
+test("adding a related parent value resets its dependent child, and delete clears the select", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/products/new");
+  await expect(page.getByTestId("form")).toBeVisible();
+
+  const category = page.getByTestId("field-category_id");
+  const subcategory = page.getByTestId("field-subcategory_id");
+
+  // pick an existing category and one of its subcategories
+  await expect(category.locator("option")).not.toHaveCount(1, { timeout: 10000 });
+  await category.selectOption({ index: 1 });
+  await expect(subcategory.locator("option")).not.toHaveCount(1, { timeout: 10000 });
+  await subcategory.selectOption({ index: 1 });
+  await expect(subcategory).not.toHaveValue("");
+
+  // add a brand-new category via the + modal
+  const label = "Cascade " + Date.now();
+  await page.getByTestId("related-add-category_id").click();
+  const modal = page.getByTestId("related-modal");
+  await modal.getByTestId("field-name").first().fill(label);
+  await modal.getByTestId("field-is_active").check();
+  await modal.getByTestId("form-save").click();
+  await expect(modal).toBeHidden();
+
+  // the new category is selected AND the dependent subcategory reset (the new category has none)
+  await expect(category.locator("option:checked")).toHaveText(label);
+  await expect(subcategory).toHaveValue("");
+
+  // delete the created category (cleanup) — the select clears
+  await page.getByTestId("related-delete-category_id").click();
+  await page.getByTestId("confirm-accept").click();
+  await expect(category).toHaveValue("");
+});
+
+test("a product cover image uploads and its thumbnail renders in the grid", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-products").click();
+  await page.getByTestId("grid-new").click();
+
+  const stamp = Date.now();
+  await page.getByTestId("field-name").fill("Cover " + stamp);
+  await page.getByTestId("field-sku").fill("SKU-" + stamp);
+  await page.getByTestId("field-price").fill("9.99");
+
+  await page.getByTestId("field-image_url").locator('input[type=file]').setInputFiles({ name: "cover.png", mimeType: "image/png", buffer: PNG_1PX });
+  await expect(page.getByTestId("field-image_url").locator('input[type=hidden]')).not.toHaveValue("");
+
+  await page.getByTestId("form-save").click();
+  await expect(page.getByTestId("toast-success")).toBeVisible();
+
+  // the newest product is first (default -id sort); its cover cell renders an <img>
+  await expect(page.locator('[data-testid^="cell-image_url-"]').first().locator("img")).toBeVisible();
+});
+
+test("editing a related record's inline children refreshes the dependent sub-select", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/products/new");
+  await expect(page.getByTestId("form")).toBeVisible();
+
+  const category = page.getByTestId("field-category_id");
+  const subcategory = page.getByTestId("field-subcategory_id");
+  const label = "RefCat " + Date.now();
+  const subLabel = "RefSub " + Date.now();
+
+  // add a fresh category (starts with no subcategories)
+  await page.getByTestId("related-add-category_id").click();
+  let modal = page.getByTestId("related-modal");
+  await modal.getByTestId("field-name").first().fill(label);
+  await modal.getByTestId("field-is_active").check();
+  await modal.getByTestId("form-save").click();
+  await expect(modal).toBeHidden();
+  await expect(category.locator("option:checked")).toHaveText(label);
+  await expect(subcategory.locator("option")).toHaveCount(1);
+
+  // EDIT the category and add a subcategory in the modal's inline
+  await page.getByTestId("related-edit-category_id").click();
+  modal = page.getByTestId("related-modal");
+  await modal.getByTestId("inline-add-subcategories").click();
+  await modal.getByTestId("inline-row-subcategories").getByTestId("field-name").fill(subLabel);
+  await modal.getByTestId("form-save").click();
+  await expect(modal).toBeHidden();
+
+  // the dependent subcategory select refreshed and now offers the new subcategory
+  await expect(subcategory.locator("option", { hasText: subLabel })).toHaveCount(1);
+
+  // cleanup: delete the category (cascades to the subcategory)
+  await page.getByTestId("related-delete-category_id").click();
+  await page.getByTestId("confirm-accept").click();
 });

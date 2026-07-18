@@ -1,3 +1,6 @@
-<div class="fk-lookup" data-field="{{ field.name }}" data-depends-on="{{ field.depends_on | join(',') }}" data-min-chars="{{ field.min_chars }}" data-initial-limit="{{ field.initial_limit }}" data-search-limit="{{ field.search_limit }}" data-value="{{ field.value if field.value is not none else '' }}">
-  <input type="hidden" name="{{ field.name }}" value="{{ field.value if field.value is not none else '' }}">
+<div class="d-flex align-items-start gap-1{% if field.related %} fk-related{% endif %}"{% if field.related %} data-related="{{ field.related }}"{% endif %}>
+  <div class="fk-lookup flex-fill" data-field="{{ field.name }}" data-depends-on="{{ field.depends_on | join(',') }}" data-min-chars="{{ field.min_chars }}" data-initial-limit="{{ field.initial_limit }}" data-search-limit="{{ field.search_limit }}" data-value="{{ field.value if field.value is not none else '' }}">
+    <input type="hidden" name="{{ field.name }}" value="{{ field.value if field.value is not none else '' }}">
+  </div>
+  {% include "admin/partials/_related_buttons.html" %}
 </div>

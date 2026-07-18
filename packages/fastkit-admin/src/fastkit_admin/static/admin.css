@@ -27,6 +27,17 @@
   line-height: 1;
 }
 
+.fk-cell-link,
+.fk-cell-link:hover,
+.fk-cell-link:focus,
+.fk-sort,
+.fk-sort:hover,
+.fk-sort:focus {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
 .fk-field,
 .fk-filter {
   position: relative;

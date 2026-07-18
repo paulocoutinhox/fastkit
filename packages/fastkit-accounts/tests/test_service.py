@@ -139,7 +139,10 @@ async def test_add_and_remove_identifier(service):
     identifiers = await service.list_identifiers(user.id)
     assert len(identifiers) == 2
 
-    assert await service.remove_identifier(user.id, added.id) is True
+    # a non-numeric id never reaches the integer PK lookup (no Postgres DataError, no 500)
+    assert await service.remove_identifier(user.id, "not-a-number") is False
+    # a numeric string id is coerced to the integer PK
+    assert await service.remove_identifier(user.id, str(added.id)) is True
     assert await service.remove_identifier(user.id, added.id) is False
 
 
