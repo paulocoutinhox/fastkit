@@ -14,7 +14,11 @@ class Settings:
     class database:
         url = "sqlite+aiosqlite:///:memory:"
         pool_pre_ping = True
+        pool_recycle = 1800
         echo = False
+
+    class permissions:
+        store = "memory"
 
     installed_apps = [
         "fastkit.core",
@@ -50,3 +54,29 @@ async def test_permissions_app_registers(runtime):
     assert isinstance(runtime.component("authorizer"), Authorizer)
     assert runtime.component("permission_cache") is not None
     assert runtime.component("permission_service") is not None
+
+
+def test_build_store_selects_backend():
+    from types import SimpleNamespace
+
+    import pytest
+
+    from fastkit_core.store import MemoryKeyValueStore, SharedKeyValueStore
+    from fastkit_permissions.app import build_store
+
+    context = SimpleNamespace(component=lambda name: "cache-provider")
+
+    memory = build_store(
+        SimpleNamespace(permissions=SimpleNamespace(store="memory")), context
+    )
+    shared = build_store(
+        SimpleNamespace(permissions=SimpleNamespace(store="shared")), context
+    )
+
+    assert isinstance(memory, MemoryKeyValueStore)
+    assert isinstance(shared, SharedKeyValueStore)
+
+    with pytest.raises(ValueError, match="unknown permissions store"):
+        build_store(
+            SimpleNamespace(permissions=SimpleNamespace(store="bogus")), context
+        )

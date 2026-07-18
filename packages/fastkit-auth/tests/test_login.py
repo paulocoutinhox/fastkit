@@ -264,20 +264,29 @@ async def test_logout_revokes_session(auth_service, accounts, passwords):
 
 
 async def test_login_enforces_the_captcha(database, accounts, passwords, clock):
+    import json
+
     from fastkit_auth.captcha.image import ImageCaptchaProvider
     from fastkit_auth.ratelimit import RateLimiter
     from fastkit_auth.service import AuthService
     from fastkit_auth.sessions import SessionService
+    from fastkit_auth.store import MemoryKeyValueStore
     from fastkit_auth.tokens import TokenService
 
-    captcha = ImageCaptchaProvider(clock=clock)
+    store = MemoryKeyValueStore()
+    captcha = ImageCaptchaProvider(store, clock=clock)
     service = AuthService(
         database,
         accounts,
         passwords,
         SessionService(database, ttl_seconds=3600, clock=clock),
         TokenService(secret_key="test-secret", ttl_seconds=3600),
-        RateLimiter(max_attempts=5, window_seconds=60, clock=lambda: 0.0),
+        RateLimiter(
+            MemoryKeyValueStore(clock=lambda: 0.0),
+            max_attempts=5,
+            window_seconds=60,
+            clock=lambda: 0.0,
+        ),
         captcha,
         clock=clock,
     )
@@ -288,8 +297,9 @@ async def test_login_enforces_the_captcha(database, accounts, passwords, clock):
             "email", "cap@acme.com", "correct horse battery", requested_tenant_id=1
         )
 
-    challenge = captcha.new_challenge()
-    code = captcha._challenges[challenge["challenge_id"]][0]
+    challenge = await captcha.new_challenge()
+    stored = await store.get(captcha._store_key(challenge["challenge_id"]))
+    code = json.loads(stored.decode("utf-8"))["code"]
     result = await service.login(
         "email",
         "cap@acme.com",

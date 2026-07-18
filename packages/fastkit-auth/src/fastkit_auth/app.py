@@ -5,11 +5,24 @@ from fastkit_auth.passwords import PasswordHashService
 from fastkit_auth.ratelimit import RateLimiter
 from fastkit_auth.service import AuthService
 from fastkit_auth.sessions import SessionService
+from fastkit_auth.store import MemoryKeyValueStore, SharedKeyValueStore
 from fastkit_auth.tokens import TokenService
 
 
-def build_captcha_provider(settings):
-    return captcha_providers.build(settings.auth.captcha.provider, settings)
+def build_captcha_provider(settings, store):
+    return captcha_providers.build(settings.auth.captcha.provider, settings, store)
+
+
+def build_store(settings, context: BootstrapContext):
+    kind = settings.auth.store
+
+    if kind == "memory":
+        return MemoryKeyValueStore()
+
+    if kind == "shared":
+        return SharedKeyValueStore(lambda: context.component("cache_provider"))
+
+    raise ValueError(f"unknown auth store '{kind}'")
 
 
 class AuthApp(FastKitApp):
@@ -25,6 +38,7 @@ class AuthApp(FastKitApp):
         settings = context.settings
         database = context.component("database")
         account_service = context.component("account_service")
+        store = build_store(settings, context)
 
         password_service = PasswordHashService(
             min_length=settings.auth.password_min_length,
@@ -39,9 +53,11 @@ class AuthApp(FastKitApp):
             database, ttl_seconds=settings.auth.access_token_ttl_seconds
         )
         rate_limiter = RateLimiter(
-            max_attempts=settings.auth.rate_limit_per_minute, window_seconds=60
+            store,
+            max_attempts=settings.auth.rate_limit_per_minute,
+            window_seconds=60,
         )
-        captcha_provider = build_captcha_provider(settings)
+        captcha_provider = build_captcha_provider(settings, store)
 
         auth_service = AuthService(
             database,

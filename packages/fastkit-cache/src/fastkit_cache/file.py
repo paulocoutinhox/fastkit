@@ -10,12 +10,17 @@ from fastkit_cache.provider import CacheHealth, CacheStatus
 _HEADER = struct.Struct("<dI")
 
 
+def _encode_int(value: int) -> bytes:
+    return str(value).encode("utf-8")
+
+
 class FileCacheProvider:
     """Single-node file cache with atomic writes, TTL and namespace-aware clearing."""
 
     def __init__(self, root: str, clock=None):
         self._root = Path(root)
         self._clock = clock or time.time
+        self._lock = asyncio.Lock()
         self._root.mkdir(parents=True, exist_ok=True)
 
     def _path_for(self, key: str) -> Path:
@@ -23,8 +28,7 @@ class FileCacheProvider:
 
         return self._root / digest[:2] / digest[2:4] / digest
 
-    def _encode(self, key: str, value: bytes, ttl: int | None) -> bytes:
-        expires_at = self._clock() + ttl if ttl is not None else 0.0
+    def _encode(self, key: str, value: bytes, expires_at: float) -> bytes:
         key_bytes = key.encode("utf-8")
 
         return _HEADER.pack(expires_at, len(key_bytes)) + key_bytes + value
@@ -59,8 +63,10 @@ class FileCacheProvider:
         return await asyncio.to_thread(self._read_valid, self._path_for(key))
 
     async def set(self, key: str, value: bytes, ttl: int | None = None) -> None:
+        expires_at = self._clock() + ttl if ttl is not None else 0.0
+
         await asyncio.to_thread(
-            self._write_sync, self._path_for(key), self._encode(key, value, ttl)
+            self._write_sync, self._path_for(key), self._encode(key, value, expires_at)
         )
 
     async def delete(self, key: str) -> None:
@@ -79,12 +85,27 @@ class FileCacheProvider:
         if value is not None:
             await self.set(key, value, ttl)
 
-    async def increment(self, key: str, amount: int = 1) -> int:
-        current = await self.get(key)
-        value = int(current.decode("utf-8")) if current is not None else 0
-        value += amount
+    async def increment(self, key: str, amount: int = 1, ttl: int | None = None) -> int:
+        async with self._lock:
+            return await asyncio.to_thread(self._increment_sync, key, amount, ttl)
 
-        await self.set(key, str(value).encode("utf-8"))
+    def _increment_sync(self, key: str, amount: int, ttl: int | None) -> int:
+        path = self._path_for(key)
+        now = self._clock()
+        expires_at = now + ttl if ttl is not None else 0.0
+        value = 0
+
+        if path.exists():
+            stored_expires_at, _, raw = self._decode(path.read_bytes())
+
+            if stored_expires_at and stored_expires_at <= now:
+                value = 0
+            else:
+                value = int(raw.decode("utf-8"))
+                expires_at = stored_expires_at
+
+        value += amount
+        self._write_sync(path, self._encode(key, _encode_int(value), expires_at))
 
         return value
 

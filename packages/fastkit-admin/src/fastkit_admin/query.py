@@ -22,7 +22,14 @@ def parse_grid_query(params) -> GridQuery:
         part = match.group("part")
 
         if part is None:
-            filters[field] = value
+            existing = filters.get(field)
+
+            if isinstance(existing, list):
+                existing.append(value)
+            elif existing is not None and not isinstance(existing, dict):
+                filters[field] = [existing, value]
+            else:
+                filters[field] = value
         else:
             bucket = filters.get(field)
 

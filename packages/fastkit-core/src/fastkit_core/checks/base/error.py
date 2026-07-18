@@ -1,0 +1,2 @@
+class SystemCheckError(RuntimeError):
+    pass

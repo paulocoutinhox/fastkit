@@ -21,15 +21,3 @@ async def open_session(session_factory):
         raise
     finally:
         await session.close()
-
-
-@asynccontextmanager
-async def transaction(session: AsyncSession):
-    """Explicit transaction boundary that commits on success and rolls back on error."""
-
-    try:
-        yield session
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        raise

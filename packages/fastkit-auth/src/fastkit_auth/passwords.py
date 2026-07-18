@@ -49,7 +49,7 @@ class PasswordHashService:
 
     def verify(self, password_hash: str, password: str) -> bool:
         try:
-            self._hasher.verify(password_hash, password)
+            self._hasher.verify(password_hash, self._bounded(password))
 
             return True
         except (VerifyMismatchError, InvalidHashError):
@@ -62,6 +62,9 @@ class PasswordHashService:
             self._dummy_hash = self._hasher.hash("fastkit-timing-guard")
 
         self.verify(self._dummy_hash, password)
+
+    def _bounded(self, password: str) -> str:
+        return password[: self._max_length]
 
     def needs_rehash(self, password_hash: str) -> bool:
         return self._hasher.check_needs_rehash(password_hash)

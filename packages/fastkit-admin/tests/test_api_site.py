@@ -293,6 +293,26 @@ def test_parse_grid_query_range_filters():
     )
     assert mixed.filters["price"] == {"from": "1"}
 
+    # repeated scalar keys collect into a list (multichoice), single stays scalar
+    repeated = parse_grid_query(
+        Params(
+            [
+                ("filter[tags]", "a"),
+                ("filter[tags]", "b"),
+                ("filter[tags]", "c"),
+                ("filter[status]", "on"),
+            ]
+        )
+    )
+    assert repeated.filters["tags"] == ["a", "b", "c"]
+    assert repeated.filters["status"] == "on"
+
+    # a range-then-scalar key falls back to the scalar (last write wins)
+    range_then_scalar = parse_grid_query(
+        Params([("filter[price][from]", "1"), ("filter[price]", "9")])
+    )
+    assert range_then_scalar.filters["price"] == "9"
+
 
 def test_parse_grid_query_defaults():
     class Empty:

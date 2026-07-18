@@ -47,6 +47,8 @@ ERROR_EN = {
 VALIDATION_EN = {
     "validation.invalid": "This value is invalid.",
     "validation.required": "This field is required.",
+    "validation.unique": "This value is already in use.",
+    "validation.foreign-key": "The referenced record does not exist.",
     "validation.unknown-reference": "The selected value does not exist.",
     "validation.string-type": "This value must be text.",
     "validation.string-too-short": "This value must have at least {min_length} characters.",
@@ -165,6 +167,8 @@ ERROR_PT = {
 VALIDATION_PT = {
     "validation.invalid": "Este valor é inválido.",
     "validation.required": "Este campo é obrigatório.",
+    "validation.unique": "Este valor já está em uso.",
+    "validation.foreign-key": "O registro referenciado não existe.",
     "validation.unknown-reference": "O valor selecionado não existe.",
     "validation.string-type": "Este valor deve ser um texto.",
     "validation.string-too-short": "Este valor deve ter pelo menos {min_length} caracteres.",

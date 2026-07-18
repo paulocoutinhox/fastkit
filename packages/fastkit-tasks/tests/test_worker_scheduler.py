@@ -55,6 +55,26 @@ async def test_worker_returns_none_when_empty(queue, registry, database, clock):
     assert await worker_for(queue, registry, database, clock).run_once() is None
 
 
+async def test_worker_extends_lease_to_cover_a_long_timeout(
+    queue, registry, database, clock
+):
+    seen = {}
+
+    @registry.task("long.work")
+    async def handler(context, payload):
+        async with database.session_factory() as session:
+            stored = await session.get(TaskExecution, context.execution.id)
+            seen["locked_until"] = stored.locked_until
+
+    await queue.enqueue("long.work", timeout=300)
+    started = clock().replace(tzinfo=None)
+    await worker_for(queue, registry, database, clock).run_once()
+
+    # the lease covers the full timeout (300s) plus the base lease grace (60s)
+    locked_until = seen["locked_until"].replace(tzinfo=None)
+    assert (locked_until - started).total_seconds() >= 300
+
+
 async def test_worker_retries_on_error(queue, registry, database, clock):
     @registry.task("flaky", max_attempts=2)
     async def handler(context, payload):
@@ -361,6 +381,7 @@ class Settings:
     class database:
         url = "sqlite+aiosqlite:///:memory:"
         pool_pre_ping = True
+        pool_recycle = 1800
         echo = False
 
     installed_apps = ["fastkit.core", "fastkit.db", "fastkit.tasks"]
@@ -406,6 +427,7 @@ def _worker_settings(tmp_path, run_worker, worker_queues, poll=0.01):
         class database:
             url = f"sqlite+aiosqlite:///{tmp_path}/app.db"
             pool_pre_ping = True
+            pool_recycle = 1800
             echo = False
 
         class tasks:

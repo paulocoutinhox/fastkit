@@ -11,6 +11,7 @@ from fastkit_accounts.service import AccountService
 from fastkit_auth import models as auth_models  # noqa: F401
 from fastkit_auth.passwords import PasswordHashService
 from fastkit_auth.ratelimit import RateLimiter
+from fastkit_auth.store import MemoryKeyValueStore
 from fastkit_auth.captcha.disabled import DisabledCaptchaProvider
 from fastkit_auth.service import AuthService
 from fastkit_auth.sessions import SessionService
@@ -69,7 +70,12 @@ def session_service(database, clock):
 def auth_service(database, accounts, passwords, clock, captcha_disabled):
     sessions = SessionService(database, ttl_seconds=3600, clock=clock)
     tokens = TokenService(secret_key="test-secret", ttl_seconds=3600)
-    limiter = RateLimiter(max_attempts=5, window_seconds=60, clock=lambda: 0.0)
+    limiter = RateLimiter(
+        MemoryKeyValueStore(clock=lambda: 0.0),
+        max_attempts=5,
+        window_seconds=60,
+        clock=lambda: 0.0,
+    )
 
     return AuthService(
         database,

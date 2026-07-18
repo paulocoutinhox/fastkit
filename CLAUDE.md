@@ -45,7 +45,7 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   resolvers, global-tenant semantics (`tenant_id = 0` ⇄ persisted `NULL`).
 - **fastkit-accounts** — users, profiles, login identifiers and normalizers.
 - **fastkit-permissions** — permissions, roles (a role *is* the permission set — no
-  separate group), authorization with a versioned cache.
+  separate group), authorization with a store-backed, multi-worker-correct versioned cache.
 - **fastkit-auth** — sessions, Argon2 passwords, JWT, rate limiting, and a **pluggable captcha**
   (`captcha/` subpackage): a `CaptchaProvider` ABC (`verify(payload)` + `client_config()` +
   `mount_routes(router)`) with built-ins `disabled`, `recaptcha` (v3, token/third-party) and `image`
@@ -161,7 +161,9 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   `DecimalField` rejects `bool`/list/dict (a numeric JSON value is still accepted) instead of an
   `InvalidOperation`/`AttributeError`; `SelectField`/`MultiSelectField.validate` guard the choice
   membership test with an `isinstance(str)` check so an unhashable value (`{"status": []}`,
-  `{"tags": [["x"]]}`) raises a 422, not a `TypeError`. Grid filters coerce the query-string value to the column's Python
+  `{"tags": [["x"]]}`) raises a 422, not a `TypeError`. `RichTextField` rejects a non-string JSON
+  value (number/list/dict) with a 422 `FieldError` instead of feeding it to `sanitize_html` and
+  raising a `TypeError` from `HTMLParser.feed`. Grid filters coerce the query-string value to the column's Python
   type via a shared `filters._coerce_for_column` (used by one `EqualityFilter` base) and **skip
   the filter** if it does not parse — so `filter[price]=abc` can't raise a Postgres `DataError`.
   `DateRangeFilter.apply` returns the query unchanged when the value is not a `{from,to}` dict (a
@@ -229,6 +231,30 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     reprocessing is idempotent. `set_role_permissions` de-dups its `permission_ids` and maps an
     `IntegrityError` (unknown role/permission) to a 422 `FieldError`; `grant_permission`/`assign_role`
     catch a duplicate `IntegrityError` and no-op (idempotent, never a 500).
+  - **The cache `increment` is atomic and TTL-correct** (`increment(key, amount=1, ttl=None)`): the
+    database provider reads the row `with_for_update` and writes back, and an insert on a brand-new
+    key catches `IntegrityError` and re-increments the winner's row, so two workers can't lose an
+    update or double-create; the file provider (single-node) guards the read-modify-write with an
+    `asyncio.Lock`. A live key **preserves its existing expiry** (a fixed-window counter never
+    resurrects to permanent), an **expired** key resets to `amount` applying the new `ttl`, and a
+    fresh key applies `ttl` (or stays permanent when `ttl` is `None`). This is what makes the
+    store-backed `RateLimiter` correct on a shared cache.
+  - **The permission cache self-heals** (`PermissionCache`): an explicit `PermissionService`
+    mutation calls `bump_version` for immediate invalidation, and every entry also carries a TTL
+    (default 300s) so a role or assignment mutated **out of band** (generic admin CRUD on `Role`)
+    stops authorizing within the TTL instead of indefinitely.
+  - **Login caps the password before argon2 everywhere**: `PasswordHashService.verify` and
+    `dummy_verify` bound the input to `password_max_length` (not only `hash`), so an oversized login
+    password can never drive unbounded argon2 work, and the real/dummy paths stay timing-equal.
+    `RecaptchaProvider` guards `float(score)` so a non-numeric provider `score` returns a clean
+    `CAPTCHA_INVALID`, never a 500.
+  - **Image work never blocks the event loop**: `confirm_image_upload`'s `inspect` and
+    `process_image`'s `process_variant` run through `asyncio.to_thread`, so a large decode/resize
+    can't stall other coroutines on the worker. `_reserve_upload` raises `UPLOAD_SESSION_EXPIRED`
+    (not `AttributeError` → 500) for an unknown/stale `session_id`.
+  - **A long task keeps its lease**: the worker extends the lease to `timeout + lease_seconds` when a
+    task's `timeout` is at least the base lease, so a long-running task is not reclaimed and re-run
+    concurrently by another worker mid-execution (finalization is still lease-guarded).
   - **Malformed client input never 500s the framework**: `Accept-Language` with a bad `q=`
     value is skipped (`i18n/locale.parse_accept_language`); a valid-signed webhook whose body is
     not JSON (or lacks `id`) is stored **rejected**, not raised; plus the admin bad-input rules above.
@@ -262,9 +288,20 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   - **Provider health checks resolve the live component**: cache/storage `_health` reads
     `context.component("…")` at check time, so a consumer that overrides the provider via
     `set_component` gets a health check for its provider, not the discarded framework one.
-  - **More request-path 500 guards**: `parse_grid_query` forces a dict for a range part, so a mixed
-    `filter[x]=a&filter[x][from]=b` can't raise `TypeError`; admin `create`/`update` catch a
-    unique-constraint `IntegrityError` and raise a 409 `ConflictError` (not a 500); content
+  - **Integrity errors are classified and point at the offending field, never a generic 500 or a
+    mislabeled "already exists".** `fastkit_db.integrity.classify_integrity_error` reads the driver
+    message (SQLite + PostgreSQL) into an `IntegrityViolation(kind, columns)` where kind is `unique`,
+    `foreign_key`, `not_null`, `check` or `unknown`. The admin's `_integrity_error` maps each: `unique`
+    → 409 `ConflictError` + `validation.unique` field errors, `foreign_key` → 422 `ValidationError` +
+    `validation.foreign-key`, `not_null` → 422 + `validation.required`, `check` → 422, `unknown` → 409
+    `CONFLICT_STATE`. **The columns are filtered to the resource's own form fields** (`_field_map`):
+    a DB error has no inline-row context and reports raw columns (a composite unique on an inline
+    child names the parent FK too), so pointing those at the parent form would light up fields the
+    user cannot edit — filtered out, it degrades to a clean generic conflict. **Inline row-level
+    uniqueness is caught before the write**: `InlineResource(unique_fields=[...])` flags a duplicate
+    submitted row with the exact `path=[inline, row_index, field]`, so the right row's field lights
+    up (the DB path cannot know the row). `parse_grid_query` forces a dict for a range part, so a mixed
+    `filter[x]=a&filter[x][from]=b` can't raise `TypeError`; content
     `set_translation`/`publish` raise `NotFound` for a missing content id; a webhook whose
     valid-signed body is JSON but **not an object** (`[]`, `123`) is stored *rejected*, not raised.
   - **Uploads are size-capped**: `helpers.read_upload(file, max_bytes)` (default
@@ -346,22 +383,64 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     `render_<column>`); `formatCells` only re-formats datetime/number cells via jQuery `.text()`,
     never inserting markup. The per-request `window.__FASTKIT__` JSON is escaped (`<`,`>`,`&`,U+2028/9 →
     `\u…`) so a `</script>` inside a translation/brand string can't break out of the inline script.
+- **Multi-worker shared store — the one async backend seam** (`fastkit_core.store`): the framework
+  never hardwires a backend for cross-cutting stateful concerns (rate limiting, captcha challenges,
+  the permission cache). They depend on a single `KeyValueStore` protocol
+  (`get`/`set`/`delete`/`increment(key, amount, ttl)`) with two implementations — `MemoryKeyValueStore`
+  (in-process, TTL, atomic increment under an `asyncio.Lock`; the single-worker default) and
+  `SharedKeyValueStore` (routes to the runtime's `cache_provider`, resolved **lazily** so a package
+  stays decoupled from the cache app's bootstrap order and does not force a `fastkit.cache` requires
+  edge). This is the canonical seam — a new stateful concern takes a `KeyValueStore`, never a raw DB
+  session. Each subsystem selects `memory`|`shared` via its own setting (`settings.auth.store`,
+  `settings.permissions.store`), each `build_store` raising on an unknown value.
+- **The permission cache is store-backed and multi-worker-correct** (`fastkit_permissions.cache`):
+  `PermissionCache(store, ttl_seconds)` keeps the **version counter in the store** (`permissions:version`,
+  bumped with the atomic `increment`), so a role/assignment mutation on any worker invalidates every
+  worker at once — the old per-process counter only invalidated the mutating worker and left the rest
+  serving stale grants until the TTL. `version`/`get`/`set`/`bump_version` are async; each cached
+  permission set is JSON under `permissions:<user>:<tenant>:<version>` with the safety-net TTL, and
+  `set(observed_version)` re-reads the version and drops the write if a bump raced the compute await.
+  The `Authorizer` awaits the cache and still fails open to the database on any store error.
+- **Auth rate limiting and captcha use the same seam** (`fastkit_auth.store` re-exports
+  `fastkit_core.store` — one implementation, no duplicate). The **`RateLimiter` is store-backed** — a
+  fixed-window counter (`store.increment(key, ttl=window)`, key = `auth:ratelimit:<sha256>:<window>`)
+  so every worker shares one budget and the window rotates via the store's TTL; `hit`/`reset` are
+  async. **Captcha providers persist in the store**: `ImageCaptchaProvider` stores each challenge as
+  JSON `{code, expires_at}` under `auth:captcha:image:<id>` (store TTL = challenge TTL + grace, so the
+  embedded expiry still distinguishes `CAPTCHA_EXPIRED` from an unknown `CAPTCHA_INVALID`);
+  `RecaptchaProvider` records a used token under `auth:captcha:recaptcha:used:<sha256>` with a replay
+  TTL, so a replayed token is rejected across every worker. `new_challenge` is async. In `shared`
+  mode the cache provider is the framework's canonical distributed store (Redis in production once
+  its provider ships), never a second parallel table.
+- **Backend abstraction — nothing hardwires a backend for a cross-cutting concern.** Every
+  stateful concern sits behind a contract, never a raw `session_factory` or a specific server:
+  - **Cross-cutting/ephemeral state** → the `KeyValueStore` seam (`fastkit_core.store`): rate limiting,
+    captcha challenges/used-tokens, the permission cache. Add a new one the same way — take a
+    `KeyValueStore`, select `memory`/`shared` from a setting.
+  - **Provider-selected IO** → a per-subsystem `ProviderRegistry` with a `Protocol` contract: cache
+    (`CacheProvider`), storage (`StorageProvider`), mail (`EmailProvider`), captcha (`CaptchaProvider`),
+    webhooks (`WebhookProvider`). The DB/disk/S3/SMTP code lives *inside* an implementation; the
+    consumer registers its own and picks it by name.
+  - **Domain data** (users, roles, content, files, tasks, mail deliveries, logs, tenants, sessions,
+    webhook inbox, report runs) → the `Database` component (itself the abstraction) via
+    `self._database.session_factory()`; `open_session`/`UnitOfWork`/`Repository` are the primitives.
+    These are intentionally SQL — the admin engine renders SQLAlchemy models — so they are **not**
+    forced behind a swap-the-store contract. A subsystem that genuinely wants a non-DB backend
+    (task queue on Redis/SQS, sessions in the cache) adds a driver *for that subsystem* the same way
+    the KeyValueStore was added — it is a per-context decision, not a blanket repository indirection.
 - **Known follow-ups** (documented, lower priority — do not silently "fix" with gambiarras):
-  in-memory `RateLimiter` sets and the captcha providers' in-memory token/challenge stores (`RecaptchaProvider`, `ImageCaptchaProvider`) are per-process and reset on restart (a shared
-  store is needed for multi-worker); the database/file cache `increment` does not preserve TTL;
-  `confirm_image_upload`, the database/file cache `set`, and content
-  `set_translation` are check-then-write (fine on SQLite's single writer, want an upsert on
-  Postgres); mail counts a breaker-open attempt; S3 reads bypass the retry/breaker. Fix these with
-  real atomicity, not workarounds. Also: a genuinely circular **singleton** service graph (A needs
-  B needs A) raises `ServiceError` when resolved sequentially but can deadlock under concurrent
-  cold-start on the per-key locks — an impossible graph either way, so it is left as a known limit
-  rather than fixed with a detector that would risk the container's concurrency correctness. The S3
-  storage provider is constructed with an un-entered aioboto3 client (env-gated, untested in CI) —
-  it needs a lifecycle to enter/close the client and its own `bucket` setting. Swapping the rate
-  limiter / captcha stores for a shared-store implementation is part of the multi-worker
-  follow-up (they are collaborators of `AuthService`, not yet settings-selected). The CLI has no
-  third-party subcommand mechanism yet (unlike apps/assets/tasks/reports/webhooks). None of these
-  are wired half-way — implement them fully when needed.
+  the database/file cache `set`, `confirm_image_upload`, and content `set_translation` are still
+  check-then-write (fine on SQLite's single writer, want an upsert on Postgres — the cache
+  `increment` **is** already atomic, see the invariants); mail counts a breaker-open attempt; S3
+  reads bypass the retry/breaker. Fix these with real atomicity, not workarounds. Also: a genuinely
+  circular **singleton** service graph (A needs B needs A) raises `ServiceError` when resolved
+  sequentially but can deadlock under concurrent cold-start on the per-key locks — an impossible
+  graph either way, so it is left as a known limit rather than fixed with a detector that would risk
+  the container's concurrency correctness. The S3 storage provider is constructed with an un-entered
+  aioboto3 client (env-gated, untested in CI) — it needs a lifecycle to enter/close the client and
+  its own `bucket` setting. The CLI has no third-party subcommand mechanism yet (unlike
+  apps/assets/tasks/reports/webhooks). None of these are wired half-way — implement them fully when
+  needed.
 - **Extensibility contracts** (a consumer extends every subsystem without editing the framework):
   apps + lifecycle hooks (`register_settings/models/services/templates/translations/tasks/admin/
   routers` + `startup/shutdown`) discovered via the `fastkit.apps` entry point; the model / router /
@@ -756,7 +835,7 @@ Tabler hover highlight has breathing room (not a tight box).
   detail view shows JSON in a `<pre>`.
 - **Inlines — a parent form with infinite repeatable sub-items** (`inlines.py` +
   `partials/inline.html`). `AdminResource.inlines = [InlineResource(name, form_fields, model,
-  fk_field, label, min_items, max_items, pk_field="id")]` renders each child sub-form as a
+  fk_field, label, min_items, max_items, pk_field="id", unique_fields=None)]` renders each child sub-form as a
   card of repeatable rows below the parent fieldsets (server-rendered pre-filled on edit via
   `resource.inline_values` → `InlineResource.load`). The client (`initInlines`) clones the
   `<template class="fk-inline-prototype">` on **Add**, removes a row on **Remove** (honouring
@@ -814,7 +893,10 @@ Tabler hover highlight has breathing room (not a tight box).
   `can_delete`) — space-saving and extensible. **Bulk actions are a dropdown** in the toolbar (delete + `scope="bulk"`
   actions) shown when the resource has bulk ops; **`scope="collection"` actions** render as
   toolbar buttons that run with no selection (the demo Task runs "Enqueue welcome email"
-  button enqueues a `fastkit-tasks` job this way).
+  button enqueues a `fastkit-tasks` job this way). An `AdminAction` with an explicit `permission`
+  is authorized against it; an action **without** a permission falls back to the resource's `update`
+  permission (so a custom action never bypasses the resource's own mutation gate), consistent with
+  the CRUD handlers.
 - **Screen-level permission guard**: every data endpoint checks its permission
   (`list`/`detail`/`create`/`update`/`delete`/action). The **server** also guards each rendered
   screen — `dispatch_screen` calls `check_permission` for the screen's action and renders
@@ -1062,8 +1144,12 @@ Tabler hover highlight has breathing room (not a tight box).
   (`from fastkit_admin.fields import TextField`). This is the **only** case an `__init__.py` is
   non-empty. A package that is not a class taxonomy (the package root, `fastkit_core/`, etc.) keeps
   an **empty** `__init__.py` and is imported from its concrete submodules.
-- One statement per line. Single-line function signatures and calls. No statements
-  split with semicolons.
+- **Formatting is `ruff format`** (`make format`) — the canonical style. Do not hand-format; run
+  `make format` and `make lint` before finishing. No statements split with semicolons.
+- Models use SQLAlchemy string forward-references (`Mapped["Other"]`) that its class registry
+  resolves at mapper-configure time; once each model is its own file the name is not in the module
+  namespace, so `ruff.toml` scopes an `F821` per-file-ignore to `**/models/*.py` and `**/models.py`
+  (TYPE_CHECKING import guards are disallowed, so this is the clean escape).
 - Comments are rare and only where the code cannot speak for itself. Single-line `#`
   and `//` comments are lowercase. Code and comments are in English.
 - No legacy or backward-compatibility code. Ship the final version and refactor
@@ -1081,7 +1167,8 @@ Tabler hover highlight has breathing room (not a tight box).
 make install        # venv + every workspace package
 make install-admin  # Playwright e2e dependencies
 make coverage       # Python suite with the 100% branch-coverage gate
-make lint           # ruff (never `ruff format` — it breaks single-line signatures)
+make format         # ruff format (the canonical code style)
+make lint           # ruff check
 make test-e2e       # Playwright browser suite (runs the demo)
 make seed           # seed the demo database
 make dev            # run the demo API on :8100 (with the in-process task worker)

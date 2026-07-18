@@ -211,6 +211,22 @@ def test_richtext_explicit_none_sanitizer_opts_out():
     assert field.parse_value("<script>raw</script>") == "<script>raw</script>"
 
 
+def test_richtext_rejects_a_non_string_value():
+    from fastkit_core.errors.exceptions import ValidationError
+    from fastkit_admin.fields import RichTextField
+
+    field = RichTextField("body")
+
+    assert field.parse_value(None) is None
+    assert field.parse_value("") == ""
+
+    with pytest.raises(ValidationError):
+        field.parse_value(123)
+
+    with pytest.raises(ValidationError):
+        field.parse_value(["x"])
+
+
 def test_json_field():
     from fastkit_admin.fields import JsonField
 

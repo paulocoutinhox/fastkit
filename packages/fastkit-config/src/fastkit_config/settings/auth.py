@@ -15,4 +15,5 @@ class AuthSettings(BaseModel):
     max_failed_logins: int = 5
     lockout_seconds: int = 900
     rate_limit_per_minute: int = 10
+    store: str = "memory"
     captcha: CaptchaSettings = Field(default_factory=CaptchaSettings)

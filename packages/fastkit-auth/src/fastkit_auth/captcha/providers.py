@@ -11,11 +11,11 @@ from fastkit_auth.captcha.recaptcha import (
 captcha_providers = ProviderRegistry("captcha")
 
 
-def build_disabled(settings):
+def build_disabled(settings, store):
     return DisabledCaptchaProvider()
 
 
-def build_recaptcha(settings):
+def build_recaptcha(settings, store):
     captcha = settings.auth.captcha
     config = RecaptchaConfig(
         action=captcha.action,
@@ -30,14 +30,14 @@ def build_recaptcha(settings):
         )
     )
 
-    return RecaptchaProvider(config, client, captcha.site_key)
+    return RecaptchaProvider(config, client, captcha.site_key, store)
 
 
-def build_image(settings):
+def build_image(settings, store):
     captcha = settings.auth.captcha
 
     return ImageCaptchaProvider(
-        length=captcha.image_length, ttl_seconds=captcha.challenge_ttl_seconds
+        store, length=captcha.image_length, ttl_seconds=captcha.challenge_ttl_seconds
     )
 
 

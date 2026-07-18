@@ -9,6 +9,7 @@ from fastkit_core.errors.exceptions import (
 )
 from fastkit_auth.passwords import PasswordHashService
 from fastkit_auth.ratelimit import RateLimiter
+from fastkit_auth.store import MemoryKeyValueStore
 from fastkit_auth.tokens import TokenService
 
 
@@ -97,37 +98,61 @@ def test_token_wrong_secret_is_rejected():
         TokenService(secret_key="secret-b").verify(issued)
 
 
-def test_rate_limiter_blocks_after_max():
-    times = iter([0.0, 0.0, 0.0])
-    limiter = RateLimiter(max_attempts=2, window_seconds=60, clock=lambda: next(times))
+async def test_rate_limiter_blocks_after_max():
+    limiter = RateLimiter(
+        MemoryKeyValueStore(clock=lambda: 0.0),
+        max_attempts=2,
+        window_seconds=60,
+        clock=lambda: 0.0,
+    )
 
-    limiter.hit("ip", 1, "email:a")
-    limiter.hit("ip", 1, "email:a")
-
-    with pytest.raises(RateLimitError):
-        limiter.hit("ip", 1, "email:a")
-
-
-def test_rate_limiter_window_expires():
-    clock = {"now": 0.0}
-    limiter = RateLimiter(max_attempts=1, window_seconds=10, clock=lambda: clock["now"])
-
-    limiter.hit("ip")
-    clock["now"] = 20.0
-    limiter.hit("ip")
-
-
-def test_rate_limiter_default_clock():
-    limiter = RateLimiter(max_attempts=1, window_seconds=60)
-
-    limiter.hit("ip")
+    await limiter.hit("ip", 1, "email:a")
+    await limiter.hit("ip", 1, "email:a")
 
     with pytest.raises(RateLimitError):
-        limiter.hit("ip")
+        await limiter.hit("ip", 1, "email:a")
 
 
-def test_rate_limiter_reset():
-    limiter = RateLimiter(max_attempts=1, window_seconds=60, clock=lambda: 0.0)
-    limiter.hit("ip")
-    limiter.reset("ip")
-    limiter.hit("ip")
+async def test_rate_limiter_isolates_keys():
+    limiter = RateLimiter(
+        MemoryKeyValueStore(clock=lambda: 0.0),
+        max_attempts=1,
+        window_seconds=60,
+        clock=lambda: 0.0,
+    )
+
+    await limiter.hit("ip", 1, "email:a")
+    await limiter.hit("ip", 1, "email:b")
+
+
+async def test_rate_limiter_window_expires():
+    now = {"value": 0.0}
+    store = MemoryKeyValueStore(clock=lambda: now["value"])
+    limiter = RateLimiter(
+        store, max_attempts=1, window_seconds=10, clock=lambda: now["value"]
+    )
+
+    await limiter.hit("ip")
+    now["value"] = 20.0
+    await limiter.hit("ip")
+
+
+async def test_rate_limiter_default_clock():
+    limiter = RateLimiter(MemoryKeyValueStore(), max_attempts=1, window_seconds=60)
+
+    await limiter.hit("ip")
+
+    with pytest.raises(RateLimitError):
+        await limiter.hit("ip")
+
+
+async def test_rate_limiter_reset():
+    limiter = RateLimiter(
+        MemoryKeyValueStore(clock=lambda: 0.0),
+        max_attempts=1,
+        window_seconds=60,
+        clock=lambda: 0.0,
+    )
+    await limiter.hit("ip")
+    await limiter.reset("ip")
+    await limiter.hit("ip")

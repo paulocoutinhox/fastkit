@@ -1,0 +1,7 @@
+# sqlalchemy declarative relationships reference sibling models by string forward-reference
+# (Mapped["Other"]); once each model lives in its own file the name is resolved by sqlalchemy's
+# class registry at mapper-configure time, not by the module namespace, so F821 is a false positive
+# there. TYPE_CHECKING import guards are disallowed by the project, so this is scoped to model files.
+[lint.per-file-ignores]
+"**/models/*.py" = ["F821"]
+"**/models.py" = ["F821"]

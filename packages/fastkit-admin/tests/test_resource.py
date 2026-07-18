@@ -735,11 +735,16 @@ async def test_create_and_update_map_unique_violation_to_conflict(session, tag_m
     await admin.create(session, {"slug": "news"}, "en")
     other_id = (await admin.create(session, {"slug": "sports"}, "en")).id
 
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError) as create_error:
         await admin.create(session, {"slug": "news"}, "en")
 
-    with pytest.raises(ConflictError):
+    assert [error.field for error in create_error.value.field_errors] == ["slug"]
+    assert create_error.value.field_errors[0].code == "validation.unique"
+
+    with pytest.raises(ConflictError) as update_error:
         await admin.update(session, other_id, {"slug": "news"}, "en")
+
+    assert [error.field for error in update_error.value.field_errors] == ["slug"]
 
 
 async def test_run_action_declared_without_a_handler_raises(session, product_model):
@@ -783,3 +788,56 @@ async def test_password_field_skipped_when_blank():
 
     assert "password" not in parsed
     assert parsed["name"] == "Ada"
+
+
+def test_integrity_error_is_classified_and_filtered_to_form_fields(tag_model):
+    from fastkit_admin.fields import NumberField, TextField
+    from fastkit_admin.resource import AdminResource
+    from fastkit_core.errors.exceptions import ConflictError, ValidationError
+
+    class TagAdmin(AdminResource):
+        name = "tags"
+        model = tag_model
+        form_fields = [TextField("slug"), NumberField("category_id")]
+
+    admin = TagAdmin()
+
+    class _Error:
+        def __init__(self, orig):
+            self.orig = orig
+
+    unique = admin._integrity_error(_Error("UNIQUE constraint failed: demo_tag.slug"))
+    assert isinstance(unique, ConflictError)
+    assert [error.field for error in unique.field_errors] == ["slug"]
+
+    foreign_key = admin._integrity_error(
+        _Error("violates foreign key constraint\nKey (category_id)=(9) is not present")
+    )
+    assert isinstance(foreign_key, ValidationError)
+    assert [error.field for error in foreign_key.field_errors] == ["category_id"]
+    assert foreign_key.field_errors[0].code == "validation.foreign-key"
+
+    not_null = admin._integrity_error(
+        _Error("NOT NULL constraint failed: demo_tag.slug")
+    )
+    assert isinstance(not_null, ValidationError)
+    assert [error.field for error in not_null.field_errors] == ["slug"]
+    assert not_null.field_errors[0].code == "validation.required"
+
+    check = admin._integrity_error(_Error("CHECK constraint failed: price"))
+    assert isinstance(check, ValidationError)
+    assert check.field_errors == []
+
+    unknown = admin._integrity_error(_Error("some unrelated error"))
+    assert isinstance(unknown, ConflictError)
+    assert unknown.field_errors == []
+
+    # a composite unique on inline-child columns (with the parent fk) names no form field, so it
+    # degrades to a generic conflict instead of pointing at fields the user cannot edit here
+    inline = admin._integrity_error(
+        _Error(
+            "UNIQUE constraint failed: plan_entitlement.plan_id, plan_entitlement.entitlement_id"
+        )
+    )
+    assert isinstance(inline, ConflictError)
+    assert inline.field_errors == []

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from fastkit_core.errors.exceptions import AuthorizationError
+from fastkit_core.store import MemoryKeyValueStore
 from fastkit_permissions.cache import PermissionCache
 
 
@@ -97,13 +98,13 @@ async def test_cache_is_used_and_invalidated(service, authorizer, accounts, cach
     await service.assign_role(user.id, role.id, tenant_id=1)
 
     first = await authorizer.permissions_for(user, tenant_id=1)
-    assert cache.get(user.id, 1) == first
+    assert await cache.get(user.id, 1) == first
     assert "reports.export" in first
 
-    version_before = cache.version
+    version_before = await cache.version()
     await service.assign_role(user.id, role.id, tenant_id=2)
-    assert cache.version > version_before
-    assert cache.get(user.id, 1) is None
+    assert await cache.version() > version_before
+    assert await cache.get(user.id, 1) is None
 
 
 async def test_authorizer_without_cache(service, accounts):
@@ -119,12 +120,13 @@ async def test_cache_read_failure_falls_back_to_database(service, accounts):
     from fastkit_permissions.authorization import Authorizer
 
     class BrokenCache:
-        version = 1
+        async def version(self):
+            return 1
 
-        def get(self, user_id, tenant_id):
+        async def get(self, user_id, tenant_id):
             raise RuntimeError("cache down")
 
-        def set(self, user_id, tenant_id, permissions, observed_version):
+        async def set(self, user_id, tenant_id, permissions, observed_version):
             raise RuntimeError("cache down")
 
     user = await _user(accounts)
@@ -221,23 +223,49 @@ async def test_deleting_role_cascades(service, database, accounts):
     assert user_roles == []
 
 
-def test_permission_cache_versioning():
-    cache = PermissionCache()
-    cache.set("u1", 1, {"a"}, cache.version)
+async def test_permission_cache_versioning():
+    cache = PermissionCache(MemoryKeyValueStore())
+    await cache.set("u1", 1, {"a"}, await cache.version())
 
-    assert cache.get("u1", 1) == {"a"}
+    assert await cache.get("u1", 1) == {"a"}
 
-    cache.bump_version()
-    assert cache.get("u1", 1) is None
+    await cache.bump_version()
+    assert await cache.get("u1", 1) is None
 
 
-def test_permission_cache_rejects_stale_write_after_bump():
-    cache = PermissionCache()
-    observed = cache.version
-    cache.bump_version()
-    cache.set("u1", 1, {"stale"}, observed)
+async def test_permission_cache_rejects_stale_write_after_bump():
+    cache = PermissionCache(MemoryKeyValueStore())
+    observed = await cache.version()
+    await cache.bump_version()
+    await cache.set("u1", 1, {"stale"}, observed)
 
-    assert cache.get("u1", 1) is None
+    assert await cache.get("u1", 1) is None
+
+
+async def test_permission_cache_entries_expire():
+    now = {"value": 0.0}
+    cache = PermissionCache(
+        MemoryKeyValueStore(clock=lambda: now["value"]), ttl_seconds=60
+    )
+    await cache.set("u1", 1, {"a"}, await cache.version())
+
+    assert await cache.get("u1", 1) == {"a"}
+
+    now["value"] = 120.0
+
+    assert await cache.get("u1", 1) is None
+
+
+async def test_permission_cache_without_ttl_never_expires():
+    now = {"value": 0.0}
+    cache = PermissionCache(
+        MemoryKeyValueStore(clock=lambda: now["value"]), ttl_seconds=None
+    )
+    await cache.set("u1", 1, {"a"}, await cache.version())
+
+    now["value"] = 10_000.0
+
+    assert await cache.get("u1", 1) == {"a"}
 
 
 def test_role_display_label():

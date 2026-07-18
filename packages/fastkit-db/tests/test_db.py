@@ -7,7 +7,7 @@ from fastkit_db.base import Base
 from fastkit_db.capabilities import GENERIC, capabilities_for
 from fastkit_db.dialects.adapters import capabilities_from_url, dialect_name_from_url
 from fastkit_db.repository import Repository
-from fastkit_db.session import open_session, transaction
+from fastkit_db.session import open_session
 from fastkit_db.types import GUID, PortableJSON, new_uuid
 from fastkit_db.uow import UnitOfWork
 
@@ -92,26 +92,6 @@ def test_mixins_soft_delete_and_version(widget):
     assert item.is_deleted is True
     item.restore()
     assert item.deleted_at is None
-
-
-async def test_transaction_commits(session, widget):
-    repo = Repository(widget, session)
-
-    async with transaction(session):
-        await repo.add(widget(name="committed"))
-
-    assert await repo.count() == 1
-
-
-async def test_transaction_rolls_back(session, widget):
-    repo = Repository(widget, session)
-
-    with pytest.raises(RuntimeError):
-        async with transaction(session):
-            await repo.add(widget(name="doomed"))
-            raise RuntimeError("boom")
-
-    assert await repo.count() == 0
 
 
 async def test_open_session_rolls_back_on_db_error(database):

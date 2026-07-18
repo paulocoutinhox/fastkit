@@ -296,3 +296,46 @@ async def test_handle_navigation_and_schema_direct(site):
         site, _authorize_allow, DenyingUser(), "products", "create"
     )
     assert schema["data"]["grid"]["flags"]["can_create"] is True
+
+
+async def test_handle_action_permissioned_without_authorize_runs(session, site):
+    from fastkit_admin.api import handle_action
+
+    created = await handle_create(
+        site,
+        _authorize_allow,
+        DenyingUser(),
+        session,
+        "en",
+        "products",
+        {"name": "NoAuth", "price": "3.00", "is_active": "true"},
+    )
+
+    result = await handle_action(
+        site,
+        None,
+        DenyingUser(),
+        session,
+        "en",
+        "products",
+        "deactivate",
+        [created["data"]["id"]],
+    )
+
+    assert result["data"]["deactivated"] == 1
+
+
+async def test_handle_action_without_permission_requires_update(session, site):
+    from fastkit_admin.api import handle_action
+
+    with pytest.raises(AuthorizationError):
+        await handle_action(
+            site,
+            _authorize_deny,
+            DenyingUser(),
+            session,
+            "en",
+            "products",
+            "touch",
+            [],
+        )

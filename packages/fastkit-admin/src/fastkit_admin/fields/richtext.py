@@ -30,4 +30,7 @@ class RichTextField(AdminField):
         if raw is None or raw == "":
             return raw
 
+        if not isinstance(raw, str):
+            raise self._fail("validation.string-type")
+
         return self._sanitizer(raw) if self._sanitizer is not None else raw

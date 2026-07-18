@@ -238,6 +238,7 @@ class Settings:
     class database:
         url = "sqlite+aiosqlite:///:memory:"
         pool_pre_ping = True
+        pool_recycle = 1800
         echo = False
 
     class i18n:

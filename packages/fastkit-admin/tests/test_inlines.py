@@ -60,6 +60,7 @@ class OrderAdmin(AdminResource[Order]):
             ],
             model=OrderLine,
             fk_field="order_id",
+            unique_fields=["sku"],
         ),
         InlineResource(
             "tickets",
@@ -203,3 +204,21 @@ async def test_inline_supports_a_non_default_pk_field(session):
     assert (await admin.inline_values(session, order, "en"))["tickets"] == [
         {"id": ref, "label": "T1-edited"}
     ]
+
+
+async def test_inline_unique_fields_flag_duplicate_rows_before_the_write(session):
+    admin = OrderAdmin()
+
+    with pytest.raises(ValidationError) as exc:
+        await admin.create(
+            session,
+            {"name": "First", "lines": [{"sku": "A"}, {"sku": "B"}, {"sku": "A"}]},
+            "en",
+        )
+
+    duplicates = [
+        error for error in exc.value.field_errors if error.code == "validation.unique"
+    ]
+    assert [error.path for error in duplicates] == [["lines", 2, "sku"]]
+
+    assert (await session.execute(select(Order))).scalars().all() == []

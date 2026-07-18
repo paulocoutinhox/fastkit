@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -87,7 +88,7 @@ class StorageFileService:
         enforce_size(data, upload.max_size_bytes)
         enforce_mime(declared_mime, ALLOWED_IMAGE_MIME)
 
-        info = inspect(data)
+        info = await asyncio.to_thread(inspect, data)
         enforce_pixels(info, self._max_pixels)
 
         object_key = random_object_key(upload.tenant_id, info.format.lower())
@@ -143,6 +144,11 @@ class StorageFileService:
         async with self._database.session_factory() as session:
             upload = await session.get(UploadSession, session_id)
 
+            if upload is None:
+                raise FastKitError(
+                    UPLOAD_SESSION_EXPIRED, message="upload session is not usable"
+                )
+
             if (
                 upload.status != UploadStatus.pending.value
                 or _aware(upload.expires_at) <= self._clock()
@@ -183,7 +189,7 @@ class StorageFileService:
                 original = await self._storage.get(record.object_key)
 
             for spec in preset.variants:
-                variant = process_variant(original, spec)
+                variant = await asyncio.to_thread(process_variant, original, spec)
                 variant_key = random_object_key(record.tenant_id, spec.format)
                 await self._storage.put(
                     variant_key, variant.data, content_type=variant.mime_type

@@ -80,8 +80,11 @@ async def handle_action(
     target = site.get(resource)
     action = target.get_action(action_name)
 
-    if action.permission and authorize is not None:
-        await authorize(user, action.permission)
+    if action.permission is not None:
+        if authorize is not None:
+            await authorize(user, action.permission)
+    else:
+        await check_permission(authorize, user, target, "update")
 
     result = await target.run_action(session, action_name, identifiers, locale)
 

@@ -9,6 +9,7 @@ from fastkit_config.settings.database import DatabaseSettings
 from fastkit_config.settings.i18n import I18nSettings
 from fastkit_config.settings.logging import LoggingSettings
 from fastkit_config.settings.mail import MailSettings
+from fastkit_config.settings.permissions import PermissionsSettings
 from fastkit_config.settings.storage import StorageSettings
 from fastkit_config.settings.task import TaskSettings
 
@@ -18,6 +19,7 @@ class FastKitSettings(BaseModel):
     app: AppSettings = Field(default_factory=AppSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
+    permissions: PermissionsSettings = Field(default_factory=PermissionsSettings)
     admin: AdminSettings = Field(default_factory=AdminSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
     tasks: TaskSettings = Field(default_factory=TaskSettings)

@@ -42,6 +42,7 @@ class Settings:
     class database:
         url = "sqlite+aiosqlite:///:memory:"
         pool_pre_ping = True
+        pool_recycle = 1800
         echo = False
 
     class auth:
@@ -52,6 +53,7 @@ class Settings:
         max_failed_logins = 5
         lockout_seconds = 900
         rate_limit_per_minute = 10
+        store = "memory"
         captcha = Captcha()
 
     class i18n:

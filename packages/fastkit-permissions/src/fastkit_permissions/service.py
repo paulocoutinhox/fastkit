@@ -77,7 +77,7 @@ class PermissionService:
                 ) from error
 
         if self._cache is not None:
-            self._cache.bump_version()
+            await self._cache.bump_version()
 
     async def role_permission_ids(self, role_id) -> list:
         async with self._database.session_factory() as session:
@@ -155,4 +155,4 @@ class PermissionService:
                 return
 
         if self._cache is not None:
-            self._cache.bump_version()
+            await self._cache.bump_version()

@@ -4,6 +4,7 @@ from fastkit_db.base import Base
 from fastkit_db.engine import Database
 
 from fastkit_accounts import models as account_models  # noqa: F401
+from fastkit_core.store import MemoryKeyValueStore
 from fastkit_accounts.service import AccountService
 from fastkit_permissions import models  # noqa: F401
 from fastkit_permissions.authorization import Authorizer
@@ -23,7 +24,7 @@ async def database(tmp_path):
 
 @pytest_asyncio.fixture
 def cache():
-    return PermissionCache()
+    return PermissionCache(MemoryKeyValueStore())
 
 
 @pytest_asyncio.fixture

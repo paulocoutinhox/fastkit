@@ -1,0 +1,2 @@
+class DecimalParseError(ValueError):
+    pass

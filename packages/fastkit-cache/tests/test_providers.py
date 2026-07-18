@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
+import asyncio
 
+from datetime import datetime, timezone
 
 from fastkit_cache.database import DatabaseCacheProvider, _namespace_of
 from fastkit_cache.file import FileCacheProvider
@@ -161,3 +162,120 @@ def test_aware_helper_keeps_tzaware():
 
     assert _aware(aware) is aware
     assert _aware(datetime(2026, 1, 1)).tzinfo is timezone.utc
+
+
+async def test_file_increment_preserves_ttl(tmp_path, clock):
+    provider = FileCacheProvider(str(tmp_path / "cache"), clock=clock)
+    key = "fastkit:dev:global:1:counter:c"
+
+    assert await provider.increment(key, ttl=10) == 1
+    assert await provider.increment(key, ttl=10) == 2
+
+    clock.advance(20)
+
+    assert await provider.get(key) is None
+
+
+async def test_file_increment_no_ttl_is_permanent(tmp_path, clock):
+    provider = FileCacheProvider(str(tmp_path / "cache"), clock=clock)
+    key = "fastkit:dev:global:1:counter:c"
+
+    assert await provider.increment(key) == 1
+    assert await provider.increment(key) == 2
+
+    clock.advance(100000)
+
+    assert await provider.get(key) == b"2"
+
+
+async def test_file_increment_after_expiry_resets(tmp_path, clock):
+    provider = FileCacheProvider(str(tmp_path / "cache"), clock=clock)
+    key = "fastkit:dev:global:1:counter:c"
+
+    await provider.increment(key, ttl=10)
+    clock.advance(20)
+
+    assert await provider.increment(key, ttl=10) == 1
+
+
+async def test_file_increment_concurrent_sums(tmp_path):
+    provider = FileCacheProvider(str(tmp_path / "cache"))
+    key = "fastkit:dev:global:1:counter:c"
+
+    await asyncio.gather(*(provider.increment(key) for _ in range(10)))
+
+    assert await provider.get(key) == b"10"
+
+
+async def test_database_increment_preserves_ttl(database):
+    clock = DatetimeClock()
+    provider = DatabaseCacheProvider(database, clock=clock)
+    key = "fastkit:dev:global:1:counter:c"
+
+    assert await provider.increment(key, ttl=10) == 1
+    assert await provider.increment(key, ttl=10) == 2
+
+    clock.advance(20)
+
+    assert await provider.get(key) is None
+
+
+async def test_database_increment_no_ttl_is_permanent(database):
+    clock = DatetimeClock()
+    provider = DatabaseCacheProvider(database, clock=clock)
+    key = "fastkit:dev:global:1:counter:c"
+
+    assert await provider.increment(key) == 1
+    assert await provider.increment(key) == 2
+
+    clock.advance(100000)
+
+    assert await provider.get(key) == b"2"
+
+
+async def test_database_increment_after_expiry_resets(database):
+    clock = DatetimeClock()
+    provider = DatabaseCacheProvider(database, clock=clock)
+    key = "fastkit:dev:global:1:counter:c"
+
+    await provider.increment(key, ttl=10)
+    clock.advance(20)
+
+    assert await provider.increment(key, ttl=10) == 1
+
+
+async def test_database_increment_expired_reset_without_ttl(database):
+    clock = DatetimeClock()
+    provider = DatabaseCacheProvider(database, clock=clock)
+    key = "fastkit:dev:global:1:counter:c"
+
+    await provider.increment(key, ttl=10)
+    clock.advance(20)
+
+    assert await provider.increment(key) == 1
+
+    clock.advance(100000)
+
+    assert await provider.get(key) == b"1"
+
+
+async def test_database_increment_handles_create_race(database):
+    provider = DatabaseCacheProvider(database)
+    key = "fastkit:dev:global:1:counter:c"
+
+    await provider.increment(key)
+
+    real = provider._locked_entry
+    calls = {"n": 0}
+
+    async def flaky(session, key_hash):
+        calls["n"] += 1
+
+        if calls["n"] == 1:
+            return None
+
+        return await real(session, key_hash)
+
+    provider._locked_entry = flaky
+
+    assert await provider.increment(key) == 2

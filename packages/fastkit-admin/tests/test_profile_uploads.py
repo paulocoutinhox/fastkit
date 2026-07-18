@@ -269,14 +269,14 @@ async def test_upload_avatar_attaches_the_asset_to_the_user():
 
 
 async def test_identifier_without_normalizer_shows_raw_value():
-    from fastkit_admin.profile import _profile_summary
+    from fastkit_admin.profile import profile_summary
 
     user = make_user()
     identifiers = [
         SimpleNamespace(id="id-2", type="unknown-provider", value="raw-value")
     ]
 
-    summary = _profile_summary(user, identifiers, ["email"])
+    summary = profile_summary(user, identifiers, ["email"])
 
     assert summary["identifiers"][0]["value"] == "raw-value"
     assert summary["identifier_types"] == ["email"]

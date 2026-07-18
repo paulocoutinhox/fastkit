@@ -1,6 +1,6 @@
 from sqlalchemy import select
 
-from fastkit_core.errors.exceptions import ValidationError
+from fastkit_core.errors.exceptions import FieldError, ValidationError
 
 
 class InlineResource:
@@ -22,6 +22,7 @@ class InlineResource:
         min_items: int = 0,
         max_items: int | None = None,
         pk_field: str = "id",
+        unique_fields: list[str] | None = None,
     ):
         self.name = name
         self.form_fields = form_fields
@@ -31,6 +32,7 @@ class InlineResource:
         self.min_items = min_items
         self.max_items = max_items
         self.pk_field = pk_field
+        self.unique_fields = list(unique_fields or [])
 
     def schema(self) -> dict:
         return {
@@ -92,7 +94,31 @@ class InlineResource:
 
             parsed.append((item.get("id"), values))
 
+        self._flag_duplicates(parsed, errors)
+
         return parsed
+
+    def _flag_duplicates(self, parsed: list, errors: list) -> None:
+        if not self.unique_fields:
+            return
+
+        seen = set()
+
+        for index, (_, values) in enumerate(parsed):
+            key = tuple(values.get(name) for name in self.unique_fields)
+
+            if any(part is None for part in key):
+                continue
+
+            if key in seen:
+                for name in self.unique_fields:
+                    errors.append(
+                        FieldError(
+                            name, "validation.unique", path=[self.name, index, name]
+                        )
+                    )
+            else:
+                seen.add(key)
 
     async def persist(self, session, parent_id, parsed: list) -> None:
         column = getattr(self.model, self.fk_field)

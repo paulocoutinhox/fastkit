@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
@@ -10,34 +11,42 @@ from fastkit_auth.captcha.provider import CaptchaProvider
 from fastkit_auth.errors import CAPTCHA_EXPIRED, CAPTCHA_INVALID, CAPTCHA_REQUIRED
 
 _ALPHABET = string.ascii_uppercase + string.digits
+_STORE_GRACE_SECONDS = 60
 
 
 class ImageCaptchaProvider(CaptchaProvider):
-    """A minimal self-hosted alphanumeric image captcha, shipped as an example and for tests.
+    """A minimal self-hosted alphanumeric image captcha.
 
-    Challenges live in-process (single-worker only) — a multi-worker deployment wants a shared store,
-    like the rate limiter. The browser fetches a fresh challenge (id + PNG data URI) and submits
+    Challenges live in the shared key-value store, so a challenge issued by one worker is verifiable
+    by any worker. The browser fetches a fresh challenge (id + PNG data URI) and submits
     ``{"challenge_id": ..., "answer": ...}`` with the login.
     """
 
     name = "image"
 
-    def __init__(self, length: int = 5, ttl_seconds: int = 300, clock=None):
+    def __init__(self, store, length: int = 5, ttl_seconds: int = 300, clock=None):
+        self._store = store
         self._length = length
         self._ttl_seconds = ttl_seconds
         self._clock = clock or (lambda: datetime.now(timezone.utc))
-        self._challenges: dict[str, tuple[str, datetime]] = {}
 
     @property
     def enabled(self) -> bool:
         return True
 
-    def new_challenge(self) -> dict:
+    def _store_key(self, challenge_id: str) -> str:
+        return f"auth:captcha:image:{challenge_id}"
+
+    async def new_challenge(self) -> dict:
         code = "".join(secrets.choice(_ALPHABET) for _ in range(self._length))
         challenge_id = secrets.token_urlsafe(16)
-        self._challenges[challenge_id] = (
-            code,
-            self._clock() + timedelta(seconds=self._ttl_seconds),
+        expires_at = self._clock() + timedelta(seconds=self._ttl_seconds)
+        payload = json.dumps({"code": code, "expires_at": expires_at.isoformat()})
+
+        await self._store.set(
+            self._store_key(challenge_id),
+            payload.encode("utf-8"),
+            ttl=self._ttl_seconds + _STORE_GRACE_SECONDS,
         )
 
         return {"challenge_id": challenge_id, "image": self._render(code)}
@@ -52,21 +61,22 @@ class ImageCaptchaProvider(CaptchaProvider):
                 CAPTCHA_REQUIRED, message="captcha answer is required"
             )
 
-        entry = self._challenges.pop(challenge_id, None)
+        stored = await self._store.get(self._store_key(challenge_id))
 
-        if entry is None:
+        if stored is None:
             raise AuthenticationError(
                 CAPTCHA_INVALID, message="captcha challenge is unknown"
             )
 
-        code, expires_at = entry
+        await self._store.delete(self._store_key(challenge_id))
+        data = json.loads(stored.decode("utf-8"))
 
-        if expires_at <= self._clock():
+        if datetime.fromisoformat(data["expires_at"]) <= self._clock():
             raise AuthenticationError(
                 CAPTCHA_EXPIRED, message="captcha challenge expired"
             )
 
-        if str(answer).strip().upper() != code:
+        if str(answer).strip().upper() != data["code"]:
             raise AuthenticationError(
                 CAPTCHA_INVALID, message="captcha answer is incorrect"
             )
@@ -77,7 +87,7 @@ class ImageCaptchaProvider(CaptchaProvider):
     def mount_routes(self, router) -> None:
         @router.get("/auth/captcha/new")
         async def new_captcha():
-            return success_envelope(data=self.new_challenge())
+            return success_envelope(data=await self.new_challenge())
 
     def _render(self, code: str) -> str:
         from PIL import Image, ImageDraw

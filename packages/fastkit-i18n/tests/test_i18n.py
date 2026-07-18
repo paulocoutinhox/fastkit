@@ -104,13 +104,22 @@ def test_translator_add_new_locale_registers_and_resolves():
 
 def test_gettext_lenient_formatting_never_crashes():
     translator = Translator(
-        {"en": {"a": "Hi {name}", "b": "Raw brace {"}},
+        {
+            "en": {
+                "a": "Hi {name}",
+                "b": "Raw brace {",
+                "attr": "value {x.missing}",
+                "index": "value {x[0]}",
+            }
+        },
         supported=["en"],
         default_locale="en",
     )
 
     assert translator.gettext("a", locale="en", other="x") == "Hi {name}"
     assert translator.gettext("b", locale="en", x=1) == "Raw brace {"
+    assert translator.gettext("attr", locale="en", x=1) == "value {x.missing}"
+    assert translator.gettext("index", locale="en", x=1) == "value {x[0]}"
 
 
 def test_base_catalogs_are_key_symmetric():

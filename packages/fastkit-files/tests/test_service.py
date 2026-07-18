@@ -76,6 +76,20 @@ async def test_confirm_rejects_expired_session(service, image_factory, clock):
         )
 
 
+async def test_confirm_rejects_an_unknown_session(service, image_factory):
+    with pytest.raises(FastKitError, match="not usable"):
+        await service.confirm_image_upload(
+            999999, image_factory(), "x.png", "image/png"
+        )
+
+
+async def test_confirm_upload_rejects_an_unknown_session(service):
+    with pytest.raises(FastKitError, match="not usable"):
+        await service.confirm_upload(
+            999999, b"data", "x.bin", "application/octet-stream"
+        )
+
+
 async def test_confirm_rejects_bad_mime(service, image_factory):
     upload = await service.create_upload_session(tenant_id=1)
 
@@ -316,6 +330,7 @@ class Settings:
     class database:
         url = "sqlite+aiosqlite:///:memory:"
         pool_pre_ping = True
+        pool_recycle = 1800
         echo = False
 
     class storage:
