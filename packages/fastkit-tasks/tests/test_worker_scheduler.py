@@ -16,7 +16,7 @@ from fastkit_tasks.worker import Worker
 
 
 def worker_for(queue, registry, database, clock):
-    return Worker(queue, registry, database.session_factory, worker_id="w1", queues=["default"], clock=clock)
+    return Worker(queue, registry, database, worker_id="w1", queues=["default"], clock=clock)
 
 
 async def test_worker_runs_task_successfully(queue, registry, database, clock):
@@ -95,7 +95,7 @@ async def test_worker_drain_materializes_and_runs(queue, registry, database, clo
         done["ran"] = True
         return {"ok": True}
 
-    scheduler = Scheduler(database.session_factory, queue, clock=clock)
+    scheduler = Scheduler(database, queue, clock=clock)
     await _make_scheduled(database, clock, name="beat", task_name="beat.work", schedule_type=ScheduleType.interval.value, interval_seconds=60)
 
     await worker_for(queue, registry, database, clock).drain(scheduler)
@@ -173,7 +173,7 @@ async def test_scheduler_transient_enqueue_error_does_not_drop_the_slot(database
         async def enqueue(self, **kwargs):
             raise RuntimeError("database unavailable")
 
-    scheduler = Scheduler(database.session_factory, _BoomQueue(), clock=clock)
+    scheduler = Scheduler(database, _BoomQueue(), clock=clock)
     task = await _make_scheduled(database, clock, name="beat", task_name="do.work", schedule_type=ScheduleType.interval.value, interval_seconds=60)
     original_next = _aware(task.next_run_at)
 
@@ -196,7 +196,7 @@ async def _make_scheduled(database, clock, **kwargs):
 
 
 async def test_scheduler_materializes_interval(queue, database, clock):
-    scheduler = Scheduler(database.session_factory, queue, clock=clock)
+    scheduler = Scheduler(database, queue, clock=clock)
     await _make_scheduled(database, clock, name="beat", task_name="do.work", schedule_type=ScheduleType.interval.value, interval_seconds=60)
 
     count = await scheduler.tick()
@@ -212,7 +212,7 @@ async def test_scheduler_materializes_interval(queue, database, clock):
 
 
 async def test_scheduler_once_disables(queue, database, clock):
-    scheduler = Scheduler(database.session_factory, queue, clock=clock)
+    scheduler = Scheduler(database, queue, clock=clock)
     await _make_scheduled(database, clock, name="single", task_name="do.work", schedule_type=ScheduleType.once.value)
 
     await scheduler.tick()
@@ -225,7 +225,7 @@ async def test_scheduler_once_disables(queue, database, clock):
 
 
 async def test_scheduler_cron(queue, database, clock):
-    scheduler = Scheduler(database.session_factory, queue, clock=clock)
+    scheduler = Scheduler(database, queue, clock=clock)
     await _make_scheduled(database, clock, name="cronjob", task_name="do.work", schedule_type=ScheduleType.cron.value, cron_expression="0 * * * *")
 
     await scheduler.tick()
@@ -237,7 +237,7 @@ async def test_scheduler_cron(queue, database, clock):
 
 
 async def test_scheduler_disables_a_task_with_an_invalid_cron(queue, database, clock):
-    scheduler = Scheduler(database.session_factory, queue, clock=clock)
+    scheduler = Scheduler(database, queue, clock=clock)
     await _make_scheduled(database, clock, name="broken", task_name="do.work", schedule_type=ScheduleType.cron.value, cron_expression="not a cron")
 
     await scheduler.tick()
@@ -250,7 +250,7 @@ async def test_scheduler_disables_a_task_with_an_invalid_cron(queue, database, c
 
 
 async def test_scheduler_duplicate_slot_is_safe(queue, database, clock):
-    scheduler = Scheduler(database.session_factory, queue, clock=clock)
+    scheduler = Scheduler(database, queue, clock=clock)
     task = await _make_scheduled(database, clock, name="dup", task_name="do.work", schedule_type=ScheduleType.interval.value, interval_seconds=60)
 
     # pre-create the execution for this exact slot so the scheduler hits the unique constraint
@@ -267,7 +267,7 @@ async def test_scheduler_duplicate_slot_is_safe(queue, database, clock):
 
 
 async def test_scheduler_skips_disabled(queue, database, clock):
-    scheduler = Scheduler(database.session_factory, queue, clock=clock)
+    scheduler = Scheduler(database, queue, clock=clock)
 
     async with database.session_factory() as session:
         session.add(ScheduledTask(name="off", task_name="do.work", schedule_type=ScheduleType.once.value, next_run_at=clock(), enabled=False))

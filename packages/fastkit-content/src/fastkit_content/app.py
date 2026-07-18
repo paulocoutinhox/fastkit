@@ -17,5 +17,5 @@ class ContentApp(FastKitApp):
     def register_services(self, context: BootstrapContext) -> None:
         database = context.component("database")
 
-        context.set_component("language_service", LanguageService(database.session_factory))
-        context.set_component("content_service", ContentService(database.session_factory))
+        context.set_component("language_service", LanguageService(database))
+        context.set_component("content_service", ContentService(database))

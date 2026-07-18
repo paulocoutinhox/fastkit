@@ -7,7 +7,8 @@ from fastkit_core.apps.base import BootstrapContext, FastKitApp
 from fastkit_core.errors.codes import AUTHORIZATION_DENIED
 from fastkit_core.errors.exceptions import AuthorizationError
 from fastkit_admin.api import build_admin_router
-from fastkit_admin.pages import build_admin_pages_router, build_page_config
+from fastkit_admin.pages import build_admin_pages_router
+from fastkit_admin.page_config import build_page_config
 from fastkit_admin.profile import build_profile_router
 from fastkit_admin.rendering import AdminRenderer
 from fastkit_admin.security import build_admin_deps
@@ -17,7 +18,7 @@ from fastkit_permissions.routers import build_role_router
 from app.admin import ADMIN_RESOURCES
 from app.auth_routes import build_auth_router
 from app.gdpr import build_gdpr_router
-from app.models import Category, Product, Showcase, Subcategory
+from app.models import Category, Product, Showcase, Subcategory, Survey, SurveyQuestion
 from app.reports import build_report_router, setup_reports
 from app.tasks import setup_tasks
 from app.translations import DEMO_PT
@@ -43,6 +44,7 @@ MENU_ITEMS = [
     ("Products", "catalog", "products"),
     ("Categories", "catalog", "categories"),
     ("Subcategories", "catalog", "subcategories"),
+    ("Surveys", "catalog", "surveys"),
     ("Field showcase", "content", "showcase"),
     ("Geo samples", "catalog", "geo-samples"),
     ("Content", "content", "content"),
@@ -71,7 +73,7 @@ class DemoApp(FastKitApp):
         "fastkit.i18n",
         "fastkit.logging",
         "fastkit.storage",
-        "fastkit.assets",
+        "fastkit.files",
         "fastkit.content",
         "fastkit.tenancy",
         "fastkit.tasks",
@@ -81,24 +83,26 @@ class DemoApp(FastKitApp):
     def register_models(self, context: BootstrapContext) -> None:
         context.models.register(Category, source=self.name)
         context.models.register(Subcategory, source=self.name)
+        context.models.register(Survey, source=self.name)
+        context.models.register(SurveyQuestion, source=self.name)
         context.models.register(Product, source=self.name)
         context.models.register(Showcase, source=self.name)
 
     def register_services(self, context: BootstrapContext) -> None:
-        setup_tasks(context.component("task_registry"))
+        setup_tasks(context.component("task_registry"), context.component("file_service"))
 
     def register_translations(self, context: BootstrapContext) -> None:
         context.component("translator").add_catalog("pt", DEMO_PT)
 
     def register_admin(self, context: BootstrapContext) -> None:
         site = context.component("admin_site")
-        storage = context.component("storage")
+        file_service = context.component("file_service")
         task_queue = context.component("task_queue")
         base_url = context.settings.storage.base_url
 
         for resource in ADMIN_RESOURCES:
             instance = resource()
-            instance.storage = storage
+            instance.files = file_service
             instance.media_base_url = base_url
 
             if hasattr(instance, "task_queue"):
@@ -136,10 +140,10 @@ class DemoApp(FastKitApp):
         image_handler = build_image_upload_handler(runtime, settings.storage.base_url)
         avatar_handler = build_avatar_upload_handler(runtime, settings.storage.base_url)
         file_handler = build_file_upload_handler(runtime, settings.storage.base_url)
-        asset_service = runtime.component("asset_service")
+        file_service = runtime.component("file_service")
 
-        async def resolve_avatar_url(asset_id):
-            asset = await asset_service.get(asset_id)
+        async def resolve_avatar_url(file_id):
+            asset = await file_service.get(file_id)
 
             return f"{settings.storage.base_url}/{asset.object_key}" if asset else None
 
@@ -149,7 +153,7 @@ class DemoApp(FastKitApp):
         context.routers.include(build_role_router(runtime, security), prefix=api_path, source=self.name)
         context.routers.include(build_content_router(runtime, security), prefix=api_path, source=self.name)
         context.routers.include(build_report_router(runtime, security), prefix=api_path, source=self.name)
-        context.routers.include(build_profile_router(deps, account_service, password_service, upload_avatar=avatar_handler, avatar_url=resolve_avatar_url), prefix=api_path, source=self.name)
+        context.routers.include(build_profile_router(deps, account_service, password_service, upload_avatar=avatar_handler, avatar_url=resolve_avatar_url, files=file_service), prefix=api_path, source=self.name)
         context.routers.include(build_upload_router(deps, {"image": image_handler, "file": file_handler}), prefix=api_path, source=self.name)
         context.routers.include(build_admin_router(site, deps), prefix=api_path, source=self.name)
 
@@ -167,8 +171,8 @@ class DemoApp(FastKitApp):
 
         async def profile_data(user, locale):
             identifiers = await account_service.list_identifiers(user.id)
-            asset_id = user.profile.avatar_asset_id if getattr(user, "profile", None) else None
-            url = await resolve_avatar_url(asset_id) if asset_id else None
+            file_id = user.profile.avatar_file_id if getattr(user, "profile", None) else None
+            url = await resolve_avatar_url(file_id) if file_id else None
 
             return {
                 "display_name": user.display_name,
@@ -181,7 +185,12 @@ class DemoApp(FastKitApp):
             }
 
         renderer = AdminRenderer(override_dirs=[str(TEMPLATES_DIR)])
-        page_config = build_page_config(settings.admin, theme={"brand_name": "FastKit"}, recaptcha=settings.auth.recaptcha)
+        page_config = build_page_config(
+            settings.admin,
+            theme={"brand_name": "FastKit"},
+            captcha=runtime.component("captcha_provider").client_config(),
+            login={"identifier": {"label": "login.email", "type": "email", "autocomplete": "username", "default": "root@fastkit.local"}, "identifier_type": "email"},
+        )
         context.routers.include(build_admin_pages_router(renderer, site, deps, page_config, avatar_url=resolve_avatar_url, report_data=report_data, profile_data=profile_data), source=self.name)
         context.routers.include(self._build_home_router(), source=self.name)
 

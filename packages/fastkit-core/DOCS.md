@@ -2,7 +2,7 @@
 
 Core runtime for the FastKit ecosystem. It owns the app system, registries, the
 service container, the request context, the unified API envelope and the error
-taxonomy. It has no dependency on SQLAlchemy, Redis, boto3, Pillow or Tabler.
+taxonomy. It has no dependency on SQLAlchemy, boto3, Pillow or Tabler.
 
 ## Installation
 
@@ -94,7 +94,7 @@ breaker = CircuitBreaker(failure_threshold=5)
 await run_with_retry(lambda: client.call(), RetryPolicy(max_attempts=3), breaker=breaker, name="provider.call")
 ```
 
-The cache Redis provider, the mail service and the S3 storage provider are built on
+The mail service and the S3 storage provider are built on
 these. The database engine uses `pool_pre_ping` and `pool_recycle`. Errors surfaced
 to clients carry a translated `message.text` resolved from the runtime translator.
 

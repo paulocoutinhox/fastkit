@@ -189,15 +189,16 @@ class Settings:
         lockout_seconds = 900
         rate_limit_per_minute = 10
 
-        class recaptcha:
-            enabled = False
-            provider = "google_v3"
+        class captcha:
+            provider = "disabled"
             site_key = ""
             secret_key = ""
             action = "admin_login"
             minimum_score = 0.5
             allowed_hostnames = []
             timeout_seconds = 5
+            image_length = 5
+            challenge_ttl_seconds = 300
 
     class admin:
         enabled = True

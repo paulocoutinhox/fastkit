@@ -19,7 +19,7 @@ fastkit-auth = { workspace = true }
 fastkit-cache = { workspace = true }
 fastkit-tasks = { workspace = true }
 fastkit-storage = { workspace = true }
-fastkit-assets = { workspace = true }
+fastkit-files = { workspace = true }
 fastkit-mail = { workspace = true }
 fastkit-i18n = { workspace = true }
 fastkit-content = { workspace = true }

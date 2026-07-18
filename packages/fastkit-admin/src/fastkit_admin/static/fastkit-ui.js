@@ -178,9 +178,57 @@
     return true;
   }
 
+  var captchaAdapters = {};
+
+  function registerCaptcha(name, adapter) {
+    captchaAdapters[name] = adapter;
+  }
+
+  registerCaptcha("recaptcha", {
+    mount: function ($container, config) {
+      return {
+        collect: function () {
+          return new Promise(function (resolve, reject) {
+            if (!window.grecaptcha) { resolve({}); return; }
+            window.grecaptcha.ready(function () {
+              window.grecaptcha.execute(config.site_key, { action: config.action }).then(function (token) { resolve({ token: token }); }).catch(reject);
+            });
+          });
+        }
+      };
+    }
+  });
+
+  registerCaptcha("image", {
+    mount: function ($container, config) {
+      var challengeId = null;
+      var $img = $('<img class="fk-captcha-image mb-2" alt="captcha">');
+      var $input = $('<input class="form-control" type="text" autocomplete="off" data-testid="login-captcha-answer">').attr("placeholder", t("login.captcha"));
+      var $refresh = $('<button type="button" class="btn btn-link btn-sm px-0" data-testid="login-captcha-refresh"></button>').text(t("login.captcha-refresh"));
+      function load() {
+        api("GET", config.new_url).then(function (res) { challengeId = res.data.challenge_id; $img.attr("src", res.data.image); }).catch(function () { return; });
+      }
+      $refresh.on("click", load);
+      $container.append($img).append($input).append($refresh);
+      load();
+      return {
+        collect: function () { return Promise.resolve({ challenge_id: challengeId, answer: $input.val() }); }
+      };
+    }
+  });
+
+  function mountCaptcha($container, config) {
+    if (!config || !config.provider || !captchaAdapters[config.provider]) {
+      return { collect: function () { return Promise.resolve(null); } };
+    }
+
+    return captchaAdapters[config.provider].mount($container, config);
+  }
+
   window.FastKit = {
     locale: LOCALE,
     config: CONFIG,
+    captcha: { register: registerCaptcha, mount: mountCaptcha },
     t: t,
     esc: esc,
     localize: localize,

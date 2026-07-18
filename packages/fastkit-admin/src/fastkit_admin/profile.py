@@ -36,7 +36,7 @@ def _profile_summary(user, identifiers, identifier_types, avatar_url=None) -> di
         "last_name": user.last_name,
         "preferred_locale": user.preferred_locale,
         "timezone": user.timezone,
-        "avatar_asset_id": str(user.profile.avatar_asset_id) if user.profile and user.profile.avatar_asset_id else None,
+        "avatar_file_id": str(user.profile.avatar_file_id) if user.profile and user.profile.avatar_file_id else None,
         "avatar_url": avatar_url,
         "identifier_types": identifier_types,
         "identifiers": [{"id": str(item.id), "type": item.type, "value": default_registry().get(item.type).mask(item.value) if _has_normalizer(item.type) else item.value} for item in identifiers],
@@ -52,15 +52,19 @@ def _has_normalizer(identifier_type: str) -> bool:
         return False
 
 
-def build_profile_router(deps: AdminDeps, account_service, password_service, upload_avatar=None, avatar_url=None, max_bytes: int = DEFAULT_MAX_UPLOAD_BYTES) -> APIRouter:
-    """Self-service profile management for the signed-in user, decoupled from storage via an upload handler."""
+def build_profile_router(deps: AdminDeps, account_service, password_service, upload_avatar=None, avatar_url=None, files=None, max_bytes: int = DEFAULT_MAX_UPLOAD_BYTES, avatar_owner_type: str = "user", avatar_slot: str = "avatar") -> APIRouter:
+    """Self-service profile management for the signed-in user, decoupled from storage via an upload handler.
+
+    The avatar file reference is keyed by ``avatar_owner_type``/``avatar_slot`` so a consumer that
+    tracks stored-file references under a different owner scheme can override the pair.
+    """
 
     router = APIRouter()
 
     async def _load(user):
         identifiers = await account_service.list_identifiers(user.id)
-        asset_id = user.profile.avatar_asset_id if user.profile else None
-        url = await avatar_url(asset_id) if (avatar_url is not None and asset_id) else None
+        file_id = user.profile.avatar_file_id if user.profile else None
+        url = await avatar_url(file_id) if (avatar_url is not None and file_id) else None
 
         return _profile_summary(user, identifiers, account_service.identifier_types(), url)
 
@@ -110,9 +114,12 @@ def build_profile_router(deps: AdminDeps, account_service, password_service, upl
     async def upload_profile_avatar(file: UploadFile = File(...), user=Depends(deps.get_current_user)):
         data = await read_upload(file, max_bytes)
         result = await upload_avatar(data, file.filename, file.content_type)
-        await account_service.update_profile(user.id, avatar_asset_id=result["asset_id"])
+        await account_service.update_profile(user.id, avatar_file_id=result["file_id"])
 
-        return success_envelope(data={"url": result["url"], "asset_id": str(result["asset_id"])}, message=build_message("profile.avatar_updated", "Avatar updated."))
+        if files is not None:
+            await files.link(avatar_owner_type, user.id, avatar_slot, result["file_id"])
+
+        return success_envelope(data={"url": result["url"], "file_id": str(result["file_id"])}, message=build_message("profile.avatar_updated", "Avatar updated."))
 
     return router
 

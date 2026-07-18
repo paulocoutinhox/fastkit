@@ -20,4 +20,4 @@ class AccountsApp(FastKitApp):
         normalizers = default_registry()
 
         context.set_component("normalizer_registry", normalizers)
-        context.set_component("account_service", AccountService(database.session_factory, normalizers))
+        context.set_component("account_service", AccountService(database, normalizers))

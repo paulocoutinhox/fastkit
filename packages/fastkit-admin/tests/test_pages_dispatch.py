@@ -7,7 +7,8 @@ from starlette.datastructures import QueryParams
 
 from fastkit_core.errors.exceptions import AuthorizationError, NotFoundError
 from fastkit_core.errors.codes import AUTHORIZATION_DENIED
-from fastkit_admin.pages import PagesDeps, build_page_config, dispatch_screen, render_login, render_screen
+from fastkit_admin.pages import PagesDeps, dispatch_screen, render_login, render_screen
+from fastkit_admin.page_config import build_page_config
 from fastkit_admin.rendering import AdminRenderer
 
 _USER = SimpleNamespace(id="u1", display_name="Root", email="root@x.com", profile=None, timezone="UTC")

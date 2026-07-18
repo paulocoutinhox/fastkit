@@ -96,7 +96,7 @@ INSTALLED_APPS = [
     "fastkit.tasks",
     "fastkit.cache",
     "fastkit.storage",
-    "fastkit.assets",
+    "fastkit.files",
     "fastkit.mail",
     "fastkit.content",
     "fastkit.admin",
@@ -259,7 +259,7 @@ fastkit/
 │   ├── fastkit-cache/
 │   ├── fastkit-tasks/
 │   ├── fastkit-storage/
-│   ├── fastkit-assets/
+│   ├── fastkit-files/
 │   ├── fastkit-mail/
 │   ├── fastkit-content/
 │   ├── fastkit-admin/
@@ -321,7 +321,7 @@ A fachada pública poderá expor imports amigáveis:
 ```python
 from fastkit.admin import AdminSite
 from fastkit.mail import MailService
-from fastkit.assets import AssetService
+from fastkit.files import StorageFileService
 ```
 
 A implementação física separada não deverá depender de namespace packages frágeis para localizar recursos.
@@ -344,7 +344,7 @@ Instalação seletiva:
 pip install fastkit-core fastkit-db fastkit-auth
 pip install "fastkit-cache[redis]"
 pip install "fastkit-storage[s3]"
-pip install "fastkit-assets[images]"
+pip install "fastkit-files[images]"
 pip install "fastkit-mail[ses]"
 pip install fastkit-admin fastkit-admin-theme-tabler
 ```
@@ -364,7 +364,7 @@ s3 = [
     "fastkit-storage[s3]",
 ]
 images = [
-    "fastkit-assets[images]",
+    "fastkit-files[images]",
 ]
 mail = [
     "fastkit-mail",
@@ -374,7 +374,7 @@ full = [
     "fastkit-admin-theme-tabler",
     "fastkit-cache[redis]",
     "fastkit-storage[s3]",
-    "fastkit-assets[images]",
+    "fastkit-files[images]",
     "fastkit-mail[all]",
     "fastkit-reports[pdf]",
     "fastkit-webhooks",
@@ -420,7 +420,7 @@ flowchart TD
     STORAGE[fastkit-storage] --> CORE
     STORAGE --> LOGS
 
-    ASSETS[fastkit-assets] --> CORE
+    ASSETS[fastkit-files] --> CORE
     ASSETS --> DB
     ASSETS --> STORAGE
     ASSETS --> TASKS
@@ -1001,13 +1001,13 @@ Responsabilidades:
 
 ---
 
-## 27. `fastkit-assets`
+## 27. `fastkit-files`
 
 Responsabilidades:
 
-- `Asset`;
-- `AssetVariant`;
-- `AssetAttachment`;
+- `StorageFile`;
+- `StorageFileVariant`;
+- `StorageFileReference`;
 - `UploadSession`;
 - arquivos;
 - imagens;
@@ -1677,7 +1677,7 @@ Cada package terá seu diretório:
 ```text
 fastkit_accounts/migrations/versions/
 fastkit_tasks/migrations/versions/
-fastkit_assets/migrations/versions/
+fastkit_files/migrations/versions/
 ```
 
 A CLI agregará `version_locations`.
@@ -3083,7 +3083,7 @@ flowchart TD
     PICK[Selecionar imagem] --> SESSION[Criar upload session]
     SESSION --> UPLOAD[Enviar arquivo]
     UPLOAD --> PROCESS[Processar asset]
-    PROCESS --> READY{Asset ready?}
+    PROCESS --> READY{StorageFile ready?}
     READY -->|sim| INSERT[Inserir URL/asset reference]
     READY -->|não| ERROR[Mostrar erro e retry]
 ```
@@ -4237,11 +4237,11 @@ provider = "s3"
 provider = "local"
 ```
 
-Cada Asset registra qual alias foi usado.
+Cada StorageFile registra qual alias foi usado.
 
 ---
 
-## 156. `Asset`
+## 156. `StorageFile`
 
 Campos:
 
@@ -4294,7 +4294,7 @@ deleted
 
 ---
 
-## 157. `AssetVariant`
+## 157. `StorageFileVariant`
 
 Campos:
 
@@ -4323,7 +4323,7 @@ UNIQUE(asset_id, name)
 
 ---
 
-## 158. `AssetAttachment`
+## 158. `StorageFileReference`
 
 Campos:
 
@@ -4417,15 +4417,15 @@ original
 5. validar MIME real;
 6. validar bytes;
 7. validar dimensão;
-8. criar Asset uploaded;
+8. criar StorageFile uploaded;
 9. enfileirar processamento;
 10. corrigir EXIF;
 11. remover metadata sensível;
 12. gerar variações temporárias;
 13. validar variações;
 14. publicar variações;
-15. gravar AssetVariant;
-16. marcar Asset ready;
+15. gravar StorageFileVariant;
+16. marcar StorageFile ready;
 17. associar ao owner;
 18. limpar temporários.
 ```
@@ -4446,7 +4446,7 @@ A consistência será obtida com:
 - reconciliation task;
 - cleanup de órfãos.
 
-Asset só poderá ser considerado utilizável em `ready`.
+StorageFile só poderá ser considerado utilizável em `ready`.
 
 ---
 
@@ -4861,7 +4861,7 @@ Pipeline:
 Jinja HTML
 → CSS
 → PDF renderer
-→ Asset
+→ StorageFile
 ```
 
 PDF pesado será task.
@@ -5611,7 +5611,7 @@ Por provider:
 
 ---
 
-## 206. Asset tests
+## 206. StorageFile tests
 
 - file;
 - image;
@@ -5822,7 +5822,7 @@ class CatalogApp(FastKitApp):
         "fastkit.core",
         "fastkit.db",
         "fastkit.admin",
-        "fastkit.assets",
+        "fastkit.files",
     )
 
     def register_models(self, context):
@@ -6080,7 +6080,7 @@ Só está pronta quando possui:
 - não confiar no frontend para permission;
 - não expor Pydantic errors diretamente;
 - não perder task após reinício;
-- não considerar Asset pronto antes do processamento;
+- não considerar StorageFile pronto antes do processamento;
 - não inserir imagem blob permanente no HTML;
 - não copiar tema inteiro como customização padrão;
 - não quebrar templates sem major version;

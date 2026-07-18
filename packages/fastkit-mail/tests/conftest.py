@@ -50,4 +50,4 @@ def provider():
 
 @pytest.fixture
 def service(database, renderer, provider):
-    return MailService(database.session_factory, renderer, provider, "memory", "no-reply@fastkit.local", clock=Clock())
+    return MailService(database, renderer, provider, "memory", "no-reply@fastkit.local", clock=Clock())

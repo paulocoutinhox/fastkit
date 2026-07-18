@@ -119,7 +119,7 @@ async def context_reset():
 
 
 async def test_system_log_service_persists(database, context_reset):
-    service = SystemLogService(database.session_factory, "test")
+    service = SystemLogService(database, "test")
 
     row = await service.record("INFO", "security", "login", "user logged in", payload={"password": "x", "ok": True})
 
@@ -134,7 +134,7 @@ async def test_system_log_service_persists(database, context_reset):
 
 
 async def test_system_log_service_accepts_lowercase_level(database, context_reset):
-    service = SystemLogService(database.session_factory, "test")
+    service = SystemLogService(database, "test")
 
     row = await service.record("warning", "security", "login", "suspicious attempt")
 
@@ -152,7 +152,7 @@ async def test_system_log_service_survives_db_failure(context_reset):
 
 
 async def test_audit_log_service_records_before_after(database, context_reset):
-    service = AuditLogService(database.session_factory)
+    service = AuditLogService(database)
 
     row = await service.record("update", "User", resource_id="1", before={"name": "a", "token": "x"}, after={"name": "b"})
 
@@ -163,7 +163,7 @@ async def test_audit_log_service_records_before_after(database, context_reset):
 
 
 async def test_audit_log_service_without_snapshots(database, context_reset):
-    service = AuditLogService(database.session_factory)
+    service = AuditLogService(database)
 
     row = await service.record("delete", "User", resource_id="9")
 

@@ -10,7 +10,7 @@ from fastkit_admin.helpers import DEFAULT_MAX_UPLOAD_BYTES, read_upload
 def build_upload_router(deps: AdminDeps, handlers: dict, max_bytes: int = DEFAULT_MAX_UPLOAD_BYTES) -> APIRouter:
     """Upload endpoint keyed by kind (``image``, ``file``, …).
 
-    Each ``handler(data, filename, content_type)`` returns ``{"url": …, "asset_id": …}``
+    Each ``handler(data, filename, content_type)`` returns ``{"url": …, "file_id": …}``
     so the router stays storage agnostic.
     """
 
@@ -25,8 +25,8 @@ def build_upload_router(deps: AdminDeps, handlers: dict, max_bytes: int = DEFAUL
 
         data = await read_upload(file, max_bytes)
         result = await handler(data, file.filename, file.content_type)
-        asset_id = str(result["asset_id"]) if result.get("asset_id") is not None else None
+        file_id = str(result["file_id"]) if result.get("file_id") is not None else None
 
-        return success_envelope(data={"url": result["url"], "asset_id": asset_id}, message=build_message("uploads.created", "File uploaded."))
+        return success_envelope(data={"url": result["url"], "file_id": file_id}, message=build_message("uploads.created", "File uploaded."))
 
     return router

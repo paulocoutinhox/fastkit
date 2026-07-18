@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-recaptcha = ["httpx>=0.27"]
+captcha = ["httpx>=0.27", "pillow>=10"]
 
 [project.entry-points."fastkit.apps"]
 "fastkit.auth" = "fastkit_auth.app:AuthApp"

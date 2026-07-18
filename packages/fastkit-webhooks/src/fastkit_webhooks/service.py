@@ -30,8 +30,8 @@ class WebhookRegistry:
 class WebhookService:
     """Verifies, persists and idempotently processes inbound webhooks."""
 
-    def __init__(self, session_factory, registry: WebhookRegistry, clock=None):
-        self._session_factory = session_factory
+    def __init__(self, database, registry: WebhookRegistry, clock=None):
+        self._database = database
         self._registry = registry
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -69,7 +69,7 @@ class WebhookService:
             received_at=self._clock(),
         )
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             session.add(event)
 
             try:
@@ -95,7 +95,7 @@ class WebhookService:
     async def _store_rejected(self, provider_name, request, reason) -> WebhookEvent:
         external_id = hashlib.sha256(request.body).hexdigest()[:32]
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             event = WebhookEvent(
                 provider=provider_name,
                 provider_account_id="unknown",
@@ -131,7 +131,7 @@ class WebhookService:
             return event
 
     async def process(self, event_id, handler=None, max_attempts: int = 3) -> WebhookEvent:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             claim = await session.execute(
                 update(WebhookEvent)
                 .where(WebhookEvent.id == event_id, WebhookEvent.status.in_([WebhookStatus.received.value, WebhookStatus.retrying.value]))

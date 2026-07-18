@@ -11,7 +11,7 @@ async def test_global_tenant_identifier_uniqueness_is_enforced_at_db_level(servi
 
     user = await service.create_user(tenant_id=0, identifiers=[("email", "root@x.com")], is_root=True)
 
-    async with service._session_factory() as session:
+    async with service._database.session_factory() as session:
         session.add(LoginIdentifier(user_id=user.id, tenant_id=None, type="email", value="root@x.com", normalized_value="root@x.com"))
 
         with pytest.raises(IntegrityError):
@@ -109,7 +109,7 @@ def test_registry_and_service_expose_identifier_types():
     assert "email" in types and "phone" in types
     assert types == sorted(types)
 
-    assert AccountService(session_factory=lambda: None).identifier_types() == types
+    assert AccountService(database=None).identifier_types() == types
 
 
 def test_user_display_label():
@@ -170,24 +170,24 @@ async def test_update_profile_and_avatar(service):
     avatar_id = 4242
     user = await service.create_user(tenant_id=1, identifiers=[("email", "prof@acme.com")], display_name="Old")
 
-    updated = await service.update_profile(user.id, display_name="New", first_name="Ada", timezone="Europe/Lisbon", avatar_asset_id=avatar_id)
+    updated = await service.update_profile(user.id, display_name="New", first_name="Ada", timezone="Europe/Lisbon", avatar_file_id=avatar_id)
 
     assert updated.display_name == "New"
     assert updated.first_name == "Ada"
-    assert updated.profile.avatar_asset_id == avatar_id
+    assert updated.profile.avatar_file_id == avatar_id
 
     # a no-op update leaves the record untouched (every value is None)
     unchanged = await service.update_profile(user.id)
     assert unchanged.display_name == "New"
 
     # cover the branch that lazily creates a profile when one is missing
-    async with service._session_factory() as session:
+    async with service._database.session_factory() as session:
         await session.execute(UserProfile.__table__.delete().where(UserProfile.user_id == user.id))
         await session.commit()
 
     new_avatar = 5252
-    recreated = await service.update_profile(user.id, avatar_asset_id=new_avatar)
-    assert recreated.profile.avatar_asset_id == new_avatar
+    recreated = await service.update_profile(user.id, avatar_file_id=new_avatar)
+    assert recreated.profile.avatar_file_id == new_avatar
 
 
 async def test_set_password_hash(service):
@@ -217,7 +217,7 @@ async def test_consumer_can_add_a_custom_identifier_type(database):
 
     registry = default_registry()
     registry.register(MembershipNumberNormalizer())
-    service = AccountService(database.session_factory, registry)
+    service = AccountService(database, registry)
 
     assert "membership_number" in service.identifier_types()
 

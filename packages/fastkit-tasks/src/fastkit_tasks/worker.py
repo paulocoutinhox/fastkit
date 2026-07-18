@@ -26,10 +26,10 @@ class TaskContext:
 class Worker:
     """Leases one execution at a time, runs it under a timeout and records the attempt."""
 
-    def __init__(self, queue: TaskQueue, registry: TaskRegistry, session_factory, worker_id: str, queues: list[str] | None = None, lease_seconds: int = 60, clock=None):
+    def __init__(self, queue: TaskQueue, registry: TaskRegistry, database, worker_id: str, queues: list[str] | None = None, lease_seconds: int = 60, clock=None):
         self._queue = queue
         self._registry = registry
-        self._session_factory = session_factory
+        self._database = database
         self._worker_id = worker_id
         self._queues = queues or ["default"]
         self._lease_seconds = lease_seconds
@@ -104,7 +104,7 @@ class Worker:
             await asyncio.sleep(poll_interval)
 
     async def _record_attempt(self, execution, status, started, error_code, error_message) -> None:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             session.add(
                 TaskAttempt(
                     task_execution_id=execution.id,

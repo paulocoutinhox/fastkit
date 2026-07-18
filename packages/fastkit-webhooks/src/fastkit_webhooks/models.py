@@ -18,7 +18,7 @@ class WebhookStatus(str, Enum):
 
 
 class WebhookEvent(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "webhook_events"
+    __tablename__ = "webhook_event"
     __table_args__ = (UniqueConstraint("provider", "provider_account_id", "external_event_id", name="uq_webhook_identity"),)
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)

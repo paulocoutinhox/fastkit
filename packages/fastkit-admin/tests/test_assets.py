@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 
 from fastkit_admin.assets import AssetRegistry
-from fastkit_admin.pages import mount_admin_static, mount_assets
+from fastkit_admin.mounting import mount_admin_static, mount_assets
 
 
 def _provider(mount, assets, static_dir="/tmp"):

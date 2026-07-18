@@ -28,7 +28,7 @@ def cache():
 
 @pytest_asyncio.fixture
 def service(database, cache):
-    return PermissionService(database.session_factory, cache)
+    return PermissionService(database, cache)
 
 
 @pytest_asyncio.fixture
@@ -38,4 +38,4 @@ def authorizer(service, cache):
 
 @pytest_asyncio.fixture
 def accounts(database):
-    return AccountService(database.session_factory)
+    return AccountService(database)

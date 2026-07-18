@@ -1,27 +1,24 @@
 # fastkit-cache
 
-Cache for FastKit with a single contract and file, database and Redis providers.
-Only the configured provider is used — there is no automatic fallback.
+Cache for FastKit with a single contract and file and database providers (both
+DB/disk-backed, no external server dependency). Only the configured provider is used —
+there is no automatic fallback.
 
 ## Installation
 
 ```bash
 pip install fastkit-cache
-pip install "fastkit-cache[redis]"
 ```
 
 ## Providers
 
 - `FileCacheProvider` — single node, atomic writes, TTL, namespace clearing.
-- `DatabaseCacheProvider` — portable `cache_entries` table, unique per
+- `DatabaseCacheProvider` — portable `cache_entry` table, unique per
   `(namespace, key_hash)`.
-- `RedisCacheProvider` — pooled client wrapped in a `CircuitBreaker`. On failure
-  it logs, degrades, opens the circuit and serves a miss, then half-opens after a
-  cooldown to probe recovery. Cache failure never crashes the request.
 
-Providers are pluggable by name: `cache_providers.register("memcached", factory)`
-(`fastkit_cache.providers`) adds a backend a project selects via
-`settings.cache.provider`.
+Providers are pluggable by name: `cache_providers.register("redis", factory)`
+(`fastkit_cache.providers`) adds an external backend (Redis, Memcached, …) a project
+brings and selects via `settings.cache.provider`.
 
 ## Namespacing
 

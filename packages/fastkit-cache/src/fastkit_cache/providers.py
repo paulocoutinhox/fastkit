@@ -10,17 +10,8 @@ def build_file(settings, context):
 
 
 def build_database(settings, context):
-    return DatabaseCacheProvider(context.component("database").session_factory)
-
-
-def build_redis(settings, context):
-    from redis.asyncio import Redis
-
-    from fastkit_cache.redis import RedisCacheProvider
-
-    return RedisCacheProvider(Redis.from_url(settings.cache.redis_url))
+    return DatabaseCacheProvider(context.component("database"))
 
 
 cache_providers.register("file", build_file)
 cache_providers.register("database", build_database)
-cache_providers.register("redis", build_redis)

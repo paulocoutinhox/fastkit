@@ -131,7 +131,7 @@ async def test_service_without_cache_still_assigns(database, accounts):
     from fastkit_permissions.authorization import Authorizer
     from fastkit_permissions.service import PermissionService
 
-    service = PermissionService(database.session_factory, cache=None)
+    service = PermissionService(database, cache=None)
     user = await _user(accounts)
     permission = await service.create_permission("cache.clear", "Clear cache")
     role = await service.create_role("Ops", tenant_id=1)

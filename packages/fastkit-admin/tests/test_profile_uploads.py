@@ -50,7 +50,7 @@ class FakePasswordService:
 
 
 def make_user():
-    profile = SimpleNamespace(avatar_asset_id=None)
+    profile = SimpleNamespace(avatar_file_id=None)
 
     return SimpleNamespace(id="user-1", tenant_id=None, password_hash="stored", display_name="Ada", email="user@acme.com", first_name="Ada", last_name="L", preferred_locale="en", timezone="UTC", profile=profile)
 
@@ -69,7 +69,7 @@ async def profile_client():
         yield None
 
     async def upload_avatar(data, filename, content_type):
-        return {"url": "/media/avatar.webp", "asset_id": "asset-1"}
+        return {"url": "/media/avatar.webp", "file_id": "asset-1"}
 
     deps = AdminDeps(get_session=get_session, get_current_user=get_current_user, get_locale=lambda: "en")
     app.include_router(build_profile_router(deps, account_service, FakePasswordService(), upload_avatar=upload_avatar))
@@ -175,6 +175,35 @@ async def test_upload_avatar(profile_client):
     assert response.json()["data"]["url"] == "/media/avatar.webp"
 
 
+async def test_upload_avatar_attaches_the_asset_to_the_user():
+    user = make_user()
+    account_service = FakeAccountService(user)
+    app = FastAPI()
+    app.add_exception_handler(FastKitError, fastkit_exception_handler)
+    links = []
+
+    async def get_current_user():
+        return user
+
+    async def get_session():
+        yield None
+
+    async def upload_avatar(data, filename, content_type):
+        return {"url": "/media/avatar.webp", "file_id": "asset-1"}
+
+    class RecordingAssets:
+        async def link(self, owner_type, owner_id, slot, asset_id):
+            links.append((owner_type, str(owner_id), slot, asset_id))
+
+    deps = AdminDeps(get_session=get_session, get_current_user=get_current_user, get_locale=lambda: "en")
+    app.include_router(build_profile_router(deps, account_service, FakePasswordService(), upload_avatar=upload_avatar, files=RecordingAssets()))
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://admin") as client:
+        await client.post("/profile/avatar", files={"file": ("a.png", b"bytes", "image/png")})
+
+    assert links == [("user", "user-1", "avatar", "asset-1")]
+
+
 async def test_identifier_without_normalizer_shows_raw_value():
     from fastkit_admin.profile import _profile_summary
 
@@ -195,10 +224,10 @@ async def test_upload_router():
         return SimpleNamespace(id="u")
 
     async def image_handler(data, filename, content_type):
-        return {"url": "/media/x.png", "asset_id": "asset-9"}
+        return {"url": "/media/x.png", "file_id": "asset-9"}
 
     async def file_handler(data, filename, content_type):
-        return {"url": "/media/doc.txt", "asset_id": None}
+        return {"url": "/media/doc.txt", "file_id": None}
 
     deps = AdminDeps(get_session=lambda: None, get_current_user=get_current_user, get_locale=lambda: "en")
     app.include_router(build_upload_router(deps, {"image": image_handler, "file": file_handler}))
@@ -209,6 +238,6 @@ async def test_upload_router():
         missing = await client.post("/uploads/other", files={"file": ("x", b"x", "text/plain")})
 
     assert image["data"]["url"] == "/media/x.png"
-    assert image["data"]["asset_id"] == "asset-9"
-    assert document["data"]["asset_id"] is None
+    assert image["data"]["file_id"] == "asset-9"
+    assert document["data"]["file_id"] is None
     assert missing.status_code == 404

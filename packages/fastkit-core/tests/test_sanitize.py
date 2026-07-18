@@ -61,9 +61,9 @@ def test_blocks_data_uri_except_images():
 
 
 def test_keeps_asset_reference():
-    result = sanitize_html('<img data-asset-id="01J" src="/media/x.png" alt="a">')
+    result = sanitize_html('<img data-file-id="01J" src="/media/x.png" alt="a">')
 
-    assert 'data-asset-id="01J"' in result
+    assert 'data-file-id="01J"' in result
 
 
 def test_escapes_text_content():

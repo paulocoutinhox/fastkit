@@ -14,7 +14,7 @@ class SessionStatus(str, Enum):
 
 
 class Session(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "sessions"
+    __tablename__ = "session"
 
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     identity_tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

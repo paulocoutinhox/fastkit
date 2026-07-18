@@ -9,8 +9,8 @@ from fastkit_tasks.retry import RetryPolicy, compute_delay
 class TaskQueue:
     """Persistent task queue with a portable, contention-safe leasing protocol."""
 
-    def __init__(self, session_factory, registry=None, clock=None):
-        self._session_factory = session_factory
+    def __init__(self, database, registry=None, clock=None):
+        self._database = database
         self._registry = registry
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -21,7 +21,7 @@ class TaskQueue:
         timeout_seconds = timeout if timeout is not None else definition.timeout if definition is not None else 60
         delay = retry_delay if retry_delay is not None else definition.retry_delay if definition is not None else 5
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             if idempotency_key is not None:
                 existing = (await session.execute(select(TaskExecution).where(TaskExecution.idempotency_key == idempotency_key))).scalar_one_or_none()
 
@@ -50,7 +50,7 @@ class TaskQueue:
     async def lease(self, worker_id: str, queues: list[str], lease_seconds: int = 60) -> TaskExecution | None:
         now = self._clock()
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             candidates = (
                 await session.execute(
                     select(TaskExecution.id)
@@ -103,7 +103,7 @@ class TaskQueue:
     async def heartbeat(self, execution_id, worker_id: str, lease_seconds: int = 60, progress: int | None = None, message: str | None = None) -> bool:
         now = self._clock()
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             values = {"heartbeat_at": now, "locked_until": now + timedelta(seconds=lease_seconds)}
 
             if progress is not None:
@@ -125,7 +125,7 @@ class TaskQueue:
     async def fail(self, execution_id, worker_id: str, error_code: str, error_message: str, retryable: bool = True, retry_policy: RetryPolicy = RetryPolicy.exponential, jitter_source: float = 0.0) -> str | None:
         now = self._clock()
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             execution = await session.get(TaskExecution, execution_id)
             can_retry = retryable and execution.attempt_count < execution.max_attempts
 
@@ -145,7 +145,7 @@ class TaskQueue:
     async def cancel(self, execution_id) -> bool:
         now = self._clock()
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             result = await session.execute(
                 update(TaskExecution)
                 .where(TaskExecution.id == execution_id, TaskExecution.status.in_([ExecutionStatus.pending.value, ExecutionStatus.retrying.value]))
@@ -158,7 +158,7 @@ class TaskQueue:
     async def _finalize(self, execution_id, worker_id, status, result=None) -> bool:
         now = self._clock()
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             outcome = await session.execute(
                 update(TaskExecution)
                 .where(TaskExecution.id == execution_id, TaskExecution.locked_by == worker_id, TaskExecution.status == ExecutionStatus.running.value)
@@ -173,7 +173,7 @@ class TaskQueue:
         cutoff = now - timedelta(seconds=grace_seconds)
         expired = (TaskExecution.status == ExecutionStatus.running.value, TaskExecution.locked_until < cutoff)
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             failed = await session.execute(
                 update(TaskExecution)
                 .where(*expired, TaskExecution.attempt_count >= TaskExecution.max_attempts)

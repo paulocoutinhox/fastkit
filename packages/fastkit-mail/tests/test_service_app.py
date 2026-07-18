@@ -33,7 +33,7 @@ async def test_preview_does_not_send(service, provider):
 
 async def test_send_retries_then_fails(database, renderer):
     provider = MemoryEmailProvider(fail=True)
-    service = MailService(database.session_factory, renderer, provider, "memory", "no-reply@x")
+    service = MailService(database, renderer, provider, "memory", "no-reply@x")
 
     delivery = await service.send_template("accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"})
     assert delivery.status == DeliveryStatus.retrying.value
@@ -61,7 +61,7 @@ async def test_send_survives_provider_exception(database, renderer):
 
     provider = RaisingProvider()
     breaker = CircuitBreaker(failure_threshold=2)
-    service = MailService(database.session_factory, renderer, provider, "smtp", "no-reply@x", breaker=breaker)
+    service = MailService(database, renderer, provider, "smtp", "no-reply@x", breaker=breaker)
 
     delivery = await service.send_template("accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"})
 
@@ -76,7 +76,7 @@ async def test_open_circuit_skips_provider(database, renderer):
     provider = RaisingProvider()
     breaker = CircuitBreaker(failure_threshold=1, reset_after_seconds=1000)
     breaker.record_failure()
-    service = MailService(database.session_factory, renderer, provider, "smtp", "no-reply@x", breaker=breaker)
+    service = MailService(database, renderer, provider, "smtp", "no-reply@x", breaker=breaker)
 
     delivery = await service.send_template("accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"})
 

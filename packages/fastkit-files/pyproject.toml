@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fastkit-files"
+version = "1.0.0"
+description = "FastKit — managed files (any kind), variants, uploads and image processing."
+readme = "DOCS.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["fastkit-core", "fastkit-db", "fastkit-storage", "pillow>=10.0"]
+
+[project.entry-points."fastkit.apps"]
+"fastkit.files" = "fastkit_files.app:FilesApp"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fastkit_files"]

@@ -398,89 +398,71 @@ async def test_custom_pk_field_drives_id_and_lookup(session, product_model):
     assert admin.serialize_row(numeric_name)["id"] == "123"
 
 
-async def test_delete_removes_owned_files(session, product_model):
-    from fastkit_admin.fields import TextField
+class RecordingAssets:
+    def __init__(self):
+        self.links = []
+        self.unlinks = []
+
+    async def link_slot(self, owner_type, owner_id, slot, object_key):
+        self.links.append((owner_type, str(owner_id), slot, object_key))
+
+    async def unlink_owner(self, owner_type, owner_id):
+        self.unlinks.append((owner_type, str(owner_id)))
+
+
+def _file_admin(product_model, assets):
+    from fastkit_admin.fields import NumberField, TextField
     from fastkit_admin.resource import AdminResource
-
-    class RecordingStorage:
-        def __init__(self):
-            self.deleted = []
-
-        async def delete(self, key):
-            self.deleted.append(key)
-
-    class FailingStorage:
-        async def delete(self, key):
-            raise RuntimeError("storage down")
-
-    storage = RecordingStorage()
 
     class DemoAdmin(AdminResource):
         name = "products"
         model = product_model
         file_fields = ["name"]
         media_base_url = "/media"
-        form_fields = [TextField("name")]
+        form_fields = [TextField("name"), NumberField("price")]
 
     admin = DemoAdmin()
-    admin.storage = storage
+    admin.files = assets
 
-    row = product_model(name="/media/covers/a.png", price=1)
-    session.add(row)
-    await session.commit()
+    return admin
+
+
+async def test_file_fields_link_on_create_and_unlink_on_delete(session, product_model):
+    assets = RecordingAssets()
+    admin = _file_admin(product_model, assets)
+
+    row = await admin.create(session, {"name": "/media/covers/a.png", "price": 1})
+    assert assets.links == [("products", str(row.id), "name", "covers/a.png")]
 
     await admin.delete(session, row.id)
-    assert storage.deleted == ["covers/a.png"]
-
-    # a storage failure never blocks the delete
-    admin.storage = FailingStorage()
-    other = product_model(name="/media/covers/b.png", price=1)
-    session.add(other)
-    await session.commit()
-    await admin.delete(session, other.id)
-
-    # an external URL is left untouched (no storage call)
-    admin.storage = RecordingStorage()
-    external = product_model(name="https://cdn.example.com/x.png", price=1)
-    session.add(external)
-    await session.commit()
-    await admin.delete(session, external.id)
-    assert admin.storage.deleted == []
+    assert assets.unlinks == [("products", str(row.id))]
 
 
-async def test_update_removes_a_replaced_file(session, product_model):
-    from fastkit_admin.fields import TextField
-    from fastkit_admin.resource import AdminResource
+async def test_update_reconciles_the_file_slot(session, product_model):
+    assets = RecordingAssets()
+    admin = _file_admin(product_model, assets)
 
-    class RecordingStorage:
-        def __init__(self):
-            self.deleted = []
+    row = await admin.create(session, {"name": "/media/covers/old.png", "price": 1})
+    assets.links.clear()
 
-        async def delete(self, key):
-            self.deleted.append(key)
+    await admin.update(session, row.id, {"name": "/media/covers/new.png"}, partial=True)
+    assert assets.links == [("products", str(row.id), "name", "covers/new.png")]
 
-    storage = RecordingStorage()
 
-    class DemoAdmin(AdminResource):
-        name = "products"
-        model = product_model
-        file_fields = ["name"]
-        media_base_url = "/media"
-        form_fields = [TextField("name")]
+async def test_external_or_missing_file_values_pass_no_object_key(session, product_model):
+    assets = RecordingAssets()
+    admin = _file_admin(product_model, assets)
 
-    admin = DemoAdmin()
-    admin.storage = storage
+    row = await admin.create(session, {"name": "https://cdn.example.com/x.png", "price": 1})
+    assert assets.links == [("products", str(row.id), "name", None)]
 
-    row = product_model(name="/media/covers/old.png", price=1)
-    session.add(row)
-    await session.commit()
 
-    await admin.update(session, row.id, {"name": "/media/covers/new.png"})
-    assert storage.deleted == ["covers/old.png"]
+async def test_file_lifecycle_is_a_noop_without_an_assets_collaborator(session, product_model):
+    admin = _file_admin(product_model, None)
 
-    storage.deleted.clear()
-    await admin.update(session, row.id, {"name": "/media/covers/new.png"})
-    assert storage.deleted == []
+    row = await admin.create(session, {"name": "/media/covers/a.png", "price": 1})
+    await admin.update(session, row.id, {"name": "/media/covers/b.png"}, partial=True)
+    await admin.delete(session, row.id)
 
 
 def test_object_key_resolution():
@@ -593,17 +575,17 @@ def test_grid_value_serializes_temporal_and_decimal():
     from datetime import date, datetime, time
     from decimal import Decimal
 
-    from fastkit_admin.resource import _grid_value
+    from fastkit_admin.serialization import grid_value
 
-    assert _grid_value(date(2026, 7, 15)) == "2026-07-15"
-    assert _grid_value(datetime(2026, 7, 15, 9, 30)) == "2026-07-15T09:30:00+00:00"
-    assert _grid_value(time(9, 30)) == "09:30:00"
+    assert grid_value(date(2026, 7, 15)) == "2026-07-15"
+    assert grid_value(datetime(2026, 7, 15, 9, 30)) == "2026-07-15T09:30:00+00:00"
+    assert grid_value(time(9, 30)) == "09:30:00"
 
     from datetime import timezone as _tz
     aware = datetime(2026, 7, 15, 9, 30, tzinfo=_tz.utc)
-    assert _grid_value(aware) == "2026-07-15T09:30:00+00:00"
-    assert _grid_value(Decimal("19.90")) == "19.90"
-    assert _grid_value("plain") == "plain"
+    assert grid_value(aware) == "2026-07-15T09:30:00+00:00"
+    assert grid_value(Decimal("19.90")) == "19.90"
+    assert grid_value("plain") == "plain"
 
 
 def test_number_field_format_passthrough():
@@ -615,12 +597,12 @@ def test_number_field_format_passthrough():
 def test_plain_helper():
     from datetime import date
 
-    from fastkit_admin.resource import _plain
+    from fastkit_admin.serialization import plain_value
 
-    assert _plain(None) is None
-    assert _plain("x") == "x"
-    assert _plain(5) == 5
-    assert _plain(date(2026, 7, 14)) == "2026-07-14"
+    assert plain_value(None) is None
+    assert plain_value("x") == "x"
+    assert plain_value(5) == 5
+    assert plain_value(date(2026, 7, 14)) == "2026-07-14"
 
 
 async def test_permission_flags(product_admin):

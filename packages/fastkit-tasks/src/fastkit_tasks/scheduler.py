@@ -21,8 +21,8 @@ def _aware(value: datetime) -> datetime:
 class Scheduler:
     """Materializes due scheduled tasks into queued executions exactly once per slot."""
 
-    def __init__(self, session_factory, queue: TaskQueue, clock=None):
-        self._session_factory = session_factory
+    def __init__(self, database, queue: TaskQueue, clock=None):
+        self._database = database
         self._queue = queue
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -30,7 +30,7 @@ class Scheduler:
         now = self._clock()
         materialized = 0
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             due = (
                 await session.execute(
                     select(ScheduledTask).where(ScheduledTask.enabled.is_(True), ScheduledTask.next_run_at.isnot(None), ScheduledTask.next_run_at <= now)
@@ -72,7 +72,7 @@ class Scheduler:
     async def _advance(self, task: ScheduledTask, now: datetime) -> None:
         upcoming = self._compute_next(task, now)
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             stored = await session.get(ScheduledTask, task.id)
             stored.last_run_at = now
             stored.next_run_at = upcoming

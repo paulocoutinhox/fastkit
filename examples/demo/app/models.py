@@ -9,7 +9,7 @@ from fastkit_db.types import PortableJSON
 
 
 class Category(PrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "demo_categories"
+    __tablename__ = "demo_category"
 
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -20,25 +20,45 @@ class Category(PrimaryKeyMixin, TimestampMixin, Base):
 
 
 class Subcategory(PrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "demo_subcategories"
+    __tablename__ = "demo_subcategory"
 
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    category_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("demo_categories.id", ondelete="CASCADE"), nullable=False, index=True)
+    category_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("demo_category.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    def display_label(self) -> str:
+        return self.name
+
+
+class Survey(PrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "demo_survey"
+
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    def display_label(self) -> str:
+        return self.name
+
+
+class SurveyQuestion(PrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "demo_survey_question"
+
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    survey_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("demo_survey.id", ondelete="CASCADE"), nullable=False, index=True)
 
     def display_label(self) -> str:
         return self.name
 
 
 class Product(PrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "demo_products"
+    __tablename__ = "demo_product"
 
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     sku: Mapped[str] = mapped_column(String(40), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"), nullable=False)
-    category_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_categories.id", ondelete="SET NULL"), nullable=True, index=True)
-    subcategory_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_subcategories.id", ondelete="SET NULL"), nullable=True, index=True)
+    category_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_category.id", ondelete="SET NULL"), nullable=True, index=True)
+    subcategory_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_subcategory.id", ondelete="SET NULL"), nullable=True, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     category: Mapped["Category | None"] = relationship(lazy="raise")
@@ -90,8 +110,8 @@ class Showcase(PrimaryKeyMixin, TimestampMixin, Base):
     website: Mapped[str | None] = mapped_column(String(300), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(200), nullable=True)
     reference_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    category_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_categories.id", ondelete="SET NULL"), nullable=True, index=True)
-    subcategory_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_subcategories.id", ondelete="SET NULL"), nullable=True, index=True)
+    category_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_category.id", ondelete="SET NULL"), nullable=True, index=True)
+    subcategory_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("demo_subcategory.id", ondelete="SET NULL"), nullable=True, index=True)
 
     def display_label(self) -> str:
         return self.title

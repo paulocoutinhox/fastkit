@@ -6,6 +6,7 @@ def test_renders_package_template():
 
     html = renderer.render(
         "admin/login.html",
+        t=lambda key, **params: key,
         config={
             "brand_name": "FastKit",
             "favicon": "x",
@@ -14,7 +15,8 @@ def test_renders_package_template():
             "static_base": "/admin-static",
             "primary_color": "#000",
             "primary_color_hover": "#111",
-            "recaptcha_enabled": False,
+            "captcha": {"provider": None},
+            "login": {"identifier": {"label": "login.email", "type": "email", "autocomplete": "username", "default": ""}, "identifier_types": [], "password": True, "oauth": []},
             "client_json": "{}",
         },
     )
@@ -39,7 +41,7 @@ def test_consumer_directory_overrides_package(tmp_path):
             "static_base": "/s",
             "primary_color": "#000",
             "primary_color_hover": "#111",
-            "recaptcha_enabled": False,
+            "captcha": {"provider": None},
             "client_json": "{}",
         },
     )

@@ -19,4 +19,4 @@ async def database(tmp_path):
 
 @pytest_asyncio.fixture
 def service(database):
-    return AccountService(database.session_factory)
+    return AccountService(database)

@@ -16,9 +16,14 @@ from app.settings import get_settings
 app = create_application(get_settings())
 ```
 
-Every package is implemented, documented and tested to **100% branch coverage**
-(602 Python tests), and the demo admin is verified end-to-end in a real browser
-with **27 Playwright tests**.
+Every package is implemented, documented and tested to **100% branch coverage**,
+and the demo admin is verified end-to-end in a real browser with Playwright.
+
+## Documentation
+
+Comprehensive, topic-separated documentation lives in **[`docs/`](docs/README.md)** — getting
+started, concepts, data, one file per package, the full admin engine, task-oriented how-to guides,
+and reference. [`CLAUDE.md`](CLAUDE.md) is the engineering guide (conventions and invariants).
 
 ## Packages
 
@@ -31,11 +36,11 @@ with **27 Playwright tests**.
 | [fastkit-tenancy](packages/fastkit-tenancy/DOCS.md) | Tenant model, context, resolvers, global tenant semantics | 100% (15) |
 | [fastkit-accounts](packages/fastkit-accounts/DOCS.md) | Users, profiles, login identifiers, normalizers | 100% (18) |
 | [fastkit-permissions](packages/fastkit-permissions/DOCS.md) | Roles, permissions, authorization, cache | 100% (13) |
-| [fastkit-auth](packages/fastkit-auth/DOCS.md) | Sessions, Argon2 passwords, JWT, rate limiting, reCAPTCHA v3, brute-force | 100% (41) |
-| [fastkit-cache](packages/fastkit-cache/DOCS.md) | Cache contract, file/database/Redis providers, circuit breaker | 100% (26) |
+| [fastkit-auth](packages/fastkit-auth/DOCS.md) | Sessions, Argon2 passwords, JWT, rate limiting, pluggable captcha (disabled/recaptcha/image), brute-force | 100% (42) |
+| [fastkit-cache](packages/fastkit-cache/DOCS.md) | Cache contract, file/database providers | 100% (19) |
 | [fastkit-storage](packages/fastkit-storage/DOCS.md) | Storage contract, local and resilient S3 providers, signed URLs | 100% (18) |
 | [fastkit-tasks](packages/fastkit-tasks/DOCS.md) | Persistent task queue and scheduler, workers, leases, retry | 100% (33) |
-| [fastkit-assets](packages/fastkit-assets/DOCS.md) | Assets, variants, uploads, image processing, security | 100% (27) |
+| [fastkit-files](packages/fastkit-files/DOCS.md) | Managed files (any kind), variants, uploads, image processing, security | 100% (27) |
 | [fastkit-mail](packages/fastkit-mail/DOCS.md) | Async email, templates, resilient providers, deliveries | 100% (19) |
 | [fastkit-i18n](packages/fastkit-i18n/DOCS.md) | Modular gettext-style translations, locale resolution | 100% (12) |
 | [fastkit-content](packages/fastkit-content/DOCS.md) | Languages, per-language content (key + html/plain), HTML sanitizer | 100% (33) |
@@ -49,8 +54,8 @@ with **27 Playwright tests**.
 ## Admin frontend
 
 The admin is **server-rendered** by `fastkit-admin`: Jinja templates styled with
-**Tabler (Bootstrap) + jQuery** from a CDN, driven by a jQuery client that consumes
-the general JSON **`/api`**. There is no build step and no SPA framework. It uses
+**Tabler (Bootstrap) + jQuery** served from vendored `fastkit-vendor-*` packages (never a CDN),
+driven by a jQuery client that consumes the general JSON **`/api`**. There is no build step and no SPA framework. It uses
 Tabler's real vertical layout (collapsing sidebar, mobile hamburger, Bootstrap
 dropdowns), a solid design (no shadows), and translates every string (dynamic through
 `FastKit.t`, server-rendered through `data-i18n`); English and Portuguese ship. Grids
@@ -74,12 +79,12 @@ UI layer, `window.FastKit` (`toast`/`confirm`/`modal`/`alert`/`lightbox`/`api`/
 `upload`), lets a project build its own UI without touching Tabler, and
 `window.FastKitAdmin` lets external jQuery add cell renderers (that may return live
 interactive elements), row actions, listen to events and refresh a row or the grid.
-The interface language follows the browser (English fallback); reCAPTCHA v3 is
-optional on login; theme (brand, logo, colors, favicon) comes from
-`window.__FASTKIT__`.
+The interface language follows the browser (English fallback); the login captcha is
+pluggable (disabled/recaptcha/image, or a consumer provider); theme (brand, logo, colors,
+favicon) comes from `window.__FASTKIT__`.
 
 Continuous integration ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs
-the coverage gate and the Playwright suite, with Postgres and Redis services
+the coverage gate and the Playwright suite, with a Postgres service
 ([docker-compose.yml](docker-compose.yml)) for integration and connection-failure
 tests.
 

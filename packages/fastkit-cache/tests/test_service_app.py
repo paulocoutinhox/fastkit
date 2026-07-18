@@ -7,7 +7,6 @@ from fastkit_db.app import DbApp
 from fastkit_cache.app import CacheApp, build_provider
 from fastkit_cache.database import CacheEntry, DatabaseCacheProvider
 from fastkit_cache.file import FileCacheProvider
-from fastkit_cache.redis import RedisCacheProvider
 from fastkit_cache.service import Cache
 
 
@@ -42,7 +41,6 @@ class Settings:
         provider = "file"
         default_ttl_seconds = 300
         directory = ""
-        redis_url = "redis://localhost:6379/0"
 
     installed_apps = ["fastkit.core", "fastkit.db", "fastkit.cache"]
 
@@ -96,12 +94,6 @@ def test_build_provider_database(tmp_path, database):
     provider = build_provider(_settings("database", tmp_path), FakeContext(database))
 
     assert isinstance(provider, DatabaseCacheProvider)
-
-
-def test_build_provider_redis(tmp_path):
-    provider = build_provider(_settings("redis", tmp_path), FakeContext(None))
-
-    assert isinstance(provider, RedisCacheProvider)
 
 
 def test_build_provider_unknown(tmp_path):

@@ -9,18 +9,37 @@
           <div class="fk-login-error-text"></div>
         </div>
         <form id="login-form-el" autocomplete="off">
+          {% if config.login.identifier_types %}
           <div class="mb-3">
-            <label class="form-label" data-i18n="login.email">Email</label>
-            <input type="email" class="form-control" id="login-email" data-testid="login-email" value="root@fastkit.local" autocomplete="username" />
+            <label class="form-label" data-i18n="login.method">Method</label>
+            <select class="form-select" id="login-identifier-type" data-testid="login-identifier-type">
+              {% for option in config.login.identifier_types %}<option value="{{ option.value }}">{{ option.label }}</option>{% endfor %}
+            </select>
           </div>
+          {% endif %}
+          <div class="mb-3">
+            <label class="form-label" data-i18n="{{ config.login.identifier.label }}">{{ t(config.login.identifier.label) }}</label>
+            <input type="{{ config.login.identifier.type }}" class="form-control" id="login-email" data-testid="login-email" value="{{ config.login.identifier.default }}" autocomplete="{{ config.login.identifier.autocomplete }}" />
+          </div>
+          {% if config.login.password %}
           <div class="mb-3">
             <label class="form-label" data-i18n="login.password">Password</label>
             <input type="password" class="form-control" id="login-password" data-testid="login-password" autocomplete="new-password" />
           </div>
+          {% endif %}
+          <div id="login-captcha" class="mb-3" data-testid="login-captcha"></div>
           <div class="form-footer">
             <button type="submit" class="btn btn-primary w-100" data-testid="login-submit" data-i18n="login.submit">Sign in</button>
           </div>
         </form>
+        {% if config.login.oauth %}
+        <div class="fk-login-oauth mt-4" data-testid="login-oauth">
+          <div class="hr-text" data-i18n="login.or">or</div>
+          {% for provider in config.login.oauth %}
+          <a href="{{ provider.url }}" class="btn w-100 mb-2" data-testid="login-oauth-{{ provider.name }}">{% if provider.icon %}<i class="ti ti-{{ provider.icon }} me-2"></i>{% endif %}{{ provider.label }}</a>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>

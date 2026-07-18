@@ -6,7 +6,7 @@ from fastkit_db.types import PortableJSON
 
 
 class SystemLog(PrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "system_logs"
+    __tablename__ = "system_log"
 
     environment: Mapped[str] = mapped_column(String(20), nullable=False)
     level: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
@@ -36,7 +36,7 @@ class SystemLog(PrimaryKeyMixin, TimestampMixin, Base):
 
 
 class AuditLog(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "audit_logs"
+    __tablename__ = "audit_log"
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     effective_tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

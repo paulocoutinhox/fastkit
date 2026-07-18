@@ -110,7 +110,7 @@ def test_resolve_effective_tenant():
 
 
 def test_assert_access_rules():
-    service = TenantService(session_factory=None)
+    service = TenantService(database=None)
 
     service.assert_access(identity_tenant_id=0, effective_tenant_id=9)
     service.assert_access(identity_tenant_id=3, effective_tenant_id=3)
@@ -125,7 +125,7 @@ async def test_service_get_and_require(database):
         session.add(Tenant(code="ghost", name="Ghost", status=TenantStatus.disabled.value))
         await session.commit()
 
-    service = TenantService(database.session_factory)
+    service = TenantService(database)
 
     assert (await service.get_by_code("acme")).name == "Acme"
     assert await service.get_by_code("missing") is None
@@ -133,7 +133,7 @@ async def test_service_get_and_require(database):
 
 
 async def test_require_active_raises_for_missing(database):
-    service = TenantService(database.session_factory)
+    service = TenantService(database)
 
     with pytest.raises(TenantError, match="was not found"):
         await service.require_active("nope")
@@ -144,7 +144,7 @@ async def test_require_active_raises_for_inactive(database):
         session.add(Tenant(code="off", name="Off", status=TenantStatus.suspended.value))
         await session.commit()
 
-    service = TenantService(database.session_factory)
+    service = TenantService(database)
 
     with pytest.raises(TenantError, match="not active"):
         await service.require_active("off")

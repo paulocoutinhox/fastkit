@@ -25,7 +25,7 @@ examples/demo             reference app wiring every package together
 frontend/admin            Playwright e2e harness (no framework; runs the demo)
 tests/                    cross-package boundary tests
 Makefile                  install / test / coverage / e2e / lint
-docker-compose.yml        postgres + redis for local integration testing
+docker-compose.yml        postgres for local integration testing
 .github/workflows/ci.yml  coverage gate + Playwright suite
 ```
 
@@ -46,9 +46,17 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
 - **fastkit-accounts** — users, profiles, login identifiers and normalizers.
 - **fastkit-permissions** — permissions, roles (a role *is* the permission set — no
   separate group), authorization with a versioned cache.
-- **fastkit-auth** — sessions, Argon2 passwords, JWT, rate limiting, reCAPTCHA v3.
-- **fastkit-cache** — cache contract, file/database/Redis providers (Redis degrades
-  behind the shared circuit breaker).
+- **fastkit-auth** — sessions, Argon2 passwords, JWT, rate limiting, and a **pluggable captcha**
+  (`captcha/` subpackage): a `CaptchaProvider` ABC (`verify(payload)` + `client_config()` +
+  `mount_routes(router)`) with built-ins `disabled`, `recaptcha` (v3, token/third-party) and `image`
+  (a minimal self-hosted alphanumeric image captcha via Pillow, example + tests), registered in a
+  module-level `captcha_providers` `ProviderRegistry` (mirrors `cache_providers`) and selected by
+  `settings.auth.captcha.provider`. `AuthService.login(..., captcha=payload)` calls
+  `captcha_provider.verify(payload)`; the payload shape is provider-defined (`{token}` for recaptcha,
+  `{challenge_id, answer}` for image). A consumer registers its own provider (hCaptcha, Turnstile,
+  custom) without editing the framework.
+- **fastkit-cache** — cache contract, file and database providers (both DB/disk-backed, no external
+  server dependency). A consumer that wants an external cache registers its own provider.
 - **fastkit-storage** — storage contract, local and resilient S3 providers.
 - **fastkit-tasks** — persistent task queue and scheduler with durable retry. The
   queue/scheduler only persist and materialize work; a **`Worker` must run to execute it**.
@@ -64,7 +72,17 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   so they stay deterministic) — `make worker` just boots the runtime as a standalone worker process.
   Task **handlers must be registered** (`registry.task(name, queue=…)`) or the worker fails the
   execution `retryable=False` — the demo registers them in `app/tasks.py`.
-- **fastkit-assets** — assets, variants, uploads, image processing.
+- **fastkit-files** — the **managed-file layer** (the `StorageFile` model = a stored file + its
+  metadata + who references it), generic over any file kind (`StorageFileKind` =
+  file/image/video/audio/document/other — *not* image-only; imagery is one kind that additionally
+  gets variants/presets). Its `StorageFileService` owns the upload pipeline (`confirm_upload` for any
+  file, `confirm_image_upload` for validated images with dimensions), variants, and the
+  **attach-on-use lifecycle** (`link_slot`/`link`/`unlink_owner` + reference-counting
+  `StorageFileReference`, `cleanup_orphans` reaping unreferenced uploads). This is the correct home
+  for the file lifecycle, **not** `fastkit-storage`: storage is a deliberately thin, DB-free byte
+  contract (`put`/`get`/`delete`/`exists`), so the reference registry (which needs a DB and is
+  exactly the `StorageFile` table) lives one layer up in fastkit-files — never a second parallel file
+  registry in storage. The service is the `file_service` component; the app name is `fastkit.files`.
 - **fastkit-mail** — async email, templates, resilient providers, deliveries.
 - **fastkit-i18n** — the single translation authority (`Translator` merges catalogs, resolves a
   locale's full catalog via `messages(locale)`), locale resolution, and `catalogs.BASE_CATALOGS`
@@ -86,6 +104,13 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   `fastkit.apps` entry point group.
 - The **Runtime** bootstraps apps in dependency order, builds registries (models,
   routers, templates), a component/service container and health/system checks.
+- **Dependency injection passes the whole collaborator, never one of its properties.** A service
+  that needs database access receives the `Database` component (`context.component("database")`) and
+  reads `self._database.session_factory()` internally — it is **never** handed a bare
+  `database.session_factory`. The rule: an injection site passes the *service* (`build_database(
+  context.component("database"))`, `AccountService(database, …)`), or passes nothing and the callee
+  resolves its own collaborator; it never drills a sub-attribute out of an injected service. `open_session`/`UnitOfWork` (`fastkit_db`) are the low-level primitives that legitimately take a raw
+  `session_factory`, not injected services.
 - `create_application(settings)` builds the FastAPI app, installs the request
   context middleware and the three exception handlers, and mounts routers. It sets
   `app.state.fastkit` to the runtime.
@@ -151,7 +176,7 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   absurd numeric input is not "ordinary bad input".
 - **Resilience** (`fastkit_core.resilience`): `CircuitBreaker`, `RetryPolicy`
   (exponential backoff + jitter) and `run_with_retry(op, policy, breaker=…)`. Used by
-  the Redis cache provider, the mail service and the S3 storage provider. External IO
+  the mail service and the S3 storage provider. External IO
   must degrade gracefully, log the failure and recover on its own.
 - **Concurrency & correctness invariants** (do not regress):
   - **Service container** (`services/container.py`): singleton creation is guarded by a
@@ -246,6 +271,17 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     `DEFAULT_MAX_UPLOAD_BYTES` = 25 MiB) reads with a hard cap and raises a 422
     `validation.file-too-large` — the upload and profile-avatar routers take a `max_bytes` param so
     a huge body can't exhaust memory.
+  - **Every upload is a managed `StorageFile`, and referenced files are never reaped**: all upload
+    handlers (image, avatar, generic file) go through the `file_service`
+    (`confirm_upload`/`confirm_image_upload` → a `StorageFile`, kind inferred from content-type) —
+    there is no raw `storage.put` that bypasses the registry. **References are explicit**: admin
+    `file_fields` attach on save (`link_slot`) and the profile avatar attaches on upload
+    (`link("user", user.id, "avatar", file_id)`), each reconciling its slot (old value detached and
+    purged when no owner remains). `cleanup_orphans` is therefore **safe** — it reaps only
+    `StorageFile`s with **no `StorageFileReference`** older than a TTL (abandoned uploads
+    the user never saved), never an in-use avatar/cover — and is wired as a real scheduled job (the
+    demo's nightly `demo.cleanup` task calls it), so orphaned uploads are cleaned at scale via one
+    indexed query, never a bucket scan.
   - **A registered task's retry policy is authoritative**: `TaskQueue` holds the `task_registry` and
     `enqueue` fills `max_attempts`/`timeout`/`retry_delay` from the `TaskDefinition` when the caller
     does not override them, so a declared `registry.task(name, max_attempts=5, timeout=300, …)` policy
@@ -288,6 +324,16 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     resource whose `filter_fieldsets` groups only some filters can't throw on Apply); and **Clear
     resets the synthetic `.fk-filter-lookup` widgets** (`data-value` + input), so a cleared lookup
     filter is never silently re-applied on the next Apply.
+  - **A lookup's committed value only survives while its text matches the picked label** (form and
+    filter lookups alike): the widget stores the selected `value`+`label`, and **any edit that makes
+    the input text differ from the committed label immediately clears the value** (`data-value`/hidden
+    emptied) and fires `change`. So deleting/emptying a parent lookup's text — not only picking a new
+    option — cascades the dependent reset down the whole chain (`resetDependent` also closes the child
+    menu, clears its label and bumps its `value-seq`), and a child can **never** keep searching with a
+    stale parent id (the demo's 4-level `country→state→city→district` lookups lock this in). Lookup
+    menus **close on an outside `mousedown`** (a single delegated document handler) and on blur, and an
+    async options response only re-opens the menu if the input is **still focused** (a late response
+    can't reopen a dropdown the user already left).
   - **XSS is defended by default**: the one shared HTML sanitizer lives in
     `fastkit_core.sanitize.sanitize_html` (allow-list tags/attrs/URL schemes, drops `on*`,
     `script`/`style`, `javascript:`/non-image `data:`) — a **self-closed** `<script/>`/`<style/>` drops
@@ -301,9 +347,9 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
     never inserting markup. The per-request `window.__FASTKIT__` JSON is escaped (`<`,`>`,`&`,U+2028/9 →
     `\u…`) so a `</script>` inside a translation/brand string can't break out of the inline script.
 - **Known follow-ups** (documented, lower priority — do not silently "fix" with gambiarras):
-  in-memory `RateLimiter`/`RecaptchaVerifier` sets are per-process and reset on restart (a shared
-  store is needed for multi-worker); the database/file cache `increment` does not preserve TTL
-  (Redis does); `confirm_image_upload`, the database/file cache `set`, and content
+  in-memory `RateLimiter` sets and the captcha providers' in-memory token/challenge stores (`RecaptchaProvider`, `ImageCaptchaProvider`) are per-process and reset on restart (a shared
+  store is needed for multi-worker); the database/file cache `increment` does not preserve TTL;
+  `confirm_image_upload`, the database/file cache `set`, and content
   `set_translation` are check-then-write (fine on SQLite's single writer, want an upsert on
   Postgres); mail counts a breaker-open attempt; S3 reads bypass the retry/breaker. Fix these with
   real atomicity, not workarounds. Also: a genuinely circular **singleton** service graph (A needs
@@ -312,16 +358,10 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   rather than fixed with a detector that would risk the container's concurrency correctness. The S3
   storage provider is constructed with an un-entered aioboto3 client (env-gated, untested in CI) —
   it needs a lifecycle to enter/close the client and its own `bucket` setting. Swapping the rate
-  limiter / reCAPTCHA verifier for a shared-store implementation is part of the multi-worker
+  limiter / captcha stores for a shared-store implementation is part of the multi-worker
   follow-up (they are collaborators of `AuthService`, not yet settings-selected). The CLI has no
-  third-party subcommand mechanism yet (unlike apps/assets/tasks/reports/webhooks). Also,
-  `AssetService.cleanup_orphans` reaps every asset still at `status=uploaded` past a cutoff, but a
-  **directly-referenced** upload (avatar, rich-text image, a resource cover) stays at `uploaded`
-  (only `process_image` promotes to `ready`, and direct-URL usage creates no `AssetAttachment`), so
-  wiring the sweep as-is would delete in-use objects — it is deliberately **not scheduled anywhere**
-  and needs the full attach-on-use lifecycle (the consumer marking a used asset, or the sweep scoping
-  to genuinely unreferenced ones) before it can run. None of these are wired half-way — implement
-  them fully when needed.
+  third-party subcommand mechanism yet (unlike apps/assets/tasks/reports/webhooks). None of these
+  are wired half-way — implement them fully when needed.
 - **Extensibility contracts** (a consumer extends every subsystem without editing the framework):
   apps + lifecycle hooks (`register_settings/models/services/templates/translations/tasks/admin/
   routers` + `startup/shutdown`) discovered via the `fastkit.apps` entry point; the model / router /
@@ -338,10 +378,6 @@ Each package is `packages/fastkit-X/src/fastkit_X/` plus `DOCS.md`, `pyproject.t
   partials, and the `FastKit`/`FastKitAdmin` client bridges. (Client form **field/filter widgets**
   are the one deliberate closed set — field types are backend-declared; extend cells/headers/
   row-actions/dashboard via `FastKitAdmin`, not the form widget switch.)
-- **Resilience** (`fastkit_core.resilience`): `CircuitBreaker`, `RetryPolicy`
-  (exponential backoff + jitter) and `run_with_retry(op, policy, breaker=…)`. Used by
-  the Redis cache provider, the mail service and the S3 storage provider. External IO
-  must degrade gracefully, log the failure and recover on its own.
 
 ## Wiring a consumer project
 
@@ -390,6 +426,13 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
   consumer app (`requires = ("fastkit.accounts",)`) registers its own type in `register_services`
   via `context.component("normalizer_registry").register(MyNormalizer())` and it is immediately live
   in `identifier_types()`, create/add-identifier, and login — no framework change, any system.
+- **Mirroring an identifier onto a `User` column is a data-driven, overridable map — not an
+  `if type == …` ladder.** `AccountService(database, normalizers, mirror_fields=…)` takes a
+  `{identifier_type: user_column}` mapping (default `DEFAULT_MIRROR_FIELDS = {"email": "email",
+  "username": "username", "phone": "phone"}`); on `create_user` it copies each primary identifier's
+  normalized value into the mapped column when that column is still empty. A consumer extends or
+  replaces the map (e.g. `{"cpf": "tax_id"}`) without touching the service — no hardcoded identifier
+  special-casing.
 - **Login is type-parameterized and tenant-scoped.** `AuthService.login(identifier_type,
   identifier_value, password, requested_tenant_id=…)` validates the type against the registered set,
   normalizes, then matches within the tenant (see the tenant-scoped-authentication invariant). A user
@@ -413,6 +456,11 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
 
 ## Database conventions
 
+- **Table names are always singular and match the model class name** — `User` → `user`, `Role` →
+  `role`, `Tenant` → `tenant`, `StorageFile` → `storage_file`, `ContentTranslation` →
+  `content_translation` (the demo's tables likewise: `Category` → `demo_category`). Never a plural
+  `__tablename__`. FK strings and constraint/index names follow the singular table (`ForeignKey(
+  "user.id")`, `uq_permission_code`).
 - Models extend `Base` (`fastkit_db.base`) and opt into mixins: `PrimaryKeyMixin`
   (bigint autoincrement id — `BigInteger().with_variant(Integer, "sqlite")`),
   `TimestampMixin`, `TenantMixin`, `SoftDeleteMixin`, `VersionMixin`, `MetadataMixin`,
@@ -420,7 +468,7 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
 - Foreign keys are `BigInteger` with `ForeignKey("table.id", ondelete=…)`. **Intra-package
   children always carry a real FK with `ondelete`** so a parent delete cascades (or nulls) at the
   DB — including asset variants/attachments (`CASCADE`) and upload sessions (`SET NULL`). Only
-  cross-package references (`Session.user_id`, `*.tenant_id`, `avatar_asset_id`,
+  cross-package references (`Session.user_id`, `*.tenant_id`, `avatar_file_id`,
   `ContentTranslation.language_id`) omit the FK, since packages install independently.
 - SQLite enforces foreign keys (a connect listener runs `PRAGMA foreign_keys=ON`) and
   autoincrements a single INTEGER primary key even under the named-constraint naming
@@ -451,15 +499,21 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
   through their own endpoints. `hide_label=True` renders a field without its label
   (use the fieldset title instead). A `Fieldset(title, [names], description=…)`
   renders `description` as a small hint under the title.
-- **File cleanup on delete and on replace**: a resource lists `file_fields` and receives a `storage`
-  provider + `media_base_url`; deleting a record (single or via the grid's bulk delete) removes the
-  referenced objects from storage, and **updating a record to a new file value removes the previously
-  stored object** (only the changed fields, after the commit) — both best-effort and logged, both
-  skipping empty/external URLs via `_object_key`. An
-  **uploaded cover image** is just an `ImageField(upload_url=…)` (the upload widget) plus a
-  `render_<column>` returning an `<img>` thumbnail for the grid/detail and the field in
-  `file_fields` — the demo's **Categories, Subcategories and Products** each carry a `image_url`
-  cover this way (a shared `cover_thumb` helper renders the rounded thumbnail, `—` when empty).
+- **File lifecycle via the managed-file layer (attach-on-use, no orphans, scalable)**: a resource
+  lists `file_fields` and receives a `files` collaborator (`StorageFileService`) + `media_base_url`. On
+  create/update it calls `files.link_slot(resource_name, record_id, field, object_key)` for each
+  file field — reconciling that (owner, slot) reference to the `StorageFile` the URL points at (mapped
+  URL→`object_key` via `_object_key`, skipping empty/external URLs). On delete it calls
+  `files.unlink_owner(resource_name, record_id)`. This makes the referenced upload **attached**
+  (reference-counted, safe from the reaper) and, when a value is **replaced or cleared** (or the
+  record deleted), detaches the old `StorageFile` and **purges it eagerly** (storage object + variants
+  + row) **only when no other owner still references it** — a shared file survives until its last
+  owner unlinks. The framework no longer deletes storage objects directly; the files layer is the
+  single authority for stored-file cleanup. An **uploaded cover image** is just an
+  `ImageField(upload_url=…)` (the upload widget) plus a `render_<column>` returning an `<img>`
+  thumbnail for the grid/detail and the field in `file_fields` — the demo's **Categories,
+  Subcategories and Products** each carry a `image_url` cover this way (a shared `cover_thumb` helper
+  renders the rounded thumbnail, `—` when empty).
 - **Django-style overrides** on `AdminResource`: `get_queryset()` returns the base
   SQLAlchemy `select` (filter, join, restrict columns); `render_<column>(row, locale)`
   returns a cell's HTML (marks that column `html` in the schema so the client renders it
@@ -516,9 +570,13 @@ freedom over login policy, the framework provides the generic, tenant-safe machi
   **every field that (transitively) depends on it, each keeping its current value if it still
   exists** (`loadOptions(current=value)` keeps a surviving option and clears a deleted one;
   `setLookupValue` clears a lookup whose id no longer resolves). This is why editing a related
-  record's own inline children (e.g. a Category's Subcategories in the modal) **refreshes the
-  dependent sub-select** on the parent form — no hardcoding, works to any depth and for
-  selects/lookups, form-level or inline-row-scoped (`scopeOf`). The icons are **permission-gated per related resource**: `form_screen` attaches
+  record in the modal **refreshes every dependent sub-select** on the parent form — no hardcoding,
+  works to any depth and for selects/lookups, form-level or inline-row-scoped (`scopeOf`). The walk carries a **visited set**
+  (a lattice/diamond graph reloads each node once, a cyclic/self `depends_on` can't loop), and when a
+  refreshed node's value is **invalidated** (its option was deleted → cleared) it fires `change` so
+  the reset-cascade clears the subtree below it (no stale grandchild under an emptied parent). The
+  lookup value re-resolve (`setLookupValue`) carries a `value-seq` so a slow refresh can't clobber a
+  value the user picked meanwhile. The icons are **permission-gated per related resource**: `form_screen` attaches
   `related_flags` (`add`/`edit`/`delete` = the related resource's `can_create`/`update`/`delete` for
   the acting user), so an icon renders only when allowed and edit/delete are **server-rendered
   disabled until a value is selected** (toggled on `change` client-side). Works nested (a modal
@@ -574,11 +632,16 @@ mobile hamburger drawer closes naturally on navigation (Bootstrap `Collapse` fro
 sidebar renders **exactly like Tabler's `layout-vertical`**: each nav group is a
 collapsible `nav-item dropdown` (`nav-link dropdown-toggle` + `data-bs-toggle="dropdown"` +
 `data-bs-auto-close="false"`) whose `dropdown-menu` holds the group's resources as
-`dropdown-item` links — expanded by default and collapsible per group. Inherit Tabler markup,
-do not hand-roll it. **Use Tabler's defaults for everything —
+`dropdown-item` links — expanded by default and collapsible per group. Because navigation is a
+full page reload, the **collapsed/expanded state of each group persists in `localStorage`**
+(`fk-nav-collapsed`, keyed by group key): `initSidebarNav` restores it on load (removing `.show`
+from collapsed groups' menus, which is exactly what Bootstrap 5's `_isShown` reads) and updates it
+on each `hide`/`show.bs.dropdown` — so selecting an item never re-expands a group the user collapsed.
+The **active resource's item and its group carry `.active`** (server-rendered from the current route
+via `nav_current`, passed through `shell_context`). Inherit Tabler markup, do not hand-roll it. **Use Tabler's defaults for everything —
 never override its colors, shadows or styles.** `admin.css` holds only a few genuinely-custom
 component rules — `.fk-upload-preview`, `.fk-lookup-menu`, the loading affordances
-(`.fk-load-spin` select spinner, `.fk-busy` grid/report overlay, `#fk-nav-progress` top bar),
+(`.fk-load-spin` select spinner, `.fk-busy` grid/report overlay, `.fk-nav-loading` navigation overlay),
 `.ti.alert-icon` (sizes the icon **font** to match Tabler's SVG alert icon) and the neutral
 click-through/header links (`.fk-cell-link`/`.fk-sort`: color/weight inherit, no underline) — there is no
 primary-color or shadow override. A consumer may opt into a brand primary color via
@@ -603,6 +666,17 @@ Tabler hover highlight has breathing room (not a tight box).
   you inject content without copying anything: `_extra_head.html`, `_extra_js.html`,
   `_pre_body.html`, `_pre_footer.html`, `_post_footer.html`, `_sidebar_footer.html`,
   `_navbar_end.html`. Template names use underscores; partials live under `partials/`.
+- **The pages layer is split by concern** (one cohesive file each, no mixing of unrelated
+  `def`/`async def`/`class`): `mounting.py` (`STATIC_DIR`, `mount_assets`, `mount_admin_static` — the
+  static/asset mounting), `page_config.py` (`FAVICON`, `build_login_config`, `build_page_config`,
+  `render_client_json`, `make_t`, `request_config` — config + client bootstrap), `routing.py`
+  (`resolve_route`, `nav_current`, `build_header`, `screen_query` — URL→screen mapping + breadcrumb/
+  title), and `pages.py` (the request-handling pipeline: `PagesDeps` at the top, the `*_screen`
+  context assemblers, `shell_context`, `dispatch_screen`, `render_login`/`render_screen`,
+  `build_admin_pages_router`). Import from the concrete module (`from fastkit_admin.mounting import
+  mount_admin_static`, `from fastkit_admin.page_config import build_page_config`). The admin
+  serialization helpers (`translate_schema`, `grid_value`, `plain_value`, `coerce_identifier`, the
+  `CLIENT_FORMATTED_TYPES` set) live in `serialization.py`, imported by `resource.py`.
 - **Pages router** (`fastkit_admin/pages.py`): `build_admin_pages_router` **server-renders every
   screen**. `render_screen` gathers request/user/session then `dispatch_screen` maps the path
   (`resolve_route`) to a screen: `` `` (root)→dashboard, `{resource}`→list, `{resource}/new`→create
@@ -612,7 +686,14 @@ Tabler hover highlight has breathing room (not a tight box).
   `form_context`/`detail_context`/`report_context`/`profile_context`) and renders. **A
   `?_fragment=table` request renders only `partials/_table.html`/`_report_table.html`** (no shell) —
   that's what the client swaps on grid/report AJAX — and **`?_fragment=form`** renders only
-  `partials/_form.html` (the bare `<form>`), which the related-object modal loads. A `t(key, **params)` callable (bound to
+  `partials/_form.html` (the bare `<form>`), which the related-object modal loads. **Every full
+  screen renders a breadcrumb** (`build_breadcrumb` → `partials/_breadcrumb.html`, included once by
+  `app.html` above the screen block) that starts with a **home crumb (a house icon linking to the
+  admin root `/`, never a "Dashboard" label** — not every admin has a dashboard) followed by the
+  current area: a list is `[home → resource label]`; a form/detail is
+  `[home → resource label (linked to its list) → leaf]` where the leaf is `grid.new`/`form.edit` or
+  the record's `display`; a report is `[home → report title]`. Labels are translated in Python via the injected
+  `t`, so a fragment swap never re-renders it. A `t(key, **params)` callable (bound to
   `translator.gettext` + the resolved locale, key-fallback) is injected into every render, so
   templates translate everything. `report_data(name, session, locale, params, check)` and
   `profile_data(user, locale)` are async providers the consumer wires from its report/account
@@ -623,7 +704,7 @@ Tabler hover highlight has breathing room (not a tight box).
   rendered report by URL even though the API already 403s. The module-level screen builders are unit-tested via
   direct `await` for 100% coverage (route handlers are thin `return await render_*(...)` wrappers).
   `build_page_config` builds the shell context + the per-request `window.__FASTKIT__` client
-  bootstrap (api base, admin path, brand, locale, timezone, messages, reCAPTCHA). `STATIC_DIR` holds
+  bootstrap (api base, admin path, brand, locale, timezone, messages, captcha client config). `STATIC_DIR` holds
   `app.js` + `admin.css` (mount at `/admin-static`).
 - **Vendored assets, no CDN** (`fastkit_admin/assets.py`): `AssetRegistry.discover()`
   collects every front-end library from installed `fastkit.assets` entry-point providers
@@ -691,8 +772,10 @@ Tabler hover highlight has breathing room (not a tight box).
   referenced elsewhere keeps its id across an edit). A partial `PATCH` that omits an inline key leaves
   those children untouched, and a **malformed inline payload never 500s or wipes children**:
   `_validate_inlines` only processes a `list` and `validate` returns `None` for a list containing a
-  non-dict — so `"x"`, `123`, `{}` or `[1,2]` leave the existing rows intact. The demo's Categories
-  form manages its Subcategories inline.
+  non-dict — so `"x"`, `123`, `{}` or `[1,2]` leave the existing rows intact. The demo's **Surveys**
+  form manages its **Questions** inline (a genuine composition — questions are owned by the survey,
+  not a separately-managed resource; that is when an inline is the right choice). Categories and
+  Subcategories are **separate resources**, not an inline.
 - **Grid screen = three decoupled stacked parts** (the toolbar/filters are NOT baked into the
   grid card): (1) a **toolbar card** (`card > card-body > row g-2`) holding the search (only when
   the resource has `search_fields`, in a growing `col-md`) and a right-aligned `btn-list`
@@ -770,11 +853,14 @@ Tabler hover highlight has breathing room (not a tight box).
   never a hardcoded English string); the **grid/report** table shows a centered overlay spinner
   (`.fk-busy`, `data-testid=content-loading`) over the card while the `?_fragment=table` AJAX runs,
   cleared when the fragment swaps in (or on `.fail`); and because navigation is a **full page load**,
-  a **top progress bar** (`#fk-nav-progress`, `data-testid=nav-progress`) starts the instant any
-  internal link is clicked (`initNavProgress` delegates on `a[href]`, skipping AJAX-handled links via
-  `event.isDefaultPrevented()`, `#`/external/download/`fk-report-export` links) and while `go()`
-  navigates — so a slow server response never leaves the user with zero feedback; it vanishes with the
-  old document when the new page renders. The demo's **Geo samples** resource (`geo.py` +
+  the instant an internal link is clicked (or `go()` navigates) the **destination area is covered by
+  an opaque loading overlay** (`.fk-nav-loading`, `data-testid=nav-loading`, appended to
+  `.fk-page-main` — the header+body region right of the sidebar) so the **old screen is hidden behind
+  a spinner** instead of lingering under a fake top bar. `initNavLoading` delegates on `a[href]`
+  (skipping AJAX-handled links via `event.isDefaultPrevented()`, and `#`/external/download/
+  `fk-report-export` links); the sidebar/navbar stay clickable so a mid-load menu click cancels the
+  pending navigation and starts the new one (native browser behavior); and a `pageshow` (persisted →
+  bfcache back-nav) clears the overlay so the restored page is not stuck behind a spinner. The demo's **Geo samples** resource (`geo.py` +
   `GeoSampleAdmin`) exercises all of it: a **4-level** `country → state → city → district` dependent
   chain rendered **both** as `RelationField` selects and `LookupField` lookups (and as `SelectFilter`
   + `LookupFilter` chains in the filter panel), with deliberately slow option handlers and a slow
@@ -791,7 +877,7 @@ Tabler hover highlight has breathing room (not a tight box).
   live too** (`[data-testid=user-avatar]` background-image, not only the profile card — no reload
   needed), and the avatar
   **persists**: `_profile_summary` returns a resolved `avatar_url` (the profile router takes an
-  `avatar_url(asset_id)` resolver — the demo builds it from `asset_service.get(id).object_key` +
+  `avatar_url(file_id)` resolver — the demo builds it from `file_service.get(id).object_key` +
   the storage base URL), which both the profile screen and the header read. The server-rendered
   header also resolves it on load: `build_admin_pages_router(..., avatar_url=…)` fills the navbar
   avatar in `shell_context`, so a full reload shows the photo (not just the live update).
@@ -828,6 +914,12 @@ Tabler hover highlight has breathing room (not a tight box).
   (e.g. read-only metadata on the create form) is not rendered. The demo Product shows the
   full record on the detail screen (read-only `id`/`created_at`/`updated_at` in a "Record"
   fieldset), which appears on edit/view but not on create.
+- **The screen title lives in a shared page header, not the content body**: `app.html` renders a
+  Tabler `.page-header` (holding the breadcrumb + `<h2 class="page-title" data-testid="screen-title">`)
+  **above** the `.page-body`, inside a `.fk-page-main` positioning wrapper. The per-screen title comes
+  from `page_title` (computed alongside the breadcrumb by `build_header`, injected through
+  `shell_context`) — no screen template renders its own `<h2>`, so the title never sits in the
+  "miolo". `.fk-page-main` is the region the navigation loading overlay covers.
 - **Every screen fills the width** (`container-fluid`, not `container-xl` which left giant side
   padding on wide screens): grid, reports, profile, **and the edit form + detail view all render
   full-width cards** — no per-screen `max-width` wrapper. **Form and detail fields stack in a single
@@ -841,12 +933,41 @@ Tabler hover highlight has breathing room (not a tight box).
   fills each field's `[data-error]`, then `focusFirstError` scrolls the first errored field's
   wrapper into view (`scrollIntoView({block:"center"})`) and focuses its input — so submitting
   an invalid form never leaves the user stranded at the bottom.
+- **Django-style save options** (form footer, `_form.html` + `initForm`): **Save** (primary,
+  `data-save=list`) is always present and returns to the list — it is the Enter default, so the
+  existing save→list flow is unchanged. **Save and continue editing** (`data-save=continue`) renders
+  only when `flags.can_update` and routes back to the record's edit form (for a create, the new
+  record's edit form). **Save and add another** (`data-save=add`) renders only when
+  `flags.can_create` and routes to a fresh create form. The client tracks the clicked button
+  (`saveAction`, default `list` for Enter) and `nextSaveUrl` picks the destination after the save +
+  matrix/translation sub-saves succeed. `form_context` carries the resource's `flags` (from
+  `permission_flags`) so the buttons are permission-gated. The related-object modal strips the
+  continue/add buttons (`[data-save=continue],[data-save=add]`) — a modal only ever "Saves" and
+  closes.
 - **APIs live at `/api`** (not `/admin/api`): they are the general, permission-gated
   API. The admin UI is one consumer of it.
-- **Login**: posts to `/api/auth/login`; password fields use
-  `autocomplete="new-password"` so browsers do not prefill. reCAPTCHA v3 is optional
-  (`settings.auth.recaptcha.enabled`) — when on, the token is fetched with
-  `grecaptcha.execute` and sent with the login.
+- **The login form is declarative and fully customizable** (`build_login_config` →
+  `build_page_config(login=…)` → `config.login`, rendered by `login_card.html`): the consumer
+  controls the **identifier field** (`{label, type, autocomplete, default}` — email, username, phone,
+  anything), an optional **identifier-type selector** (`identifier_types=[{value,label}]` renders a
+  `<select>` for a tenant offering several login methods — the "seletor"), the **password toggle**
+  (`password: False` for OAuth-only) and **OAuth buttons** (`oauth=[{name,label,url,icon}]` linking to
+  consumer-owned callback URLs — the framework renders the buttons, the consumer implements the OAuth
+  callback routes). `initLogin` sends the selected `identifier_type` (from the selector or
+  `config.client.login.identifierType`). So one deployment logs in by email+password, another by
+  username, another with a method selector, another with Google + N OAuth providers — **no template
+  edit**, all from the config.
+- **Login**: posts to `/api/auth/login` with `{identifier_type, identifier, password, captcha}` where
+  `captcha` is the provider payload; password fields use `autocomplete="new-password"` so browsers do not
+  prefill. **The captcha is fully pluggable and renders itself from `config.captcha`** (the active
+  provider's `client_config()`, injected by `build_page_config(captcha=…)`): `FastKit.captcha`
+  (fastkit-ui.js) is a client adapter registry with built-in `recaptcha` (executes `grecaptcha` for a
+  token) and `image` (fetches `/auth/captcha/new`, renders the `<img>` + answer input + refresh)
+  adapters — `initLogin` mounts the adapter into `#login-captcha` and `collect()`s the payload on
+  submit, so **any captcha works with no login-template change**, and a consumer registers a client
+  adapter via `FastKit.captcha.register(name, {mount})` from `_extra_js.html`. The recaptcha script
+  loads only when `config.captcha.provider == 'recaptcha'` (its `script_url`); the demo ships
+  `disabled` by default (switch with `FASTKIT__AUTH__CAPTCHA__PROVIDER=image|recaptcha`).
 - **Translations are backend-concentrated and pushed to the client** (Django-style — one
   authority, the JS holds a copy). The `Translator` (`fastkit-i18n`) is the single source; the
   **pages router injects `translator.messages(locale)` + the resolved `locale`** into
@@ -925,13 +1046,22 @@ Tabler hover highlight has breathing room (not a tight box).
 - Browser behaviour is covered by Playwright (`make test-e2e`); it must exercise every
   field type and every screen.
 - Integration against real services runs through `docker-compose.yml` and CI. Tests
-  that need a live service are gated by env vars (e.g. `FASTKIT_TEST_REDIS_URL`) and
+  that need a live service are gated by env vars (e.g. `FASTKIT_TEST_POSTGRES_URL`) and
   skip otherwise; connection-failure paths are tested with the real client against a
   dead endpoint so degradation and recovery are exercised.
 
 ## Conventions (hard rules)
 
-- `__init__.py` files are **empty**. Import from concrete submodules.
+- **One class per file.** No module holds several classes. A file that would group a class
+  taxonomy (fields, filters, models, mixins, exceptions, settings, providers, renderers, …) is a
+  **subpackage** with one class per file (named after the class's concept: `fields/text.py` holds
+  `TextField`, `models/user.py` holds `User`). Free helper functions of one concern may share a
+  module, but never mix unrelated `def`/`async def`/`class` in one file.
+- **A taxonomy subpackage re-exports its classes from a barrel `__init__.py`** (`from
+  fastkit_admin.fields.text import TextField` …), so consumers keep a single stable import
+  (`from fastkit_admin.fields import TextField`). This is the **only** case an `__init__.py` is
+  non-empty. A package that is not a class taxonomy (the package root, `fastkit_core/`, etc.) keeps
+  an **empty** `__init__.py` and is imported from its concrete submodules.
 - One statement per line. Single-line function signatures and calls. No statements
   split with semicolons.
 - Comments are rare and only where the code cannot speak for itself. Single-line `#`

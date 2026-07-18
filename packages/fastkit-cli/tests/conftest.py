@@ -21,15 +21,16 @@ APPS = {
 }
 
 
-class Recaptcha:
-    enabled = False
-    provider = "google_v3"
+class Captcha:
+    provider = "disabled"
     site_key = ""
     secret_key = ""
     action = "admin_login"
     minimum_score = 0.5
     allowed_hostnames = []
     timeout_seconds = 5
+    image_length = 5
+    challenge_ttl_seconds = 300
 
 
 class Settings:
@@ -51,7 +52,7 @@ class Settings:
         max_failed_logins = 5
         lockout_seconds = 900
         rate_limit_per_minute = 10
-        recaptcha = Recaptcha()
+        captcha = Captcha()
 
     class i18n:
         default_locale = "en"

@@ -19,7 +19,7 @@ class DeliveryStatus(str, Enum):
 
 
 class EmailDelivery(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "email_deliveries"
+    __tablename__ = "email_delivery"
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     provider: Mapped[str] = mapped_column(String(40), nullable=False)

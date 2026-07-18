@@ -13,8 +13,8 @@ logger = logging.getLogger("fastkit.mail")
 class MailService:
     """Renders templates, persists an EmailDelivery and sends through the configured provider."""
 
-    def __init__(self, session_factory, renderer: MailTemplateRenderer, provider, provider_name: str, default_from: str, clock=None, breaker: CircuitBreaker | None = None):
-        self._session_factory = session_factory
+    def __init__(self, database, renderer: MailTemplateRenderer, provider, provider_name: str, default_from: str, clock=None, breaker: CircuitBreaker | None = None):
+        self._database = database
         self._renderer = renderer
         self._provider = provider
         self._provider_name = provider_name
@@ -60,7 +60,7 @@ class MailService:
             text_body=rendered.text_body,
         )
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             session.add(delivery)
             await session.commit()
             await session.refresh(delivery)
@@ -68,7 +68,7 @@ class MailService:
         return await self.deliver(delivery.id)
 
     async def deliver(self, delivery_id) -> EmailDelivery:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             delivery = await session.get(EmailDelivery, delivery_id)
             delivery.status = DeliveryStatus.sending.value
             delivery.attempt_count += 1

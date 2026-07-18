@@ -5,7 +5,6 @@ import pytest
 from fastkit_core.errors.exceptions import AuthenticationError, RateLimitError, ValidationError
 from fastkit_auth.passwords import PasswordHashService
 from fastkit_auth.ratelimit import RateLimiter
-from fastkit_auth.recaptcha import RecaptchaConfig, RecaptchaVerifier, StaticRecaptchaClient
 from fastkit_auth.tokens import TokenService
 
 
@@ -130,75 +129,3 @@ def test_rate_limiter_reset():
     limiter.hit("ip")
 
 
-def _verifier(enabled=True, action="admin_login", score=0.5, hostnames=()):
-    config = RecaptchaConfig(enabled=enabled, action=action, minimum_score=score, allowed_hostnames=hostnames)
-
-    return config
-
-
-async def test_recaptcha_disabled_passes():
-    verifier = RecaptchaVerifier(_verifier(enabled=False), StaticRecaptchaClient({}))
-
-    await verifier.verify(None)
-
-
-async def test_recaptcha_missing_token():
-    verifier = RecaptchaVerifier(_verifier(), StaticRecaptchaClient({"success": True}))
-
-    with pytest.raises(AuthenticationError, match="required"):
-        await verifier.verify(None)
-
-
-async def test_recaptcha_success():
-    client = StaticRecaptchaClient({"success": True, "action": "admin_login", "score": 0.9, "hostname": "admin.example.com"})
-    verifier = RecaptchaVerifier(_verifier(hostnames=("admin.example.com",)), client)
-
-    await verifier.verify("token-1")
-
-
-async def test_recaptcha_duplicate_token_rejected():
-    verifier = RecaptchaVerifier(_verifier(), StaticRecaptchaClient({"success": True, "action": "admin_login", "score": 0.9}))
-
-    await verifier.verify("token-1")
-
-    with pytest.raises(AuthenticationError, match="already used"):
-        await verifier.verify("token-1")
-
-
-async def test_recaptcha_failure_flag():
-    verifier = RecaptchaVerifier(_verifier(), StaticRecaptchaClient({"success": False}))
-
-    with pytest.raises(AuthenticationError, match="verification failed"):
-        await verifier.verify("token-x")
-
-
-async def test_recaptcha_action_mismatch():
-    verifier = RecaptchaVerifier(_verifier(), StaticRecaptchaClient({"success": True, "action": "other", "score": 0.9}))
-
-    with pytest.raises(AuthenticationError, match="action mismatch"):
-        await verifier.verify("token-x")
-
-
-async def test_recaptcha_hostname_mismatch():
-    verifier = RecaptchaVerifier(_verifier(hostnames=("admin.example.com",)), StaticRecaptchaClient({"success": True, "action": "admin_login", "score": 0.9, "hostname": "evil.com"}))
-
-    with pytest.raises(AuthenticationError, match="hostname mismatch"):
-        await verifier.verify("token-x")
-
-
-async def test_recaptcha_low_score():
-    verifier = RecaptchaVerifier(_verifier(score=0.7), StaticRecaptchaClient({"success": True, "action": "admin_login", "score": 0.2}))
-
-    with pytest.raises(AuthenticationError, match="score too low"):
-        await verifier.verify("token-x")
-
-
-async def test_recaptcha_provider_unavailable():
-    class BrokenClient:
-        async def verify(self, token):
-            raise RuntimeError("network down")
-
-    verifier = RecaptchaVerifier(_verifier(), BrokenClient())
-
-    with pytest.raises(AuthenticationError, match="unavailable"):
-        await verifier.verify("token-x")

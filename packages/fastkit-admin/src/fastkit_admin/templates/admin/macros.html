@@ -6,16 +6,18 @@
 {% if config.logo_url %}<img src="{{ config.logo_url }}" style="max-height: {{ config.logo_max_height }}px" alt="logo" data-testid="brand-logo" />{% else %}<span data-testid="brand-name">{{ config.brand_name }}</span>{% endif %}
 {% endmacro %}
 
-{% macro nav_menu(navigation, path) %}
+{% macro nav_menu(navigation, path, current) %}
 <ul class="navbar-nav pt-lg-3">
   <li class="nav-item">
-    <a class="nav-link" href="{{ path }}" data-nav data-resource="dashboard" data-testid="nav-dashboard">
+    <a class="nav-link{% if current == 'dashboard' %} active{% endif %}" href="{{ path }}" data-nav data-resource="dashboard" data-testid="nav-dashboard">
       <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-layout-dashboard"></i></span>
       <span class="nav-link-title" data-i18n="dashboard.title">Dashboard</span>
     </a>
   </li>
   {% for group in navigation %}
-  <li class="nav-item dropdown">
+  {% set ns = namespace(active=false) %}
+  {% for item in group["items"] %}{% if (item.resource if item.resource else item.path.split("/")[-1]) == current %}{% set ns.active = true %}{% endif %}{% endfor %}
+  <li class="nav-item dropdown{% if ns.active %} active{% endif %}">
     <a class="nav-link dropdown-toggle" href="#sidebar-{{ group.key }}" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="true" data-testid="group-{{ group.key }}">
       <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-{{ group.icon or 'folder' }}"></i></span>
       <span class="nav-link-title" data-i18n="{{ group.label }}">{{ group.label }}</span>
@@ -24,7 +26,7 @@
       {% for item in group["items"] %}
       {% set key = item.resource if item.resource else item.path.split("/")[-1] %}
       {% set target = item.path if item.path else path ~ "/" ~ item.resource %}
-      <a class="dropdown-item" href="{{ target }}" data-nav data-resource="{{ key }}" data-testid="nav-{{ key }}">
+      <a class="dropdown-item{% if key == current %} active{% endif %}" href="{{ target }}" data-nav data-resource="{{ key }}" data-testid="nav-{{ key }}">
         <span class="nav-link-icon d-md-none d-lg-inline-block me-2"><i class="ti ti-{{ item.icon }}"></i></span>
         <span data-i18n="{{ item.label }}">{{ item.label }}</span>
       </a>

@@ -57,7 +57,7 @@ def registry():
 
 @pytest.fixture
 def service(database, registry):
-    return ReportService(database.session_factory, registry, default_renderers())
+    return ReportService(database, registry, default_renderers())
 
 
 @pytest.fixture

@@ -8,7 +8,7 @@ async def make_user(accounts, passwords, tenant_id, email, password="correct hor
     user = await accounts.create_user(tenant_id=tenant_id, identifiers=[("email", email)], is_root=is_root, password_hash=passwords.hash(password))
 
     if not is_active:
-        async with accounts._session_factory() as session:
+        async with accounts._database.session_factory() as session:
             from fastkit_accounts.models import User
 
             stored = await session.get(User, user.id)
@@ -43,7 +43,7 @@ async def test_successful_login_rehashes_when_parameters_changed(auth_service, a
     assert result.user.password_hash != original_hash
     assert passwords.verify(result.user.password_hash, "correct horse battery")
 
-    async with accounts._session_factory() as session:
+    async with accounts._database.session_factory() as session:
         stored = await session.get(User, user.id)
 
         assert stored.password_hash == result.user.password_hash
@@ -171,3 +171,48 @@ async def test_logout_revokes_session(auth_service, accounts, passwords):
 
     assert await auth_service.logout(raw_token) is True
     assert await auth_service.logout("unknown-token") is False
+
+
+async def test_login_enforces_the_captcha(database, accounts, passwords, clock):
+    from fastkit_auth.captcha.image import ImageCaptchaProvider
+    from fastkit_auth.ratelimit import RateLimiter
+    from fastkit_auth.service import AuthService
+    from fastkit_auth.sessions import SessionService
+    from fastkit_auth.tokens import TokenService
+
+    captcha = ImageCaptchaProvider(clock=clock)
+    service = AuthService(
+        database,
+        accounts,
+        passwords,
+        SessionService(database, ttl_seconds=3600, clock=clock),
+        TokenService(secret_key="test-secret", ttl_seconds=3600),
+        RateLimiter(max_attempts=5, window_seconds=60, clock=lambda: 0.0),
+        captcha,
+        clock=clock,
+    )
+    await make_user(accounts, passwords, tenant_id=1, email="cap@acme.com")
+
+    with pytest.raises(AuthenticationError, match="required"):
+        await service.login("email", "cap@acme.com", "correct horse battery", requested_tenant_id=1)
+
+    challenge = captcha.new_challenge()
+    code = captcha._challenges[challenge["challenge_id"]][0]
+    result = await service.login("email", "cap@acme.com", "correct horse battery", requested_tenant_id=1, captcha={"challenge_id": challenge["challenge_id"], "answer": code})
+
+    assert result.token
+
+
+async def test_on_success_is_a_noop_when_the_user_was_deleted_concurrently(auth_service, accounts, passwords):
+    from fastkit_accounts.models import User
+
+    user = await make_user(accounts, passwords, tenant_id=1, email="ghost@acme.com")
+
+    async with accounts._database.session_factory() as session:
+        stored = await session.get(User, user.id)
+        await session.delete(stored)
+        await session.commit()
+
+    await auth_service._on_success(user, "correct horse battery")
+
+    assert user.last_login_at is None

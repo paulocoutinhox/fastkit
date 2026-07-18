@@ -22,28 +22,28 @@ class LoginResult:
 
 
 class AuthService:
-    """Coordinates the full password login flow with brute-force and reCAPTCHA policy."""
+    """Coordinates the full password login flow with brute-force and captcha policy."""
 
-    def __init__(self, session_factory, account_service, password_service, session_service, token_service, rate_limiter, recaptcha, max_failed: int = 5, lockout_seconds: int = 900, clock=None):
-        self._session_factory = session_factory
+    def __init__(self, database, account_service, password_service, session_service, token_service, rate_limiter, captcha, max_failed: int = 5, lockout_seconds: int = 900, clock=None):
+        self._database = database
         self._accounts = account_service
         self._passwords = password_service
         self._sessions = session_service
         self._tokens = token_service
         self._rate_limiter = rate_limiter
-        self._recaptcha = recaptcha
+        self._captcha = captcha
         self._max_failed = max_failed
         self._lockout_seconds = lockout_seconds
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
-    async def login(self, identifier_type: str, identifier_value: str, password: str, requested_tenant_id: int | None = 0, recaptcha_token: str | None = None, ip_address: str | None = None, user_agent: str | None = None) -> LoginResult:
+    async def login(self, identifier_type: str, identifier_value: str, password: str, requested_tenant_id: int | None = 0, captcha: dict | None = None, ip_address: str | None = None, user_agent: str | None = None) -> LoginResult:
         if identifier_type not in self._accounts.identifier_types():
             raise AuthenticationError(INVALID_CREDENTIALS, message="invalid credentials")
 
         normalized_identifier = self._accounts.normalize_identifier(identifier_type, identifier_value)
         self._rate_limiter.hit(ip_address, requested_tenant_id, f"{identifier_type}:{normalized_identifier}")
 
-        await self._recaptcha.verify(recaptcha_token)
+        await self._captcha.verify(captcha)
 
         candidates = await self._accounts.find_candidates(requested_tenant_id, identifier_type, identifier_value)
         verifiable = any(candidate.password_hash for candidate in candidates)
@@ -91,7 +91,7 @@ class AuthService:
 
         locked_until = now + timedelta(seconds=self._lockout_seconds)
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             for candidate in candidates:
                 await session.execute(update(User).where(User.id == candidate.id).values(failed_login_count=User.failed_login_count + 1))
                 await session.execute(update(User).where(User.id == candidate.id, User.failed_login_count >= self._max_failed).values(locked_until=locked_until))
@@ -104,8 +104,12 @@ class AuthService:
         # upgrade the stored hash in place when the argon2 parameters changed since it was written
         rehashed = self._passwords.rehash(password) if self._passwords.needs_rehash(user.password_hash) else None
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             stored = await session.get(User, user.id)
+
+            if stored is None:
+                return
+
             stored.failed_login_count = 0
             stored.locked_until = None
             stored.last_login_at = now

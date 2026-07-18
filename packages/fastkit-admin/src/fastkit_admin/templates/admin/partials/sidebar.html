@@ -6,7 +6,7 @@
     </button>
     <h1 class="navbar-brand navbar-brand-autodark">{% block brand %}<a href="{{ config.path }}">{{ brand(config) }}</a>{% endblock %}</h1>
     <div class="collapse navbar-collapse" id="sidebar-menu">
-      {% block sidebar_menu %}{{ nav_menu(navigation, config.path) }}{% endblock %}
+      {% block sidebar_menu %}{{ nav_menu(navigation, config.path, current) }}{% endblock %}
       {% include "admin/_sidebar_footer.html" ignore missing %}
     </div>
   </div>

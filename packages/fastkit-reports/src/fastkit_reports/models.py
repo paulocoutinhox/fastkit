@@ -16,7 +16,7 @@ class ExecutionStatus(str, Enum):
 
 
 class ReportExecution(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "report_executions"
+    __tablename__ = "report_execution"
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     report_name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)

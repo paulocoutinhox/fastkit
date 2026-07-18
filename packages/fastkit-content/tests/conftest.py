@@ -20,9 +20,9 @@ async def database(tmp_path):
 
 @pytest.fixture
 def languages(database):
-    return LanguageService(database.session_factory)
+    return LanguageService(database)
 
 
 @pytest.fixture
 def content(database):
-    return ContentService(database.session_factory)
+    return ContentService(database)

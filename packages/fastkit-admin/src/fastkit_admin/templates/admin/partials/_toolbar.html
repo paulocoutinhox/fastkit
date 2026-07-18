@@ -14,7 +14,7 @@
           {% for action in collection_actions %}<button type="button" class="btn fk-collection-action" data-action="{{ action.name }}"{% if action.confirm %} data-confirm="1"{% endif %} data-testid="collection-{{ action.name }}">{{ action.label }}</button>{% endfor %}
           {% if has_bulk %}
           <div class="dropdown fk-bulk d-none" data-testid="bulk-menu">
-            <button class="btn dropdown-toggle" data-bs-toggle="dropdown"><span class="fk-bulk-count">0</span> {{ t('grid.selected') }}</button>
+            <button class="btn dropdown-toggle" data-bs-toggle="dropdown"><span><span class="fk-bulk-count">0</span> {{ t('grid.selected') }}</span></button>
             <div class="dropdown-menu dropdown-menu-end">
               {% for action in bulk_actions %}<button type="button" class="dropdown-item fk-bulk-action" data-action="{{ action.name }}"{% if action.confirm %} data-confirm="1"{% endif %} data-testid="bulk-{{ action.name }}">{{ action.label }}</button>{% endfor %}
               {% if flags.can_delete %}<button type="button" class="dropdown-item text-danger fk-bulk-delete" data-testid="bulk-delete"><i class="ti ti-trash me-2"></i>{{ t('grid.delete') }}</button>{% endif %}

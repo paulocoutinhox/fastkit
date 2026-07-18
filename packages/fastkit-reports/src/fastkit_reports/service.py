@@ -7,8 +7,8 @@ from fastkit_reports.models import ExecutionStatus, ReportExecution
 class ReportService:
     """Runs report definitions and renders them, tracking execution rows for heavy runs."""
 
-    def __init__(self, session_factory, registry: ReportRegistry, renderers: dict, clock=None):
-        self._session_factory = session_factory
+    def __init__(self, database, registry: ReportRegistry, renderers: dict, clock=None):
+        self._database = database
         self._registry = registry
         self._renderers = renderers
         self._clock = clock or (lambda: datetime.now(timezone.utc))
@@ -46,13 +46,13 @@ class ReportService:
     async def execute(self, name: str, renderer_name: str, params: dict | None = None, tenant_id: int | None = None, requested_by_id=None) -> ReportExecution:
         execution = ReportExecution(report_name=name, parameters=params, tenant_id=tenant_id, requested_by_id=requested_by_id, status=ExecutionStatus.running.value, started_at=self._clock())
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             session.add(execution)
             await session.commit()
             await session.refresh(execution)
 
         try:
-            async with self._session_factory() as session:
+            async with self._database.session_factory() as session:
                 result = await self.build_result(name, session, params)
 
             if renderer_name not in self._renderers:
@@ -63,7 +63,7 @@ class ReportService:
         return await self._finish_succeeded(execution.id, len(result.rows))
 
     async def _finish_succeeded(self, execution_id, row_count: int) -> ReportExecution:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             execution = await session.get(ReportExecution, execution_id)
             execution.status = ExecutionStatus.succeeded.value
             execution.row_count = row_count
@@ -75,7 +75,7 @@ class ReportService:
             return execution
 
     async def _finish_failed(self, execution_id, error: Exception) -> ReportExecution:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             execution = await session.get(ReportExecution, execution_id)
             execution.status = ExecutionStatus.failed.value
             execution.error_code = "report.failed"

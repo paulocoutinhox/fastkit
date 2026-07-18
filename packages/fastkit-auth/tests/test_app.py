@@ -5,21 +5,23 @@ from fastkit_core.runtime import Runtime
 from fastkit_db.app import DbApp
 from fastkit_tenancy.app import TenancyApp
 from fastkit_accounts.app import AccountsApp
-from fastkit_auth.app import AuthApp, build_recaptcha_verifier
+from fastkit_auth.app import AuthApp, build_captcha_provider
+from fastkit_auth.captcha.disabled import DisabledCaptchaProvider
+from fastkit_auth.captcha.recaptcha import GoogleRecaptchaClient, RecaptchaProvider
 from fastkit_auth.models import Session
-from fastkit_auth.recaptcha import GoogleRecaptchaClient
 from fastkit_auth.service import AuthService
 
 
-class Recaptcha:
-    enabled = False
-    provider = "google_v3"
+class Captcha:
+    provider = "disabled"
     site_key = ""
     secret_key = ""
     action = "admin_login"
     minimum_score = 0.5
     allowed_hostnames = []
     timeout_seconds = 5
+    image_length = 5
+    challenge_ttl_seconds = 300
 
 
 class Settings:
@@ -41,7 +43,7 @@ class Settings:
         max_failed_logins = 5
         lockout_seconds = 900
         rate_limit_per_minute = 10
-        recaptcha = Recaptcha()
+        captcha = Captcha()
 
     installed_apps = ["fastkit.core", "fastkit.db", "fastkit.tenancy", "fastkit.accounts", "fastkit.auth"]
 
@@ -71,18 +73,21 @@ async def test_auth_app_registers(runtime):
     assert isinstance(runtime.component("auth_service"), AuthService)
     assert runtime.component("password_service") is not None
     assert runtime.component("token_service") is not None
+    assert isinstance(runtime.component("captcha_provider"), DisabledCaptchaProvider)
 
 
-def test_build_recaptcha_verifier_enabled():
+def test_build_captcha_provider_selects_by_settings():
     settings = Settings()
-    settings.auth.recaptcha.enabled = True
-    settings.auth.recaptcha.secret_key = "secret"
 
-    verifier = build_recaptcha_verifier(settings)
+    assert isinstance(build_captcha_provider(settings), DisabledCaptchaProvider)
 
-    assert isinstance(verifier._client, GoogleRecaptchaClient)
+    settings.auth.captcha.provider = "recaptcha"
+    settings.auth.captcha.secret_key = "secret"
 
-    settings.auth.recaptcha.enabled = False
+    assert isinstance(build_captcha_provider(settings), RecaptchaProvider)
+
+    settings.auth.captcha.provider = "disabled"
+    settings.auth.captcha.secret_key = ""
 
 
 async def test_google_recaptcha_client_posts(monkeypatch):

@@ -29,7 +29,7 @@ def registry():
 
 @pytest.fixture
 def service(database, registry):
-    return WebhookService(database.session_factory, registry)
+    return WebhookService(database, registry)
 
 
 @pytest.fixture

@@ -10,8 +10,8 @@ logger = logging.getLogger("fastkit.system")
 class SystemLogService:
     """Writes to app.log immediately, then best-effort persists a SystemLog row."""
 
-    def __init__(self, session_factory, environment: str):
-        self._session_factory = session_factory
+    def __init__(self, database, environment: str):
+        self._database = database
         self._environment = environment
 
     async def record(self, level: str, category: str, event: str, message: str, payload: dict | None = None, **fields) -> SystemLog | None:
@@ -38,7 +38,7 @@ class SystemLogService:
 
     async def _persist(self, row):
         try:
-            async with self._session_factory() as session:
+            async with self._database.session_factory() as session:
                 session.add(row)
                 await session.commit()
 
@@ -52,8 +52,8 @@ class SystemLogService:
 class AuditLogService:
     """Persists an immutable audit trail with sanitized before/after snapshots."""
 
-    def __init__(self, session_factory):
-        self._session_factory = session_factory
+    def __init__(self, database):
+        self._database = database
 
     async def record(self, action: str, resource_type: str, resource_id: str | None = None, before: dict | None = None, after: dict | None = None) -> AuditLog:
         context = get_request_context()
@@ -70,7 +70,7 @@ class AuditLogService:
             after_data=sanitize(after) if after is not None else None,
         )
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             session.add(row)
             await session.commit()
             await session.refresh(row)

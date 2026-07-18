@@ -19,4 +19,4 @@ class ReportsApp(FastKitApp):
         registry = ReportRegistry()
 
         context.set_component("report_registry", registry)
-        context.set_component("report_service", ReportService(database.session_factory, registry, default_renderers()))
+        context.set_component("report_service", ReportService(database, registry, default_renderers()))

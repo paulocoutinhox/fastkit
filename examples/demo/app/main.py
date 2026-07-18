@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 
 from fastkit_core.app import create_application
-from fastkit_admin.pages import mount_admin_static
+from fastkit_admin.mounting import mount_admin_static
 from app.seed import seed
 from app.settings import get_settings
 

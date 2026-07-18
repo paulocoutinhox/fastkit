@@ -20,7 +20,7 @@ class PermissionsApp(FastKitApp):
     def register_services(self, context: BootstrapContext) -> None:
         database = context.component("database")
         cache = PermissionCache()
-        service = PermissionService(database.session_factory, cache)
+        service = PermissionService(database, cache)
 
         context.set_component("permission_cache", cache)
         context.set_component("permission_service", service)

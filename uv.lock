@@ -11,7 +11,6 @@ resolution-markers = [
 members = [
     "fastkit-accounts",
     "fastkit-admin",
-    "fastkit-assets",
     "fastkit-auth",
     "fastkit-cache",
     "fastkit-cli",
@@ -20,6 +19,7 @@ members = [
     "fastkit-core",
     "fastkit-db",
     "fastkit-demo",
+    "fastkit-files",
     "fastkit-i18n",
     "fastkit-logging",
     "fastkit-mail",
@@ -30,7 +30,6 @@ members = [
     "fastkit-tasks",
     "fastkit-tenancy",
     "fastkit-testkit",
-    "fastkit-vendor-htmx",
     "fastkit-vendor-jquery",
     "fastkit-vendor-jsoneditor",
     "fastkit-vendor-tabler",
@@ -705,7 +704,6 @@ dependencies = [
     { name = "fastkit-db" },
     { name = "fastkit-i18n" },
     { name = "fastkit-permissions" },
-    { name = "fastkit-vendor-htmx" },
     { name = "fastkit-vendor-jquery" },
     { name = "fastkit-vendor-jsoneditor" },
     { name = "fastkit-vendor-tabler" },
@@ -723,7 +721,6 @@ requires-dist = [
     { name = "fastkit-db", editable = "packages/fastkit-db" },
     { name = "fastkit-i18n", editable = "packages/fastkit-i18n" },
     { name = "fastkit-permissions", editable = "packages/fastkit-permissions" },
-    { name = "fastkit-vendor-htmx", editable = "packages/fastkit-vendor-htmx" },
     { name = "fastkit-vendor-jquery", editable = "packages/fastkit-vendor-jquery" },
     { name = "fastkit-vendor-jsoneditor", editable = "packages/fastkit-vendor-jsoneditor" },
     { name = "fastkit-vendor-tabler", editable = "packages/fastkit-vendor-tabler" },
@@ -731,25 +728,6 @@ requires-dist = [
     { name = "fastkit-vendor-tinymce", editable = "packages/fastkit-vendor-tinymce" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "python-multipart", specifier = ">=0.0.9" },
-]
-
-[[package]]
-name = "fastkit-assets"
-version = "1.0.0"
-source = { editable = "packages/fastkit-assets" }
-dependencies = [
-    { name = "fastkit-core" },
-    { name = "fastkit-db" },
-    { name = "fastkit-storage" },
-    { name = "pillow" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastkit-core", editable = "packages/fastkit-core" },
-    { name = "fastkit-db", editable = "packages/fastkit-db" },
-    { name = "fastkit-storage", editable = "packages/fastkit-storage" },
-    { name = "pillow", specifier = ">=10.0" },
 ]
 
 [[package]]
@@ -766,8 +744,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-recaptcha = [
+captcha = [
     { name = "httpx" },
+    { name = "pillow" },
 ]
 
 [package.metadata]
@@ -777,10 +756,11 @@ requires-dist = [
     { name = "fastkit-core", editable = "packages/fastkit-core" },
     { name = "fastkit-db", editable = "packages/fastkit-db" },
     { name = "fastkit-tenancy", editable = "packages/fastkit-tenancy" },
-    { name = "httpx", marker = "extra == 'recaptcha'", specifier = ">=0.27" },
+    { name = "httpx", marker = "extra == 'captcha'", specifier = ">=0.27" },
+    { name = "pillow", marker = "extra == 'captcha'", specifier = ">=10" },
     { name = "pyjwt", specifier = ">=2.8" },
 ]
-provides-extras = ["recaptcha"]
+provides-extras = ["captcha"]
 
 [[package]]
 name = "fastkit-cache"
@@ -791,18 +771,11 @@ dependencies = [
     { name = "fastkit-db" },
 ]
 
-[package.optional-dependencies]
-redis = [
-    { name = "redis" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "fastkit-core", editable = "packages/fastkit-core" },
     { name = "fastkit-db", editable = "packages/fastkit-db" },
-    { name = "redis", marker = "extra == 'redis'", specifier = ">=5.0" },
 ]
-provides-extras = ["redis"]
 
 [[package]]
 name = "fastkit-cli"
@@ -908,13 +881,13 @@ source = { editable = "examples/demo" }
 dependencies = [
     { name = "fastkit-accounts" },
     { name = "fastkit-admin" },
-    { name = "fastkit-assets" },
     { name = "fastkit-auth" },
     { name = "fastkit-cache" },
     { name = "fastkit-config" },
     { name = "fastkit-content" },
     { name = "fastkit-core" },
     { name = "fastkit-db" },
+    { name = "fastkit-files" },
     { name = "fastkit-i18n" },
     { name = "fastkit-logging" },
     { name = "fastkit-mail" },
@@ -931,13 +904,13 @@ dependencies = [
 requires-dist = [
     { name = "fastkit-accounts", editable = "packages/fastkit-accounts" },
     { name = "fastkit-admin", editable = "packages/fastkit-admin" },
-    { name = "fastkit-assets", editable = "packages/fastkit-assets" },
     { name = "fastkit-auth", editable = "packages/fastkit-auth" },
     { name = "fastkit-cache", editable = "packages/fastkit-cache" },
     { name = "fastkit-config", editable = "packages/fastkit-config" },
     { name = "fastkit-content", editable = "packages/fastkit-content" },
     { name = "fastkit-core", editable = "packages/fastkit-core" },
     { name = "fastkit-db", editable = "packages/fastkit-db" },
+    { name = "fastkit-files", editable = "packages/fastkit-files" },
     { name = "fastkit-i18n", editable = "packages/fastkit-i18n" },
     { name = "fastkit-logging", editable = "packages/fastkit-logging" },
     { name = "fastkit-mail", editable = "packages/fastkit-mail" },
@@ -948,6 +921,25 @@ requires-dist = [
     { name = "fastkit-tenancy", editable = "packages/fastkit-tenancy" },
     { name = "fastkit-webhooks", editable = "packages/fastkit-webhooks" },
     { name = "fpdf2", specifier = ">=2.8" },
+]
+
+[[package]]
+name = "fastkit-files"
+version = "1.0.0"
+source = { editable = "packages/fastkit-files" }
+dependencies = [
+    { name = "fastkit-core" },
+    { name = "fastkit-db" },
+    { name = "fastkit-storage" },
+    { name = "pillow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastkit-core", editable = "packages/fastkit-core" },
+    { name = "fastkit-db", editable = "packages/fastkit-db" },
+    { name = "fastkit-storage", editable = "packages/fastkit-storage" },
+    { name = "pillow", specifier = ">=10.0" },
 ]
 
 [[package]]
@@ -1128,11 +1120,6 @@ requires-dist = [
     { name = "fastkit-core", editable = "packages/fastkit-core" },
     { name = "fastkit-db", editable = "packages/fastkit-db" },
 ]
-
-[[package]]
-name = "fastkit-vendor-htmx"
-version = "1.0.0"
-source = { editable = "packages/fastkit-vendor-htmx" }
 
 [[package]]
 name = "fastkit-vendor-jquery"
@@ -2010,15 +1997,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5b/42/55c32bb9b12693c092ad250a0e82edb5b31ddeda6eb772de5f308b3804ad/python_multipart-0.0.32.tar.gz", hash = "sha256:be54b7f3fa167bb83e4fcd936b887b708f4e57fe75911c02aebf53efaf8d938e", size = 46881, upload-time = "2026-06-04T16:18:58.647Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/04/e8135ebd1ad02c56ec633277529b2602ff99ff634be76cdba5744cf554fd/python_multipart-0.0.32-py3-none-any.whl", hash = "sha256:ff6d3f776f16878c894e52e107296ffc890e913c611b1a4ec6c44e2821fe2e23", size = 30042, upload-time = "2026-06-04T16:18:57.319Z" },
-]
-
-[[package]]
-name = "redis"
-version = "8.0.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cc/c3/928b290c2c0ca99ab96eea5b4ff8f30be8112b075301a7d3ba214a3c8c12/redis-8.0.1.tar.gz", hash = "sha256:afc5a7a2f5a084f5b1880dec548dd45be17db7e43c82a30d84f952aefb05cfb0", size = 5114170, upload-time = "2026-06-23T14:52:37.728Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/0a/c2345ebf1ebe70840ce3f6c6ee612f8fa749cfbd1b03069c53bf0c62aaad/redis-8.0.1-py3-none-any.whl", hash = "sha256:47daa35a058c23468d6437f17a8c76882cb316b838ef763036af99b96cedd743", size = 502406, upload-time = "2026-06-23T14:52:36.137Z" },
 ]
 
 [[package]]

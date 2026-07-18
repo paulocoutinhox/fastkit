@@ -7,7 +7,7 @@ from fastkit_db.base import Base, MetadataMixin, TimestampMixin, PrimaryKeyMixin
 
 
 class User(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "users"
+    __tablename__ = "user"
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
@@ -48,20 +48,20 @@ class User(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 
 
 class UserProfile(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "user_profiles"
+    __tablename__ = "user_profile"
 
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
-    avatar_asset_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False, unique=True)
+    avatar_file_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     bio: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="profile")
 
 
 class LoginIdentifier(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "login_identifiers"
+    __tablename__ = "login_identifier"
     __table_args__ = (Index("uq_login_identifier_tenant_type_value", text("coalesce(tenant_id, 0)"), "type", "normalized_value", unique=True),)
 
-    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("user.id", ondelete="CASCADE"), nullable=False)
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
     type: Mapped[str] = mapped_column(String(20), nullable=False)

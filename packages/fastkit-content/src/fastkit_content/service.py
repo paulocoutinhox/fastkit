@@ -27,13 +27,13 @@ _SANITIZED_TYPES = frozenset({ContentType.rich_text.value, ContentType.html.valu
 class LanguageService:
     """Manages the Language catalog and guarantees a single default language."""
 
-    def __init__(self, session_factory):
-        self._session_factory = session_factory
+    def __init__(self, database):
+        self._database = database
 
     async def seed_defaults(self) -> int:
         created = 0
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             for entry in SEED_LANGUAGES:
                 existing = (await session.execute(select(Language).where(Language.code == entry["code"]))).scalar_one_or_none()
 
@@ -46,17 +46,17 @@ class LanguageService:
         return created
 
     async def list_active(self) -> list[Language]:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             result = await session.execute(select(Language).where(Language.is_active.is_(True)).order_by(Language.sort_order))
 
             return list(result.scalars().all())
 
     async def get_by_code(self, code: str) -> Language | None:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             return (await session.execute(select(Language).where(Language.code == code))).scalar_one_or_none()
 
     async def set_default(self, code: str) -> None:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             languages = (await session.execute(select(Language))).scalars().all()
 
             for language in languages:
@@ -65,7 +65,7 @@ class LanguageService:
             await session.commit()
 
     async def create(self, code: str, name: str, native_name: str, direction: str = "ltr") -> Language:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             language = Language(code=code, base_code=code.split("_")[0], name=name, native_name=native_name, direction=direction)
             session.add(language)
             await session.commit()
@@ -77,13 +77,13 @@ class LanguageService:
 class ContentService:
     """Stores and resolves translatable content, sanitizing rich HTML on write."""
 
-    def __init__(self, session_factory):
-        self._session_factory = session_factory
+    def __init__(self, database):
+        self._database = database
 
     async def ensure_content(self, key: str, tenant_id: int | None = None, content_type: str = ContentType.rich_text.value) -> Content:
         persisted = to_persisted(tenant_id)
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             content = (await session.execute(select(Content).where(Content.tenant_id == persisted, Content.key == key))).scalar_one_or_none()
 
             if content is None:
@@ -95,7 +95,7 @@ class ContentService:
             return content
 
     async def set_translation(self, content_id, language_id, title: str | None = None, summary: str | None = None, body: str | None = None) -> ContentTranslation:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             content = await self._require_content(session, content_id)
             clean_body = sanitize_html(body) if body is not None and content.type in _SANITIZED_TYPES else body
 
@@ -118,7 +118,7 @@ class ContentService:
             return translation
 
     async def publish(self, content_id) -> Content:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             content = await self._require_content(session, content_id)
             content.status = ContentStatus.published.value
             content.published_at = datetime.now(timezone.utc)
@@ -138,7 +138,7 @@ class ContentService:
     async def translations(self, key: str, tenant_id: int | None = None) -> list[dict]:
         persisted = to_persisted(tenant_id)
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             content = (await session.execute(select(Content).where(Content.tenant_id == persisted, Content.key == key))).scalar_one_or_none()
 
             if content is None:
@@ -156,7 +156,7 @@ class ContentService:
             return [{"language": code, "title": translation.title, "summary": translation.summary, "body": translation.body} for translation, code in rows]
 
     async def translations_by_content_id(self, content_id) -> list[dict]:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             content = await session.get(Content, content_id)
 
         if content is None:
@@ -167,7 +167,7 @@ class ContentService:
     async def get(self, key: str, locale: str | None = None, tenant_id: int | None = None, supported: list[str] | None = None, default_locale: str = "en") -> str | None:
         persisted = to_persisted(tenant_id)
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             content = (await session.execute(select(Content).where(Content.tenant_id == persisted, Content.key == key))).scalar_one_or_none()
 
             if content is None:

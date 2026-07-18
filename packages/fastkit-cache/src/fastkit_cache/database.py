@@ -9,7 +9,7 @@ from fastkit_cache.provider import CacheHealth, CacheStatus
 
 
 class CacheEntry(PrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "cache_entries"
+    __tablename__ = "cache_entry"
     __table_args__ = (UniqueConstraint("namespace", "key_hash", name="uq_cache_namespace_key"),)
 
     namespace: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
@@ -28,8 +28,8 @@ def _namespace_of(key: str) -> str:
 class DatabaseCacheProvider:
     """Portable cache backed by a single table with namespace-scoped clearing."""
 
-    def __init__(self, session_factory, clock=None):
-        self._session_factory = session_factory
+    def __init__(self, database, clock=None):
+        self._database = database
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
     async def _load(self, session, key: str) -> CacheEntry | None:
@@ -47,7 +47,7 @@ class DatabaseCacheProvider:
         return entry
 
     async def get(self, key: str) -> bytes | None:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             entry = await self._load(session, key)
 
             return entry.value if entry is not None else None
@@ -55,7 +55,7 @@ class DatabaseCacheProvider:
     async def set(self, key: str, value: bytes, ttl: int | None = None) -> None:
         expires_at = self._clock() + _seconds(ttl) if ttl is not None else None
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             existing = (await session.execute(select(CacheEntry).where(CacheEntry.key_hash == hash_key(key)))).scalar_one_or_none()
 
             if existing is not None:
@@ -67,7 +67,7 @@ class DatabaseCacheProvider:
             await session.commit()
 
     async def delete(self, key: str) -> None:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             await session.execute(delete(CacheEntry).where(CacheEntry.key_hash == hash_key(key)))
             await session.commit()
 
@@ -94,13 +94,13 @@ class DatabaseCacheProvider:
         return value
 
     async def clear_namespace(self, namespace: str) -> None:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             await session.execute(delete(CacheEntry).where(CacheEntry.namespace == namespace))
             await session.commit()
 
     async def health(self) -> CacheHealth:
         try:
-            async with self._session_factory() as session:
+            async with self._database.session_factory() as session:
                 await session.execute(select(CacheEntry.id).limit(1))
 
             return CacheHealth(CacheStatus.healthy)

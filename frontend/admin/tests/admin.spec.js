@@ -152,49 +152,49 @@ test("row action menu is not clipped by the table on the last row", async ({ pag
   await expect(del).toBeInViewport();
 });
 
-async function openCategory(page, label) {
+async function openSurvey(page, label) {
   await page.getByTestId("grid-search").fill(label);
   await page.getByTestId("grid-search").press("Enter");
   await page.locator('[data-testid^="row-menu-"]').first().click();
   await page.locator('[data-testid^="edit-"]:visible').first().click();
-  await expect(page.getByTestId("inline-subcategories")).toBeVisible();
+  await expect(page.getByTestId("inline-questions")).toBeVisible();
 }
 
-test("creates and edits repeatable subcategory inline rows on the category form", async ({ page }) => {
+test("creates and edits repeatable inline rows on a parent form", async ({ page }) => {
   await login(page);
-  await page.getByTestId("nav-categories").click();
+  await page.getByTestId("nav-surveys").click();
   await page.getByTestId("grid-new").click();
 
   const label = "Inline " + Date.now();
   await page.getByTestId("field-name").fill(label);
 
-  const inline = page.getByTestId("inline-subcategories");
-  await page.getByTestId("inline-add-subcategories").click();
-  await page.getByTestId("inline-add-subcategories").click();
+  const inline = page.getByTestId("inline-questions");
+  await page.getByTestId("inline-add-questions").click();
+  await page.getByTestId("inline-add-questions").click();
   await inline.getByTestId("field-name").nth(0).fill("Alpha");
   await inline.getByTestId("field-name").nth(1).fill("Beta");
   await page.getByTestId("form-save").click();
   await expect(page.getByTestId("toast-success")).toBeVisible();
 
-  await openCategory(page, label);
-  const editInline = page.getByTestId("inline-subcategories");
+  await openSurvey(page, label);
+  const editInline = page.getByTestId("inline-questions");
   await expect(editInline.getByTestId("field-name")).toHaveCount(2);
   await expect(editInline.getByTestId("field-name").nth(0)).toHaveValue("Alpha");
 
   await editInline.getByTestId("field-name").nth(0).fill("Alpha2");
-  await editInline.getByTestId("inline-row-subcategories").nth(1).locator(".fk-inline-remove").click();
-  await page.getByTestId("inline-add-subcategories").click();
+  await editInline.getByTestId("inline-row-questions").nth(1).locator(".fk-inline-remove").click();
+  await page.getByTestId("inline-add-questions").click();
   await editInline.getByTestId("field-name").nth(1).fill("Gamma");
   await page.getByTestId("form-save").click();
   await expect(page.getByTestId("toast-success")).toBeVisible();
 
-  await openCategory(page, label);
-  const finalInline = page.getByTestId("inline-subcategories");
+  await openSurvey(page, label);
+  const finalInline = page.getByTestId("inline-questions");
   await expect(finalInline.getByTestId("field-name")).toHaveCount(2);
   const values = await finalInline.getByTestId("field-name").evaluateAll((els) => els.map((el) => el.value).sort());
   expect(values).toEqual(["Alpha2", "Gamma"]);
 
-  await page.getByTestId("nav-categories").click();
+  await page.getByTestId("nav-surveys").click();
   await page.getByTestId("grid-search").fill(label);
   await page.getByTestId("grid-search").press("Enter");
   await page.locator('[data-testid^="row-menu-"]').first().click();
@@ -221,6 +221,7 @@ test("runs a bulk action behind a confirmation", async ({ page }) => {
   await login(page);
   await page.getByTestId("nav-products").click();
   await page.locator('[data-testid^="select-"]').first().check();
+  await expect(page.getByTestId("bulk-menu").locator("button.dropdown-toggle")).toContainText("1 selected");
   await page.getByTestId("bulk-menu").click();
   await page.getByTestId("bulk-deactivate").click();
   await expect(page.getByTestId("confirm-dialog")).toBeVisible();
@@ -854,6 +855,77 @@ test("sidebar groups are collapsible", async ({ page }) => {
   await expect(page.getByTestId("nav-products")).toBeVisible();
 });
 
+test("the breadcrumb starts with a Home link and the current area, and is hidden on home", async ({ page }) => {
+  await login(page);
+
+  // no breadcrumb on the home (dashboard) screen, and the title lives in the header
+  await expect(page.getByTestId("breadcrumb")).toHaveCount(0);
+  await expect(page.locator("header.navbar").getByTestId("screen-title")).toHaveText("Dashboard");
+
+  await page.getByTestId("nav-products").click();
+  const crumb = page.getByTestId("breadcrumb");
+  await expect(crumb).toBeVisible();
+  // the word "Home" (not an icon, not "Dashboard") + the resource
+  await expect(crumb.locator(".breadcrumb-item")).toHaveCount(2);
+  await expect(crumb.locator(".breadcrumb-item").first()).toContainText("Home");
+  await expect(crumb).not.toContainText("Dashboard");
+  const title = (await page.getByTestId("screen-title").textContent()).trim();
+  await expect(crumb.locator(".breadcrumb-item.active")).toContainText(title);
+
+  // a create form deepens the trail to three crumbs
+  await page.goto("/admin/products/new");
+  await expect(page.getByTestId("breadcrumb").locator(".breadcrumb-item")).toHaveCount(3);
+
+  // the Home crumb points at the admin root
+  await page.getByTestId("breadcrumb").getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/admin\/?$/);
+});
+
+test("the form offers Django-style save options and routes accordingly", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/surveys/new");
+  await expect(page.getByTestId("form-save-continue")).toBeVisible();
+  await expect(page.getByTestId("form-save-add")).toBeVisible();
+
+  // save and continue editing stays on the record's edit form
+  await page.getByTestId("field-name").fill("Save Continue " + Date.now());
+  await page.getByTestId("form-save-continue").click();
+  await expect(page).toHaveURL(/\/surveys\/\d+\/edit$/);
+  await expect(page.getByTestId("field-name")).not.toHaveValue("");
+
+  // save and add another lands on a fresh create form
+  await page.getByTestId("form-save-add").click();
+  await expect(page).toHaveURL(/\/surveys\/new$/);
+  await expect(page.getByTestId("field-name")).toHaveValue("");
+});
+
+test("the sidebar collapse state persists across a full-page navigation", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("group-catalog").click();
+  await expect(page.getByTestId("nav-products")).toBeHidden();
+
+  // navigating reloads the page, and the collapsed group stays collapsed
+  await page.getByTestId("nav-dashboard").click();
+  await expect(page.getByTestId("nav-products")).toBeHidden();
+
+  // expanding it again persists too
+  await page.getByTestId("group-catalog").click();
+  await expect(page.getByTestId("nav-products")).toBeVisible();
+  await page.getByTestId("nav-dashboard").click();
+  await expect(page.getByTestId("nav-products")).toBeVisible();
+});
+
+test("the sidebar highlights the active resource and its group", async ({ page }) => {
+  await login(page);
+  await page.getByTestId("nav-products").click();
+  await expect(page.getByTestId("nav-products")).toHaveClass(/active/);
+  await expect(page.getByTestId("nav-categories")).not.toHaveClass(/active/);
+  // navigating to another area moves the highlight
+  await page.getByTestId("nav-categories").click();
+  await expect(page.getByTestId("nav-categories")).toHaveClass(/active/);
+  await expect(page.getByTestId("nav-products")).not.toHaveClass(/active/);
+});
+
 test("signs out back to the login screen", async ({ page }) => {
   await login(page);
   await page.getByTestId("user-menu").click();
@@ -907,6 +979,43 @@ test("the lookup loading message is translated for a pt user", async ({ page, co
   await expect(page.getByTestId("lookup-loading")).toContainText("Carregando");
 });
 
+test("clearing a dependent lookup parent clears the child and stops stale results", async ({ page }) => {
+  test.setTimeout(60000);
+  await login(page);
+  await page.goto("/admin/geo-samples/new");
+
+  const pick = async (field) => {
+    await page.getByTestId("field-" + field).click();
+    await page.locator('.fk-lookup[data-field="' + field + '"] [data-testid^="lookup-option-"]').first().click();
+  };
+  await pick("look_country");
+  await pick("look_state");
+  await pick("look_city");
+  await expect(page.getByTestId("field-look_city")).not.toHaveValue("");
+
+  // clearing the state text must cascade a reset down to the city (no stale value kept)
+  await page.getByTestId("field-look_state").fill("");
+  await expect(page.getByTestId("field-look_state")).toHaveValue("");
+  await expect(page.getByTestId("field-look_city")).toHaveValue("");
+
+  // reopening the city with an empty state runs a fresh search that brings no options
+  const cityLoading = page.locator('.fk-lookup[data-field="look_city"]').getByTestId("lookup-loading");
+  await page.getByTestId("field-look_city").click();
+  await expect(cityLoading).toBeVisible();
+  await expect(cityLoading).toHaveCount(0);
+  await expect(page.locator('.fk-lookup[data-field="look_city"] [data-testid^="lookup-option-"]')).toHaveCount(0);
+});
+
+test("a lookup menu closes when clicking outside it", async ({ page }) => {
+  await login(page);
+  await page.goto("/admin/geo-samples/new");
+  await page.getByTestId("field-look_country").click();
+  await expect(page.locator('.fk-lookup[data-field="look_country"] [data-testid^="lookup-option-"]').first()).toBeVisible();
+
+  await page.getByTestId("screen-title").click();
+  await expect(page.locator(".fk-lookup-menu.show")).toHaveCount(0);
+});
+
 test("grid shows a loading overlay while the fragment reloads", async ({ page }) => {
   await login(page);
   await page.getByTestId("nav-geo-samples").click();
@@ -918,18 +1027,21 @@ test("grid shows a loading overlay while the fragment reloads", async ({ page })
   await expect(page.getByTestId("content-loading")).toBeHidden({ timeout: 15000 });
 });
 
-test("a full-page navigation shows a progress indicator the instant a link is clicked", async ({ page }) => {
+test("navigating covers the destination area with a loading overlay, not a fake top bar", async ({ page }) => {
   await login(page);
 
-  // click an internal nav link and check the bar synchronously, before the navigation commits
+  // click an internal nav link and check the overlay synchronously, before the navigation commits
   // (a late-registered listener cancels the real navigation so the assertion is deterministic)
-  const shown = await page.evaluate(() => {
+  const state = await page.evaluate(() => {
     document.addEventListener("click", (event) => event.preventDefault());
     document.querySelector('[data-testid="nav-geo-samples"]').click();
-    return !!document.querySelector("#fk-nav-progress.fk-progress-active");
+    const overlay = document.querySelector('.fk-page-main [data-testid="nav-loading"]');
+    return { overlay: !!overlay, insideMain: !!(overlay && overlay.closest(".fk-page-main")), noBar: !document.getElementById("fk-nav-progress") };
   });
 
-  expect(shown).toBe(true);
+  expect(state.overlay).toBe(true);
+  expect(state.insideMain).toBe(true);
+  expect(state.noBar).toBe(true);
 });
 
 async function pickGeoChain(page) {
@@ -1120,13 +1232,13 @@ test("the related widget also works on a lookup field", async ({ page }) => {
 
 test("an inline validation error targets only the offending row, not every row", async ({ page }) => {
   await login(page);
-  await page.goto("/admin/categories/new");
+  await page.goto("/admin/surveys/new");
   await expect(page.getByTestId("form")).toBeVisible();
   await page.getByTestId("field-name").first().fill("Inline err " + Date.now());
 
-  await page.getByTestId("inline-add-subcategories").click();
-  await page.getByTestId("inline-add-subcategories").click();
-  const rows = page.getByTestId("inline-row-subcategories");
+  await page.getByTestId("inline-add-questions").click();
+  await page.getByTestId("inline-add-questions").click();
+  const rows = page.getByTestId("inline-row-questions");
   await rows.nth(0).getByTestId("field-name").fill("Filled row");
   // row 1 name left empty on purpose
 
@@ -1191,38 +1303,3 @@ test("a product cover image uploads and its thumbnail renders in the grid", asyn
   await expect(page.locator('[data-testid^="cell-image_url-"]').first().locator("img")).toBeVisible();
 });
 
-test("editing a related record's inline children refreshes the dependent sub-select", async ({ page }) => {
-  await login(page);
-  await page.goto("/admin/products/new");
-  await expect(page.getByTestId("form")).toBeVisible();
-
-  const category = page.getByTestId("field-category_id");
-  const subcategory = page.getByTestId("field-subcategory_id");
-  const label = "RefCat " + Date.now();
-  const subLabel = "RefSub " + Date.now();
-
-  // add a fresh category (starts with no subcategories)
-  await page.getByTestId("related-add-category_id").click();
-  let modal = page.getByTestId("related-modal");
-  await modal.getByTestId("field-name").first().fill(label);
-  await modal.getByTestId("field-is_active").check();
-  await modal.getByTestId("form-save").click();
-  await expect(modal).toBeHidden();
-  await expect(category.locator("option:checked")).toHaveText(label);
-  await expect(subcategory.locator("option")).toHaveCount(1);
-
-  // EDIT the category and add a subcategory in the modal's inline
-  await page.getByTestId("related-edit-category_id").click();
-  modal = page.getByTestId("related-modal");
-  await modal.getByTestId("inline-add-subcategories").click();
-  await modal.getByTestId("inline-row-subcategories").getByTestId("field-name").fill(subLabel);
-  await modal.getByTestId("form-save").click();
-  await expect(modal).toBeHidden();
-
-  // the dependent subcategory select refreshed and now offers the new subcategory
-  await expect(subcategory.locator("option", { hasText: subLabel })).toHaveCount(1);
-
-  // cleanup: delete the category (cascades to the subcategory)
-  await page.getByTestId("related-delete-category_id").click();
-  await page.getByTestId("confirm-accept").click();
-});

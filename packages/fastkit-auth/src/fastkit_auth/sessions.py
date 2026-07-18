@@ -15,8 +15,8 @@ def hash_token(raw_token: str) -> str:
 class SessionService:
     """Creates, validates and revokes opaque server-side sessions."""
 
-    def __init__(self, session_factory, ttl_seconds: int = 3600, clock=None):
-        self._session_factory = session_factory
+    def __init__(self, database, ttl_seconds: int = 3600, clock=None):
+        self._database = database
         self._ttl_seconds = ttl_seconds
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -35,7 +35,7 @@ class SessionService:
             expires_at=now + timedelta(seconds=self._ttl_seconds),
         )
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             session.add(record)
             await session.commit()
             await session.refresh(record)
@@ -46,7 +46,7 @@ class SessionService:
         token_hash = hash_token(raw_token)
         now = self._clock()
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             record = (await session.execute(select(Session).where(Session.token_hash == token_hash))).scalar_one_or_none()
 
             if record is None or record.status != SessionStatus.active.value:
@@ -68,7 +68,7 @@ class SessionService:
         token_hash = hash_token(raw_token)
         now = self._clock()
 
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             record = (await session.execute(select(Session).where(Session.token_hash == token_hash))).scalar_one_or_none()
 
             if record is None:

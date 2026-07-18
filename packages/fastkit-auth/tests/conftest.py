@@ -11,7 +11,7 @@ from fastkit_accounts.service import AccountService
 from fastkit_auth import models as auth_models  # noqa: F401
 from fastkit_auth.passwords import PasswordHashService
 from fastkit_auth.ratelimit import RateLimiter
-from fastkit_auth.recaptcha import RecaptchaConfig, RecaptchaVerifier, StaticRecaptchaClient
+from fastkit_auth.captcha.disabled import DisabledCaptchaProvider
 from fastkit_auth.service import AuthService
 from fastkit_auth.sessions import SessionService
 from fastkit_auth.tokens import TokenService
@@ -52,35 +52,33 @@ def passwords():
 
 @pytest.fixture
 def accounts(database):
-    return AccountService(database.session_factory)
+    return AccountService(database)
 
 
 @pytest.fixture
-def recaptcha_disabled():
-    config = RecaptchaConfig(enabled=False, action="admin_login", minimum_score=0.5, allowed_hostnames=())
-
-    return RecaptchaVerifier(config, StaticRecaptchaClient({"success": True}))
+def captcha_disabled():
+    return DisabledCaptchaProvider()
 
 
 @pytest.fixture
 def session_service(database, clock):
-    return SessionService(database.session_factory, ttl_seconds=100, clock=clock)
+    return SessionService(database, ttl_seconds=100, clock=clock)
 
 
 @pytest.fixture
-def auth_service(database, accounts, passwords, clock, recaptcha_disabled):
-    sessions = SessionService(database.session_factory, ttl_seconds=3600, clock=clock)
+def auth_service(database, accounts, passwords, clock, captcha_disabled):
+    sessions = SessionService(database, ttl_seconds=3600, clock=clock)
     tokens = TokenService(secret_key="test-secret", ttl_seconds=3600)
     limiter = RateLimiter(max_attempts=5, window_seconds=60, clock=lambda: 0.0)
 
     return AuthService(
-        database.session_factory,
+        database,
         accounts,
         passwords,
         sessions,
         tokens,
         limiter,
-        recaptcha_disabled,
+        captcha_disabled,
         max_failed=3,
         lockout_seconds=900,
         clock=clock,

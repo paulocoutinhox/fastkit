@@ -13,8 +13,10 @@
   </div>
   {% endfor %}
   {% for inline in inlines %}{% include "admin/partials/inline.html" %}{% endfor %}
-  <div class="d-flex gap-2">
-    <button type="submit" class="btn btn-primary" data-testid="form-save">{{ t('form.save') }}</button>
+  <div class="d-flex gap-2 flex-wrap">
+    <button type="submit" class="btn btn-primary" data-save="list" data-testid="form-save">{{ t('form.save') }}</button>
+    {% if flags.can_update %}<button type="submit" class="btn" data-save="continue" data-testid="form-save-continue">{{ t('form.save-continue') }}</button>{% endif %}
+    {% if flags.can_create %}<button type="submit" class="btn" data-save="add" data-testid="form-save-add">{{ t('form.save-add') }}</button>{% endif %}
     <button type="button" class="btn fk-cancel" data-testid="form-cancel">{{ t('form.cancel') }}</button>
   </div>
 </form>

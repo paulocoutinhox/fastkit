@@ -11,7 +11,7 @@ async def test_enqueue_applies_registered_task_policy(database, clock, registry)
         return None
 
     registry.register(TaskDefinition(name="reports.build", handler=handler, queue="reports", max_attempts=5, timeout=300, retry_delay=30))
-    queue = TaskQueue(database.session_factory, registry=registry, clock=clock)
+    queue = TaskQueue(database, registry=registry, clock=clock)
 
     execution = await queue.enqueue("reports.build", queue="reports")
 
@@ -72,7 +72,7 @@ async def test_complete(queue):
 
     await queue.complete(execution.id, "worker-1", {"sent": True})
 
-    async with queue._session_factory() as session:
+    async with queue._database.session_factory() as session:
         stored = await session.get(TaskExecution, execution.id)
 
     assert stored.status == ExecutionStatus.succeeded.value
@@ -93,7 +93,7 @@ async def test_fail_retries_then_exhausts(queue):
 
 
 async def test_lease_skips_locked_candidate(queue, clock):
-    async with queue._session_factory() as session:
+    async with queue._database.session_factory() as session:
         session.add(
             TaskExecution(
                 task_name="emails.send",
@@ -133,7 +133,7 @@ async def test_stale_worker_cannot_finalize_a_reclaimed_execution(queue, clock):
     assert await queue.complete(execution.id, "worker-1", {"stale": True}) is False
     assert await queue.fail(execution.id, "worker-1", "task.error", "stale") is None
 
-    async with queue._session_factory() as session:
+    async with queue._database.session_factory() as session:
         stored = await session.get(TaskExecution, execution.id)
 
     assert stored.status == ExecutionStatus.running.value
@@ -154,7 +154,7 @@ async def test_heartbeat_updates_progress(queue):
     assert await queue.heartbeat(execution.id, "worker-1", progress=50, message="halfway") is True
     assert await queue.heartbeat(execution.id, "worker-2") is False
 
-    async with queue._session_factory() as session:
+    async with queue._database.session_factory() as session:
         stored = await session.get(TaskExecution, execution.id)
 
     assert stored.progress == 50
@@ -170,7 +170,7 @@ async def test_reclaim_expired_lease_retries_when_under_budget(queue, clock):
 
     assert reclaimed == 1
 
-    async with queue._session_factory() as session:
+    async with queue._database.session_factory() as session:
         stored = await session.get(TaskExecution, execution.id)
 
     assert stored.status == ExecutionStatus.retrying.value
@@ -185,7 +185,7 @@ async def test_reclaim_expired_lease_fails_a_one_shot_task(queue, clock):
 
     assert reclaimed == 1
 
-    async with queue._session_factory() as session:
+    async with queue._database.session_factory() as session:
         stored = await session.get(TaskExecution, execution.id)
 
     assert stored.status == ExecutionStatus.failed.value

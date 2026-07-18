@@ -9,7 +9,7 @@ TEST_ARGS ?=
 
 PACKAGES = fastkit-core fastkit-config fastkit-db fastkit-logging fastkit-tenancy \
 	fastkit-accounts fastkit-permissions fastkit-auth fastkit-cache fastkit-storage \
-	fastkit-tasks fastkit-assets fastkit-mail fastkit-i18n fastkit-content fastkit-admin \
+	fastkit-tasks fastkit-files fastkit-mail fastkit-i18n fastkit-content fastkit-admin \
 	fastkit-vendor-jquery fastkit-vendor-tabler fastkit-vendor-tabler-icons \
 	fastkit-vendor-tinymce fastkit-vendor-jsoneditor \
 	fastkit-reports fastkit-webhooks fastkit-cli fastkit-testkit
@@ -35,7 +35,7 @@ install:
 	$(UV) venv --python 3.12 $(VENV)
 	$(UV) pip install $(foreach pkg,$(PACKAGES),-e packages/$(pkg)) -e examples/demo \
 		"uvicorn[standard]" pytest pytest-asyncio pytest-cov httpx ruff \
-		argon2-cffi pyjwt pillow jinja2 redis asyncpg
+		argon2-cffi pyjwt pillow jinja2 asyncpg
 
 install-admin:
 	cd frontend/admin && $(NPM) install

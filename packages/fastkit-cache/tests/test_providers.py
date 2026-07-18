@@ -97,7 +97,7 @@ async def test_file_provider_health_unavailable(tmp_path, monkeypatch):
 
 
 async def test_database_provider_full_contract(database):
-    provider = DatabaseCacheProvider(database.session_factory, clock=DatetimeClock())
+    provider = DatabaseCacheProvider(database, clock=DatetimeClock())
 
     await provider.set("fastkit:dev:global:1:users:a", b"value", ttl=100)
     assert await provider.get("fastkit:dev:global:1:users:a") == b"value"
@@ -120,7 +120,7 @@ async def test_database_provider_full_contract(database):
 
 async def test_database_provider_ttl_expiry(database):
     clock = DatetimeClock()
-    provider = DatabaseCacheProvider(database.session_factory, clock=clock)
+    provider = DatabaseCacheProvider(database, clock=clock)
     await provider.set("fastkit:dev:global:1:users:a", b"value", ttl=10)
 
     clock.advance(20)
@@ -129,7 +129,7 @@ async def test_database_provider_ttl_expiry(database):
 
 
 async def test_database_provider_clear_namespace(database):
-    provider = DatabaseCacheProvider(database.session_factory, clock=DatetimeClock())
+    provider = DatabaseCacheProvider(database, clock=DatetimeClock())
     await provider.set("fastkit:dev:global:1:users:a", b"1")
     await provider.set("fastkit:dev:global:1:posts:b", b"2")
 
@@ -140,7 +140,7 @@ async def test_database_provider_clear_namespace(database):
 
 
 async def test_database_provider_health(database):
-    provider = DatabaseCacheProvider(database.session_factory)
+    provider = DatabaseCacheProvider(database)
 
     assert (await provider.health()).status.value == "healthy"
 

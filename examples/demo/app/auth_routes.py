@@ -12,7 +12,7 @@ class LoginRequest(BaseModel):
     identifier_type: str = "email"
     identifier: str
     password: str
-    recaptcha_token: str | None = None
+    captcha: dict | None = None
 
 
 def _user_summary(user, effective_tenant_id: int | None = None) -> dict:
@@ -32,6 +32,7 @@ def build_auth_router(runtime, security: AdminSecurity, secure_cookie: bool) -> 
     session_service = runtime.component("session_service")
     audit_service = runtime.component("audit_log_service")
     session_cookie = runtime.settings.auth.session_cookie_name
+    runtime.component("captcha_provider").mount_routes(router)
 
     @router.post("/auth/login")
     async def login(payload: LoginRequest, request: Request, response: Response):
@@ -40,7 +41,7 @@ def build_auth_router(runtime, security: AdminSecurity, secure_cookie: bool) -> 
             identifier_value=payload.identifier,
             password=payload.password,
             requested_tenant_id=0,
-            recaptcha_token=payload.recaptcha_token,
+            captcha=payload.captcha,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )

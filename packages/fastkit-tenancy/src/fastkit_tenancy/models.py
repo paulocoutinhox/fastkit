@@ -13,8 +13,8 @@ class TenantStatus(str, Enum):
 
 
 class Tenant(PrimaryKeyMixin, TimestampMixin, MetadataMixin, ActiveFlagMixin, Base):
-    __tablename__ = "tenants"
-    __table_args__ = (UniqueConstraint("code", name="uq_tenants_code"),)
+    __tablename__ = "tenant"
+    __table_args__ = (UniqueConstraint("code", name="uq_tenant_code"),)
 
     code: Mapped[str] = mapped_column(String(120), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)

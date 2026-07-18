@@ -6,17 +6,17 @@ SENSITIVE_HINTS = ("secret", "password", "token", "key")
 def public_frontend_config(settings: FastKitSettings) -> dict:
     """Return only the values that are safe to expose to the browser, never secrets."""
 
-    recaptcha = settings.auth.recaptcha
+    captcha = settings.auth.captcha
 
     return {
         "environment": settings.app.environment,
         "adminApiBaseUrl": settings.admin.api_path,
         "locale": settings.i18n.default_locale,
         "supportedLocales": settings.i18n.supported_locales,
-        "recaptcha": {
-            "enabled": recaptcha.enabled,
-            "siteKey": recaptcha.site_key,
-            "action": recaptcha.action,
+        "captcha": {
+            "provider": captcha.provider,
+            "siteKey": captcha.site_key,
+            "action": captcha.action,
         },
         "features": {
             "darkMode": True,

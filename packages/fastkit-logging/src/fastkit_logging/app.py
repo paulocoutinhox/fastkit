@@ -20,5 +20,5 @@ class LoggingApp(FastKitApp):
 
         database = context.component("database")
 
-        context.set_component("system_log_service", SystemLogService(database.session_factory, settings.app.environment))
-        context.set_component("audit_log_service", AuditLogService(database.session_factory))
+        context.set_component("system_log_service", SystemLogService(database, settings.app.environment))
+        context.set_component("audit_log_service", AuditLogService(database))

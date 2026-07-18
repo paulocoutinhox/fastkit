@@ -6,9 +6,18 @@
   {% include "admin/partials/sidebar.html" %}
   <div class="page-wrapper">
     {% include "admin/partials/navbar.html" %}
-    <div class="page-body">
-      <div class="container-fluid">
-        <div id="content" data-testid="content">{% block screen %}{% endblock %}</div>
+    <div class="fk-page-main position-relative">
+      {% if breadcrumb %}
+      <div class="page-header">
+        <div class="container-fluid">
+          {% include "admin/partials/_breadcrumb.html" ignore missing %}
+        </div>
+      </div>
+      {% endif %}
+      <div class="page-body">
+        <div class="container-fluid">
+          <div id="content" data-testid="content">{% block screen %}{% endblock %}</div>
+        </div>
       </div>
     </div>
   </div>

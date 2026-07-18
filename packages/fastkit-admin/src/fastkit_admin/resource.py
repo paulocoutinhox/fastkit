@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field as dataclass_field
-from datetime import date, datetime, time, timezone
-from decimal import Decimal
 from typing import Generic, TypeVar
 
 from sqlalchemy import Integer, func, or_, select
@@ -15,28 +12,9 @@ from fastkit_core.errors.exceptions import AuthorizationError, ConflictError, No
 from fastkit_admin.columns import normalize_columns
 from fastkit_admin.fields import PasswordField
 from fastkit_admin.filters import Filter
-
-logger = logging.getLogger("fastkit.admin")
+from fastkit_admin.serialization import CLIENT_FORMATTED_TYPES, coerce_identifier, grid_value, plain_value, translate_schema
 
 ModelT = TypeVar("ModelT")
-
-CLIENT_FORMATTED_TYPES = {"boolean", "date", "datetime", "time", "number", "decimal"}
-
-TRANSLATABLE_KEYS = {"label", "title", "description", "help_text", "placeholder", "confirm_message"}
-
-
-def translate_schema(node, translate) -> None:
-    """Translate every display string (label/title/description) in a schema tree in place."""
-
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if key in TRANSLATABLE_KEYS and isinstance(value, str) and value:
-                node[key] = translate(value)
-            else:
-                translate_schema(value, translate)
-    elif isinstance(node, list):
-        for item in node:
-            translate_schema(item, translate)
 
 
 @dataclass
@@ -79,7 +57,7 @@ class AdminResource(Generic[ModelT]):
     pk_field: str = "id"
     read_only: bool = False
     file_fields: list[str] = []
-    storage = None
+    files = None
     media_base_url: str = ""
 
     permissions: dict = {}
@@ -125,11 +103,11 @@ class AdminResource(Generic[ModelT]):
             if renderer is not None:
                 data[column.name] = renderer(row, locale)
             elif self._column_type(column) in CLIENT_FORMATTED_TYPES:
-                data[column.name] = _grid_value(getattr(row, column.name, None))
+                data[column.name] = grid_value(getattr(row, column.name, None))
             elif column.name in self._field_map:
                 data[column.name] = self._field_map[column.name].format_value(getattr(row, column.name, None), locale)
             else:
-                data[column.name] = _plain(getattr(row, column.name, None))
+                data[column.name] = plain_value(getattr(row, column.name, None))
 
         return data
 
@@ -226,7 +204,7 @@ class AdminResource(Generic[ModelT]):
         column = getattr(self.model, self.pk_field)
 
         if isinstance(column.type, Integer):
-            coerced = _coerce_identifier(identifier)
+            coerced = coerce_identifier(identifier)
 
             if not isinstance(coerced, int):
                 raise NotFoundError(RESOURCE_NOT_FOUND, message=f"{self.label or self.name} not found")
@@ -316,6 +294,7 @@ class AdminResource(Generic[ModelT]):
             raise ConflictError(CONFLICT_UNIQUE, message=f"a {self.label or self.name} with these values already exists") from error
 
         await session.refresh(row)
+        await self._sync_files(row)
 
         return row
 
@@ -325,8 +304,6 @@ class AdminResource(Generic[ModelT]):
         parsed = self._parse_and_validate(data, locale, partial=partial)
         validated = self._validate_inlines(data, locale)
         parsed = await self.before_update(session, row, parsed)
-
-        replaced = [getattr(row, name) for name in self.file_fields if name in parsed and parsed[name] != getattr(row, name)]
 
         for name, value in parsed.items():
             setattr(row, name, value)
@@ -341,7 +318,7 @@ class AdminResource(Generic[ModelT]):
             raise ConflictError(CONFLICT_UNIQUE, message=f"a {self.label or self.name} with these values already exists") from error
 
         await session.refresh(row)
-        await self._remove_files(replaced)
+        await self._sync_files(row)
 
         return row
 
@@ -349,25 +326,25 @@ class AdminResource(Generic[ModelT]):
         self._guard_writable()
         row = await self.get_object(session, identifier)
         await self.before_delete(session, row)
-        files = [getattr(row, name, None) for name in self.file_fields]
+        owner_id = getattr(row, self.pk_field)
         await session.delete(row)
         await session.commit()
-        await self._remove_files(files)
+        await self._unlink_files(owner_id)
 
-    async def _remove_files(self, values: list) -> None:
-        if self.storage is None:
+    async def _sync_files(self, row) -> None:
+        if self.files is None:
             return
 
-        for value in values:
-            key = self._object_key(value)
+        owner_id = getattr(row, self.pk_field)
 
-            if key is None:
-                continue
+        for name in self.file_fields:
+            await self.files.link_slot(self.name, owner_id, name, self._object_key(getattr(row, name, None)))
 
-            try:
-                await self.storage.delete(key)
-            except Exception as error:
-                logger.warning("failed to remove stored file %s: %s", key, error)
+    async def _unlink_files(self, owner_id) -> None:
+        if self.files is None:
+            return
+
+        await self.files.unlink_owner(self.name, owner_id)
 
     def _object_key(self, value) -> str | None:
         prefix = f"{self.media_base_url}/"
@@ -505,33 +482,3 @@ class AdminResource(Generic[ModelT]):
 
     async def before_delete(self, session, row) -> None:
         pass
-
-
-def _plain(value):
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-
-    return str(value)
-
-
-def _grid_value(value):
-    if isinstance(value, datetime):
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-
-        return value.isoformat()
-
-    if isinstance(value, (date, time)):
-        return value.isoformat()
-
-    if isinstance(value, Decimal):
-        return str(value)
-
-    return _plain(value)
-
-
-def _coerce_identifier(identifier):
-    if isinstance(identifier, str) and identifier.lstrip("-").isdigit():
-        return int(identifier)
-
-    return identifier

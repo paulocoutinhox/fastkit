@@ -14,4 +14,4 @@ class TenancyApp(FastKitApp):
 
     def register_services(self, context: BootstrapContext) -> None:
         database = context.component("database")
-        context.set_component("tenant_service", TenantService(database.session_factory))
+        context.set_component("tenant_service", TenantService(database))

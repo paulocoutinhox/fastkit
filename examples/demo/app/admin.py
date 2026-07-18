@@ -47,7 +47,7 @@ from fastkit_permissions.models import Role
 from fastkit_reports.models import ReportExecution
 from fastkit_tasks.models import ScheduledTask, TaskExecution
 from fastkit_tenancy.models import Tenant
-from app.models import Category, GeoSample, Product, Showcase, Subcategory
+from app.models import Category, GeoSample, Product, Showcase, Subcategory, Survey, SurveyQuestion
 
 IMAGE_UPLOAD_URL = "/api/uploads/image"
 FILE_UPLOAD_URL = "/api/uploads/file"
@@ -170,13 +170,31 @@ class CategoryAdmin(AdminResource[Category]):
     def render_image_url(self, row, locale):
         return cover_thumb(row.image_url)
 
+    permissions = {"list": "products.view", "detail": "products.view", "create": "products.create", "update": "products.update", "delete": "products.delete"}
+
+
+class SurveyAdmin(AdminResource[Survey]):
+    name = "surveys"
+    label = "Surveys"
+    icon = "clipboard-list"
+    model = Survey
+
+    list_columns = ["id", "name", "is_active", Column("created_at", type="datetime")]
+    search_fields = ["name"]
+    ordering = ["name"]
+
+    form_fields = [
+        TextField("name", required=True, max_length=120),
+        BooleanField("is_active", label="Active"),
+    ]
+
     inlines = [
         InlineResource(
-            "subcategories",
-            [TextField("name", label="Name", required=True, max_length=80)],
-            model=Subcategory,
-            fk_field="category_id",
-            label="Subcategories",
+            "questions",
+            [TextField("name", label="Question", required=True, max_length=200)],
+            model=SurveyQuestion,
+            fk_field="survey_id",
+            label="Questions",
         )
     ]
 
@@ -710,4 +728,4 @@ class ReportRunAdmin(AdminResource[ReportExecution]):
         return status_badge(row.status)
 
 
-ADMIN_RESOURCES = [UserAdmin, CategoryAdmin, SubcategoryAdmin, ProductAdmin, ShowcaseAdmin, GeoSampleAdmin, TenantAdmin, RoleAdmin, LanguageAdmin, ContentAdmin, ScheduledTaskAdmin, TaskExecutionAdmin, ReportRunAdmin, ActivityLogAdmin]
+ADMIN_RESOURCES = [UserAdmin, CategoryAdmin, SubcategoryAdmin, SurveyAdmin, ProductAdmin, ShowcaseAdmin, GeoSampleAdmin, TenantAdmin, RoleAdmin, LanguageAdmin, ContentAdmin, ScheduledTaskAdmin, TaskExecutionAdmin, ReportRunAdmin, ActivityLogAdmin]

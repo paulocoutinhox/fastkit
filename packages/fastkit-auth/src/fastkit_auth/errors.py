@@ -10,10 +10,8 @@ SESSION_INVALID = ErrorCode("authentication.session_invalid", 401, "error.sessio
 # rate limit
 RATE_LIMITED = ErrorCode("rate_limit.login", 429, "error.rate-limit-login", Severity.warning, retryable=True, should_log=False)
 
-# recaptcha
-RECAPTCHA_MISSING = ErrorCode("recaptcha.missing", 400, "error.recaptcha-missing", Severity.warning, should_log=False)
-RECAPTCHA_INVALID = ErrorCode("recaptcha.invalid", 400, "error.recaptcha-invalid", Severity.warning, should_log=False)
-RECAPTCHA_LOW_SCORE = ErrorCode("recaptcha.low_score", 400, "error.recaptcha-low-score", Severity.warning, should_log=False)
-RECAPTCHA_ACTION_MISMATCH = ErrorCode("recaptcha.action_mismatch", 400, "error.recaptcha-action-mismatch", Severity.warning, should_log=False)
-RECAPTCHA_HOSTNAME_MISMATCH = ErrorCode("recaptcha.hostname_mismatch", 400, "error.recaptcha-hostname-mismatch", Severity.warning, should_log=False)
-RECAPTCHA_PROVIDER_UNAVAILABLE = ErrorCode("recaptcha.provider_unavailable", 503, "error.recaptcha-provider-unavailable", Severity.error)
+# captcha
+CAPTCHA_REQUIRED = ErrorCode("captcha.required", 400, "error.captcha-required", Severity.warning, should_log=False)
+CAPTCHA_INVALID = ErrorCode("captcha.invalid", 400, "error.captcha-invalid", Severity.warning, should_log=False)
+CAPTCHA_EXPIRED = ErrorCode("captcha.expired", 400, "error.captcha-expired", Severity.warning, should_log=False)
+CAPTCHA_PROVIDER_UNAVAILABLE = ErrorCode("captcha.provider_unavailable", 503, "error.captcha-provider-unavailable", Severity.error)

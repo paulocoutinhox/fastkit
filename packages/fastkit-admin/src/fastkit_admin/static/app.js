@@ -13,26 +13,23 @@
     return FastKit.api(method, path, body);
   }
 
-  function navProgress() {
-    var bar = document.getElementById("fk-nav-progress");
-    if (!bar) {
-      bar = document.createElement("div");
-      bar.id = "fk-nav-progress";
-      bar.setAttribute("data-testid", "nav-progress");
-      document.body.appendChild(bar);
-    }
-    bar.className = "";
-    void bar.offsetWidth;
-    bar.className = "fk-progress-active";
+  function navLoading() {
+    var main = document.querySelector(".fk-page-main");
+    if (!main || main.querySelector(".fk-nav-loading")) { return; }
+    var overlay = document.createElement("div");
+    overlay.className = "fk-nav-loading";
+    overlay.setAttribute("data-testid", "nav-loading");
+    overlay.innerHTML = '<span class="spinner-border text-secondary" role="status" aria-hidden="true"></span>';
+    main.appendChild(overlay);
   }
 
-  function resetNavProgress() {
-    var bar = document.getElementById("fk-nav-progress");
-    if (bar) { bar.parentNode.removeChild(bar); }
+  function clearNavLoading() {
+    var overlay = document.querySelector(".fk-page-main .fk-nav-loading");
+    if (overlay) { overlay.parentNode.removeChild(overlay); }
   }
 
   function go(url) {
-    navProgress();
+    navLoading();
     window.location.assign(url);
   }
 
@@ -341,8 +338,10 @@
       $child.val("").data("value", "");
       loadOptions($child, resourceOf($child), $child.data("field"), relationParams($scope, $child), null, true);
     } else {
-      $child.data("value", "").find('input[type=hidden]').val("");
+      bumpLookupSeq($child);
+      $child.data("value", "").data("label", "").find('input[type=hidden]').val("");
       $child.find('input[type=text]').val("");
+      $child.find('.fk-lookup-menu').removeClass("show");
     }
     $child.closest(".fk-field").trigger("change");
   }
@@ -397,18 +396,27 @@
           if (!res.data.length) { $menu.append('<span class="dropdown-item disabled">' + FastKit.esc(t("lookup.empty")) + "</span>"); }
           res.data.forEach(function (option) {
             var $item = $('<a class="dropdown-item" href="#"></a>').text(option.label).attr("data-testid", "lookup-option-" + option.value);
-            $item.on("mousedown", function (event) { event.preventDefault(); bumpLookupSeq($container); $container.data("value", option.value); $hidden.val(option.value); $input.val(option.label); $menu.removeClass("show"); $container.trigger("change"); });
+            $item.on("mousedown", function (event) { event.preventDefault(); bumpLookupSeq($container); $container.data("value", option.value).data("label", option.label); $hidden.val(option.value); $input.val(option.label); $menu.removeClass("show"); $container.trigger("change"); });
             $menu.append($item);
           });
-          $menu.addClass("show");
+          if (document.activeElement === $input[0]) { $menu.addClass("show"); }
         }).catch(function () { if (current === seq) { $menu.empty().removeClass("show"); } });
+      }
+      function clearIfEdited() {
+        if ($container.data("value") && $input.val() !== $container.data("label")) {
+          bumpLookupSeq($container);
+          $container.data("value", "").data("label", "");
+          $hidden.val("");
+          $container.trigger("change");
+        }
       }
       $input.on("focus", search);
       $input.on("input", function () {
         clearTimeout(timer);
+        clearIfEdited();
         timer = setTimeout(function () { if ($input.val().length >= minChars) { search(); } else { $menu.removeClass("show"); } }, 200);
       });
-      $input.on("blur", function () { setTimeout(function () { $menu.removeClass("show"); }, 150); });
+      $input.on("blur", function () { $menu.removeClass("show"); });
     });
   }
 
@@ -528,10 +536,10 @@
       if ($container.data("value-seq") !== seq) { return; }
       var option = res.data[0];
       if (option) {
-        $container.data("value", option.value).find("input[type=hidden]").val(option.value);
+        $container.data("value", option.value).data("label", option.label).find("input[type=hidden]").val(option.value);
         $container.find("input[type=text]").val(option.label);
       } else {
-        $container.data("value", "").find("input[type=hidden]").val("");
+        $container.data("value", "").data("label", "").find("input[type=hidden]").val("");
         $container.find("input[type=text]").val("");
       }
     }).catch(function () { return; });
@@ -595,6 +603,7 @@
       var modal = FastKit.modal({ title: recordId ? t("form.edit") : t("grid.new"), size: "lg", body: html, testid: "related-modal", onClose: function () { teardownModalEditors(modal.element.find("form[data-resource]")); } });
       var $form = modal.element.find("form[data-resource]");
       namespaceModalIds($form);
+      $form.find("[data-save=continue],[data-save=add]").remove();
       enhance($form[0]);
       initInlines($form);
       $form.find(".fk-cancel").on("click", function () { modal.close(); });
@@ -722,19 +731,26 @@
         $menu.empty();
         res.data.forEach(function (option) {
           var $item = $('<a class="dropdown-item" href="#"></a>').text(option.label).attr("data-testid", "lookup-option-" + option.value);
-          $item.on("mousedown", function (event) { event.preventDefault(); $container.data("value", option.value); $input.val(option.label); $menu.removeClass("show"); $container.trigger("change"); });
+          $item.on("mousedown", function (event) { event.preventDefault(); $container.data("value", option.value).data("label", option.label); $input.val(option.label); $menu.removeClass("show"); $container.trigger("change"); });
           $menu.append($item);
         });
-        $menu.addClass("show");
+        if (document.activeElement === $input[0]) { $menu.addClass("show"); }
       }).catch(function () { if (current === seq) { $menu.removeClass("show"); } });
     }
     $input.on("focus", search);
-    $input.on("input", function () { clearTimeout(timer); timer = setTimeout(search, 200); });
-    $input.on("blur", function () { setTimeout(function () { $menu.removeClass("show"); }, 150); });
+    $input.on("input", function () {
+      clearTimeout(timer);
+      if ($container.data("value") && $input.val() !== $container.data("label")) {
+        $container.data("value", "").data("label", "");
+        $container.trigger("change");
+      }
+      timer = setTimeout(search, 200);
+    });
+    $input.on("blur", function () { $menu.removeClass("show"); });
   }
 
   function clearFilterLookups($scope) {
-    $scope.find(".fk-filter-lookup").each(function () { $(this).data("value", "").find("input[type=text]").val(""); });
+    $scope.find(".fk-filter-lookup").each(function () { $(this).data("value", "").data("label", "").find("input[type=text]").val(""); });
   }
 
   function enhanceFilters($panel, urlFn) {
@@ -886,6 +902,12 @@
 
   // ---------- form ----------
 
+  function nextSaveUrl(action, resource, identifier) {
+    if (action === "add") { return ADMIN + "/" + resource + "/new"; }
+    if (action === "continue") { return ADMIN + "/" + resource + "/" + identifier + "/edit"; }
+    return ADMIN + "/" + resource;
+  }
+
   function initForm() {
     var $form = $("form[data-resource][data-mode]");
     if (!$form.length) { return; }
@@ -894,6 +916,8 @@
     enhance($form[0]);
     initInlines($form);
 
+    var saveAction = "list";
+    $form.find("[data-save]").on("click", function () { saveAction = $(this).data("save"); });
     $form.find(".fk-cancel").on("click", function () { go(ADMIN + "/" + resource); });
     $form.on("submit", function (event) {
       event.preventDefault();
@@ -901,18 +925,24 @@
         FastKit.toast("warning", t("form.still-loading"));
         return;
       }
-      var $save = $form.find('[data-testid=form-save]');
-      $save.prop("disabled", true).text(t("form.saving"));
+      var action = saveAction;
+      saveAction = "list";
+      var $buttons = $form.find("[data-save]");
+      var $active = $form.find('[data-save="' + action + '"]');
+      var label = $active.text();
+      $buttons.prop("disabled", true);
+      $active.text(t("form.saving"));
       var payload = collect($form);
       var request = recordId ? api("PATCH", "/resources/" + resource + "/" + recordId, payload) : api("POST", "/resources/" + resource, payload);
       request.then(function (res) {
         var identifier = recordId || res.data.id;
         return saveMatrices($form, identifier).then(function () { return saveTranslations($form, identifier); }).then(function () {
           flash("success", recordId ? t("form.updated") : t("form.created"));
-          go(ADMIN + "/" + resource);
+          go(nextSaveUrl(action, resource, identifier));
         });
       }).catch(function (err) {
-        $save.prop("disabled", false).text(t("form.save"));
+        $buttons.prop("disabled", false);
+        $active.text(label);
         FastKit.formErrors($form, err);
       });
     });
@@ -1022,27 +1052,28 @@
     if (!$form.length) { return; }
     var $error = $("#login-error");
     var $errorText = $error.find(".fk-login-error-text");
-
-    function submit(token) {
-      api("POST", "/auth/login", { identifier: $("#login-email").val(), password: $("#login-password").val(), recaptcha_token: token }).then(function () { go(ADMIN); }).catch(function (err) { $errorText.text(err.message); $error.removeClass("d-none"); });
-    }
+    var captcha = FastKit.captcha.mount($("#login-captcha"), CONFIG.captcha);
+    var $type = $("#login-identifier-type");
 
     $form.on("submit", function (event) {
       event.preventDefault();
       $error.addClass("d-none");
       $errorText.text("");
-      var recaptcha = CONFIG.recaptcha;
-      if (recaptcha && recaptcha.enabled && window.grecaptcha) {
-        window.grecaptcha.ready(function () { window.grecaptcha.execute(recaptcha.siteKey, { action: recaptcha.action }).then(function (token) { submit(token); }); });
-      } else {
-        submit(null);
-      }
+      var identifierType = $type.length ? $type.val() : ((CONFIG.login && CONFIG.login.identifierType) || "email");
+      captcha.collect().then(function (payload) {
+        return api("POST", "/auth/login", { identifier_type: identifierType, identifier: $("#login-email").val(), password: $("#login-password").val(), captcha: payload });
+      }).then(function () { go(ADMIN); }).catch(function (err) { $errorText.text(err.message); $error.removeClass("d-none"); });
     });
   }
 
   // ---------- chrome (theme + logout) ----------
 
   function initChrome() {
+    $(document).on("mousedown", function (event) {
+      $(".fk-lookup-menu.show").each(function () {
+        if (!$(this).closest(".dropdown")[0].contains(event.target)) { $(this).removeClass("show"); }
+      });
+    });
     $(document).on("show.bs.dropdown", function (event) {
       $(event.target).closest(".dropdown").find(".dropdown-menu").attr("data-bs-theme", document.documentElement.getAttribute("data-bs-theme"));
     });
@@ -1071,25 +1102,43 @@
 
   // ---------- full-page navigation progress ----------
 
-  function initNavProgress() {
-    resetNavProgress();
+  function initNavLoading() {
+    clearNavLoading();
     $(document).on("click", "a[href]", function (event) {
       if (event.isDefaultPrevented() || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) { return; }
       if ((this.target && this.target !== "_self") || this.hasAttribute("download") || $(this).hasClass("fk-report-export")) { return; }
       var href = this.getAttribute("href");
       if (!href || href.charAt(0) === "#" || /^(javascript|mailto|tel):/i.test(href)) { return; }
       if (this.origin !== window.location.origin) { return; }
-      navProgress();
+      navLoading();
     });
-    window.addEventListener("pageshow", function (event) { if (event.persisted) { resetNavProgress(); } });
+    window.addEventListener("pageshow", function (event) { if (event.persisted) { clearNavLoading(); } });
+  }
+
+  function initSidebarNav() {
+    var KEY = "fk-nav-collapsed";
+    var state = {};
+    try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (error) { state = {}; }
+    function groupKey($toggle) { return String($toggle.data("testid") || "").replace("group-", ""); }
+    $(".navbar-vertical [data-bs-toggle=dropdown][data-testid^=group-]").each(function () {
+      var $toggle = $(this);
+      if (state[groupKey($toggle)]) { $toggle.attr("aria-expanded", "false").closest(".nav-item").find(".dropdown-menu").removeClass("show"); }
+    });
+    $(document).on("hide.bs.dropdown show.bs.dropdown", ".navbar-vertical [data-bs-toggle=dropdown][data-testid^=group-]", function (event) {
+      var key = groupKey($(event.target));
+      if (!key) { return; }
+      state[key] = event.type === "hide";
+      localStorage.setItem(KEY, JSON.stringify(state));
+    });
   }
 
   $(function () {
     if (FastKit.localize) { FastKit.localize(document); }
     showFlash();
     window.dispatchEvent(new Event("fastkit:ready"));
-    initNavProgress();
+    initNavLoading();
     initChrome();
+    initSidebarNav();
     initLogin();
     initGrid();
     initForm();

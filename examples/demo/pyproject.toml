@@ -20,7 +20,7 @@ dependencies = [
     "fastkit-cache",
     "fastkit-tasks",
     "fastkit-storage",
-    "fastkit-assets",
+    "fastkit-files",
     "fastkit-mail",
     "fastkit-i18n",
     "fastkit-content",

@@ -17,4 +17,4 @@ class WebhooksApp(FastKitApp):
         registry = WebhookRegistry()
 
         context.set_component("webhook_registry", registry)
-        context.set_component("webhook_service", WebhookService(database.session_factory, registry))
+        context.set_component("webhook_service", WebhookService(database, registry))

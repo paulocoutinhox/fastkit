@@ -24,7 +24,7 @@ class ExecutionStatus(str, Enum):
 
 
 class ScheduledTask(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "scheduled_tasks"
+    __tablename__ = "scheduled_task"
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -47,7 +47,7 @@ class ScheduledTask(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 
 
 class TaskExecution(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "task_executions"
+    __tablename__ = "task_execution"
     __table_args__ = (UniqueConstraint("scheduled_task_id", "scheduled_for", name="uq_execution_schedule_slot"),)
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
@@ -83,7 +83,7 @@ class TaskExecution(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 
 
 class TaskAttempt(PrimaryKeyMixin, TimestampMixin, Base):
-    __tablename__ = "task_attempts"
+    __tablename__ = "task_attempt"
 
     task_execution_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)

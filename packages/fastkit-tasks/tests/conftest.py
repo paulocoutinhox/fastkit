@@ -39,7 +39,7 @@ def clock():
 
 @pytest.fixture
 def queue(database, clock):
-    return TaskQueue(database.session_factory, clock=clock)
+    return TaskQueue(database, clock=clock)
 
 
 @pytest.fixture

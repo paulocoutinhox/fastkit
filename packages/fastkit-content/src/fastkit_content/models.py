@@ -25,8 +25,8 @@ class ContentStatus(str, Enum):
 
 
 class Language(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "languages"
-    __table_args__ = (UniqueConstraint("code", name="uq_languages_code"),)
+    __tablename__ = "language"
+    __table_args__ = (UniqueConstraint("code", name="uq_language_code"),)
 
     code: Mapped[str] = mapped_column(String(12), nullable=False)
     base_code: Mapped[str] = mapped_column(String(12), nullable=False)
@@ -43,8 +43,8 @@ class Language(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 
 
 class Content(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "contents"
-    __table_args__ = (Index("uq_contents_tenant_key", text("coalesce(tenant_id, 0)"), "key", unique=True),)
+    __tablename__ = "content"
+    __table_args__ = (Index("uq_content_tenant_key", text("coalesce(tenant_id, 0)"), "key", unique=True),)
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     key: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -58,10 +58,10 @@ class Content(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 
 
 class ContentTranslation(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
-    __tablename__ = "content_translations"
+    __tablename__ = "content_translation"
     __table_args__ = (UniqueConstraint("content_id", "language_id", name="uq_content_translation"),)
 
-    content_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("contents.id", ondelete="CASCADE"), nullable=False, index=True)
+    content_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("content.id", ondelete="CASCADE"), nullable=False, index=True)
     language_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)

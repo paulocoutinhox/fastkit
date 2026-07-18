@@ -78,11 +78,11 @@ def test_env_coercion_keeps_strings(tmp_path):
 
 
 def test_public_config_excludes_secrets(tmp_path):
-    settings = load_settings(tmp_path, environment="dev", environ={"FASTKIT__AUTH__RECAPTCHA__SITE_KEY": "public-key"})
+    settings = load_settings(tmp_path, environment="dev", environ={"FASTKIT__AUTH__CAPTCHA__SITE_KEY": "public-key"})
 
     config = public_frontend_config(settings)
 
-    assert config["recaptcha"]["siteKey"] == "public-key"
+    assert config["captcha"]["siteKey"] == "public-key"
     assert config["adminApiBaseUrl"] == "/api"
     assert "secret_key" not in str(config)
     assert config["supportedLocales"] == ["en", "pt"]

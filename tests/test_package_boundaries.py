@@ -1,3 +1,4 @@
+import ast
 import re
 from pathlib import Path
 
@@ -37,11 +38,29 @@ def test_no_forbidden_imports(package, forbidden):
         assert not offenders, f"{package} must not import {banned}: found {offenders}"
 
 
-def test_init_files_are_empty():
+def _is_barrel(tree) -> bool:
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            continue
+
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "__all__":
+            continue
+
+        return False
+
+    return True
+
+
+def test_init_files_are_empty_or_barrels():
     for init_file in PACKAGES_DIR.rglob("src/**/__init__.py"):
         content = init_file.read_text(encoding="utf-8").strip()
 
-        assert content == "", f"{init_file} must be empty per project convention"
+        if content == "":
+            continue
+
+        tree = ast.parse(content)
+
+        assert _is_barrel(tree), f"{init_file} must be empty or a pure re-export barrel (only 'from ... import ...' and __all__)"
 
 
 def test_every_package_has_docs_and_pyproject():
@@ -53,7 +72,7 @@ def test_every_package_has_docs_and_pyproject():
         assert (package_dir / "DOCS.md").exists(), f"{package_dir.name} is missing DOCS.md"
 
 
-ERROR_CODE_MODULES = ["fastkit_core.errors.codes", "fastkit_auth.errors", "fastkit_assets.errors", "fastkit_mail.errors", "fastkit_storage.errors"]
+ERROR_CODE_MODULES = ["fastkit_core.errors.codes", "fastkit_auth.errors", "fastkit_files.errors", "fastkit_mail.errors", "fastkit_storage.errors"]
 
 
 def test_every_error_code_has_a_catalog_entry():

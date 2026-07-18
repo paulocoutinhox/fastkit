@@ -8,11 +8,11 @@ from fastkit_tenancy.repository import TenantRepository
 class TenantService:
     """Resolves tenants from a code and enforces cross-tenant access rules."""
 
-    def __init__(self, session_factory):
-        self._session_factory = session_factory
+    def __init__(self, database):
+        self._database = database
 
     async def get_by_code(self, code: str) -> Tenant | None:
-        async with self._session_factory() as session:
+        async with self._database.session_factory() as session:
             return await TenantRepository(session).find_one(code=code)
 
     async def require_active(self, code: str) -> Tenant:

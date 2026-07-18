@@ -5,7 +5,7 @@ def _field_with_value(field: dict, value) -> dict:
     return item
 
 
-def form_context(schema: dict, values: dict | None, label: str, mode: str, path: str, resource: str, record_id=None, inline_data: dict | None = None) -> dict:
+def form_context(schema: dict, values: dict | None, label: str, mode: str, path: str, resource: str, record_id=None, inline_data: dict | None = None, flags: dict | None = None) -> dict:
     fieldsets = []
 
     for fieldset in schema["fieldsets"]:
@@ -36,6 +36,7 @@ def form_context(schema: dict, values: dict | None, label: str, mode: str, path:
         "base_url": f"{path}/{resource}",
         "fieldsets": fieldsets,
         "inlines": inlines,
+        "flags": flags or {},
     }
 
 

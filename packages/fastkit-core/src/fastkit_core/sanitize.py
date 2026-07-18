@@ -11,7 +11,7 @@ DEFAULT_ALLOWED_TAGS = frozenset(
 
 DEFAULT_ALLOWED_ATTRS = {
     "a": frozenset({"href", "title", "target", "rel"}),
-    "img": frozenset({"src", "alt", "title", "width", "height", "data-asset-id"}),
+    "img": frozenset({"src", "alt", "title", "width", "height", "data-file-id"}),
     "*": frozenset({"class"}),
 }
 
