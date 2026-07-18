@@ -1,6 +1,11 @@
 from email.message import EmailMessage as MimeMessage
 
-from fastkit_mail.provider import EmailMessage, EmailProviderResult, ProviderHealth, ProviderStatus
+from fastkit_mail.provider import (
+    EmailMessage,
+    EmailProviderResult,
+    ProviderHealth,
+    ProviderStatus,
+)
 
 
 def build_mime(message: EmailMessage) -> MimeMessage:
@@ -24,7 +29,14 @@ def build_mime(message: EmailMessage) -> MimeMessage:
 class SmtpEmailProvider:
     """Sends through an SMTP server such as a local MailCatcher, via aiosmtplib."""
 
-    def __init__(self, host: str, port: int, username: str = "", password: str = "", use_tls: bool = False):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str = "",
+        password: str = "",
+        use_tls: bool = False,
+    ):
         self._host = host
         self._port = port
         self._username = username
@@ -55,7 +67,9 @@ class SmtpEmailProvider:
         import aiosmtplib
 
         try:
-            client = aiosmtplib.SMTP(hostname=self._host, port=self._port, use_tls=self._use_tls)
+            client = aiosmtplib.SMTP(
+                hostname=self._host, port=self._port, use_tls=self._use_tls
+            )
             await client.connect()
             await client.quit()
 

@@ -14,11 +14,21 @@ class SystemLogService:
         self._database = database
         self._environment = environment
 
-    async def record(self, level: str, category: str, event: str, message: str, payload: dict | None = None, **fields) -> SystemLog | None:
+    async def record(
+        self,
+        level: str,
+        category: str,
+        event: str,
+        message: str,
+        payload: dict | None = None,
+        **fields,
+    ) -> SystemLog | None:
         context = get_request_context()
 
         resolved_level = logging.getLevelName(level.upper())
-        numeric_level = resolved_level if isinstance(resolved_level, int) else logging.INFO
+        numeric_level = (
+            resolved_level if isinstance(resolved_level, int) else logging.INFO
+        )
 
         logger.log(numeric_level, "%s.%s %s", category, event, message)
 
@@ -55,7 +65,14 @@ class AuditLogService:
     def __init__(self, database):
         self._database = database
 
-    async def record(self, action: str, resource_type: str, resource_id: str | None = None, before: dict | None = None, after: dict | None = None) -> AuditLog:
+    async def record(
+        self,
+        action: str,
+        resource_type: str,
+        resource_id: str | None = None,
+        before: dict | None = None,
+        after: dict | None = None,
+    ) -> AuditLog:
         context = get_request_context()
 
         row = AuditLog(

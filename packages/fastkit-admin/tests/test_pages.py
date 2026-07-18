@@ -14,11 +14,19 @@ def _admin_settings():
     return SimpleNamespace(path="/admin", api_path="/api")
 
 
-_RECAPTCHA = {"provider": "recaptcha", "enabled": True, "site_key": "site-123", "action": "login", "script_url": "https://www.google.com/recaptcha/api.js?render=site-123"}
+_RECAPTCHA = {
+    "provider": "recaptcha",
+    "enabled": True,
+    "site_key": "site-123",
+    "action": "login",
+    "script_url": "https://www.google.com/recaptcha/api.js?render=site-123",
+}
 
 
 def test_page_config_includes_client_bootstrap():
-    config = build_page_config(_admin_settings(), theme={"brand_name": "Acme"}, captcha=_RECAPTCHA)
+    config = build_page_config(
+        _admin_settings(), theme={"brand_name": "Acme"}, captcha=_RECAPTCHA
+    )
 
     assert config["brand_name"] == "Acme"
     assert config["captcha"]["provider"] == "recaptcha"
@@ -36,7 +44,9 @@ def test_render_client_json_carries_locale_and_messages():
 
 def test_render_client_json_is_safe_to_inline_in_a_script():
     config = build_page_config(_admin_settings())
-    client = render_client_json(config, "pt", {"k": "</script><script>alert(1)</script>"})
+    client = render_client_json(
+        config, "pt", {"k": "</script><script>alert(1)</script>"}
+    )
 
     assert "</script>" not in client
     assert "\\u003c/script\\u003e" in client
@@ -78,10 +88,19 @@ def _build_client(current_user, translate=None, avatar_url=None, login=None):
     async def get_locale(request):
         return "pt"
 
-    deps = AdminDeps(get_session=None, get_current_user=None, get_locale=get_locale, authorize=authorize, get_optional_user=optional_user, translate=translate)
+    deps = AdminDeps(
+        get_session=None,
+        get_current_user=None,
+        get_locale=get_locale,
+        authorize=authorize,
+        get_optional_user=optional_user,
+        translate=translate,
+    )
 
     app = FastAPI()
-    app.include_router(build_admin_pages_router(renderer, site, deps, config, avatar_url=avatar_url))
+    app.include_router(
+        build_admin_pages_router(renderer, site, deps, config, avatar_url=avatar_url)
+    )
 
     return TestClient(app, follow_redirects=False)
 
@@ -101,17 +120,34 @@ def test_page_config_login_defaults_and_custom():
     assert default["login"]["password"] is True
     assert default["client"]["login"]["identifierType"] == "email"
 
-    custom = build_page_config(_admin_settings(), login={"identifier_type": "username", "password": False})
+    custom = build_page_config(
+        _admin_settings(), login={"identifier_type": "username", "password": False}
+    )
     assert custom["login"]["identifier_type"] == "username"
     assert custom["login"]["password"] is False
 
 
 def test_login_page_renders_declarative_selector_and_oauth():
     login = {
-        "identifier": {"label": "login.username", "type": "text", "autocomplete": "username", "default": ""},
+        "identifier": {
+            "label": "login.username",
+            "type": "text",
+            "autocomplete": "username",
+            "default": "",
+        },
         "identifier_type": "username",
-        "identifier_types": [{"value": "email", "label": "Email"}, {"value": "phone", "label": "Phone"}],
-        "oauth": [{"name": "google", "label": "Continue with Google", "url": "/oauth/google", "icon": "brand-google"}],
+        "identifier_types": [
+            {"value": "email", "label": "Email"},
+            {"value": "phone", "label": "Phone"},
+        ],
+        "oauth": [
+            {
+                "name": "google",
+                "label": "Continue with Google",
+                "url": "/oauth/google",
+                "icon": "brand-google",
+            }
+        ],
     }
     client = _build_client({"value": None}, login=login)
 

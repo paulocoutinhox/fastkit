@@ -64,7 +64,9 @@ async def test_run_with_retry_recovers_after_failures():
         delays.append(seconds)
 
     policy = RetryPolicy(max_attempts=3, base_delay=1.0, jitter=0.0)
-    result = await run_with_retry(operation, policy, sleep=sleep, jitter_source=lambda: 0.0)
+    result = await run_with_retry(
+        operation, policy, sleep=sleep, jitter_source=lambda: 0.0
+    )
 
     assert result == "recovered"
     assert len(attempts) == 3
@@ -78,7 +80,9 @@ async def test_run_with_retry_raises_after_exhaustion():
     policy = RetryPolicy(max_attempts=2, retry_on=(ValueError,))
 
     with pytest.raises(ValueError):
-        await run_with_retry(operation, policy, sleep=_noop_sleep, jitter_source=lambda: 0.0)
+        await run_with_retry(
+            operation, policy, sleep=_noop_sleep, jitter_source=lambda: 0.0
+        )
 
 
 async def test_run_with_retry_records_breaker_outcomes():
@@ -93,7 +97,13 @@ async def test_run_with_retry_records_breaker_outcomes():
 
         return "up"
 
-    result = await run_with_retry(operation, RetryPolicy(max_attempts=3), breaker=breaker, sleep=_noop_sleep, jitter_source=lambda: 0.0)
+    result = await run_with_retry(
+        operation,
+        RetryPolicy(max_attempts=3),
+        breaker=breaker,
+        sleep=_noop_sleep,
+        jitter_source=lambda: 0.0,
+    )
 
     assert result == "up"
     assert breaker.state is CircuitState.closed

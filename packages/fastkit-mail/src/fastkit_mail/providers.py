@@ -9,7 +9,13 @@ def build_smtp(settings):
 
     mail = settings.mail
 
-    return SmtpEmailProvider(host=mail.host, port=mail.port, username=mail.username, password=mail.password, use_tls=mail.use_tls)
+    return SmtpEmailProvider(
+        host=mail.host,
+        port=mail.port,
+        username=mail.username,
+        password=mail.password,
+        use_tls=mail.use_tls,
+    )
 
 
 def build_memory(settings):

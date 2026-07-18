@@ -13,7 +13,9 @@ from fastkit_admin.uploads import build_upload_router
 class FakeAccountService:
     def __init__(self, user):
         self.user = user
-        self.identifiers = [SimpleNamespace(id="id-1", type="email", value="user@acme.com")]
+        self.identifiers = [
+            SimpleNamespace(id="id-1", type="email", value="user@acme.com")
+        ]
         self.password_hash = None
         self.added = []
         self.removed = []
@@ -52,7 +54,18 @@ class FakePasswordService:
 def make_user():
     profile = SimpleNamespace(avatar_file_id=None)
 
-    return SimpleNamespace(id="user-1", tenant_id=None, password_hash="stored", display_name="Ada", email="user@acme.com", first_name="Ada", last_name="L", preferred_locale="en", timezone="UTC", profile=profile)
+    return SimpleNamespace(
+        id="user-1",
+        tenant_id=None,
+        password_hash="stored",
+        display_name="Ada",
+        email="user@acme.com",
+        first_name="Ada",
+        last_name="L",
+        preferred_locale="en",
+        timezone="UTC",
+        profile=profile,
+    )
 
 
 @pytest_asyncio.fixture
@@ -71,10 +84,20 @@ async def profile_client():
     async def upload_avatar(data, filename, content_type):
         return {"url": "/media/avatar.webp", "file_id": "asset-1"}
 
-    deps = AdminDeps(get_session=get_session, get_current_user=get_current_user, get_locale=lambda: "en")
-    app.include_router(build_profile_router(deps, account_service, FakePasswordService(), upload_avatar=upload_avatar))
+    deps = AdminDeps(
+        get_session=get_session,
+        get_current_user=get_current_user,
+        get_locale=lambda: "en",
+    )
+    app.include_router(
+        build_profile_router(
+            deps, account_service, FakePasswordService(), upload_avatar=upload_avatar
+        )
+    )
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://admin") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://admin"
+    ) as client:
         yield client, account_service, user
 
 
@@ -112,10 +135,19 @@ async def test_update_profile_triggers_audit_hook():
     async def audit(action, entity, entity_id):
         recorded.append((action, entity, entity_id))
 
-    deps = AdminDeps(get_session=get_session, get_current_user=get_current_user, get_locale=lambda: "en", audit=audit)
-    app.include_router(build_profile_router(deps, account_service, FakePasswordService()))
+    deps = AdminDeps(
+        get_session=get_session,
+        get_current_user=get_current_user,
+        get_locale=lambda: "en",
+        audit=audit,
+    )
+    app.include_router(
+        build_profile_router(deps, account_service, FakePasswordService())
+    )
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://admin") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://admin"
+    ) as client:
         await client.put("/profile", json={"display_name": "Grace"})
 
     assert recorded == [("profile_update", "profile", "user-1")]
@@ -124,7 +156,15 @@ async def test_update_profile_triggers_audit_hook():
 async def test_change_password_success(profile_client):
     client, account_service, _ = profile_client
 
-    body = (await client.post("/profile/password", json={"current_password": "correct-password", "new_password": "brand-new-secret"})).json()
+    body = (
+        await client.post(
+            "/profile/password",
+            json={
+                "current_password": "correct-password",
+                "new_password": "brand-new-secret",
+            },
+        )
+    ).json()
 
     assert body["message"]["code"] == "profile.password_changed"
     assert account_service.password_hash == "hashed:brand-new-secret"
@@ -133,7 +173,9 @@ async def test_change_password_success(profile_client):
 async def test_change_password_wrong_current(profile_client):
     client, _, _ = profile_client
 
-    response = await client.post("/profile/password", json={"current_password": "wrong", "new_password": "x"})
+    response = await client.post(
+        "/profile/password", json={"current_password": "wrong", "new_password": "x"}
+    )
 
     assert response.status_code == 422
     assert response.json()["errors"][0]["field"] == "current_password"
@@ -142,7 +184,9 @@ async def test_change_password_wrong_current(profile_client):
 async def test_add_and_remove_identifier(profile_client):
     client, account_service, _ = profile_client
 
-    await client.post("/profile/identifiers", json={"type": "phone", "value": "+5511999998888"})
+    await client.post(
+        "/profile/identifiers", json={"type": "phone", "value": "+5511999998888"}
+    )
     assert account_service.added == [("phone", "+5511999998888")]
 
     await client.delete("/profile/identifiers/id-1")
@@ -152,7 +196,9 @@ async def test_add_and_remove_identifier(profile_client):
 async def test_add_identifier_rejects_unknown_type(profile_client):
     client, account_service, _ = profile_client
 
-    response = await client.post("/profile/identifiers", json={"type": "aaaa", "value": "x@y.com"})
+    response = await client.post(
+        "/profile/identifiers", json={"type": "aaaa", "value": "x@y.com"}
+    )
 
     assert response.status_code == 422
     assert response.json()["errors"][0]["field"] == "type"
@@ -170,7 +216,9 @@ async def test_profile_exposes_identifier_types(profile_client):
 async def test_upload_avatar(profile_client):
     client, _, user = profile_client
 
-    response = await client.post("/profile/avatar", files={"file": ("a.png", b"bytes", "image/png")})
+    response = await client.post(
+        "/profile/avatar", files={"file": ("a.png", b"bytes", "image/png")}
+    )
 
     assert response.json()["data"]["url"] == "/media/avatar.webp"
 
@@ -195,11 +243,27 @@ async def test_upload_avatar_attaches_the_asset_to_the_user():
         async def link(self, owner_type, owner_id, slot, asset_id):
             links.append((owner_type, str(owner_id), slot, asset_id))
 
-    deps = AdminDeps(get_session=get_session, get_current_user=get_current_user, get_locale=lambda: "en")
-    app.include_router(build_profile_router(deps, account_service, FakePasswordService(), upload_avatar=upload_avatar, files=RecordingAssets()))
+    deps = AdminDeps(
+        get_session=get_session,
+        get_current_user=get_current_user,
+        get_locale=lambda: "en",
+    )
+    app.include_router(
+        build_profile_router(
+            deps,
+            account_service,
+            FakePasswordService(),
+            upload_avatar=upload_avatar,
+            files=RecordingAssets(),
+        )
+    )
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://admin") as client:
-        await client.post("/profile/avatar", files={"file": ("a.png", b"bytes", "image/png")})
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://admin"
+    ) as client:
+        await client.post(
+            "/profile/avatar", files={"file": ("a.png", b"bytes", "image/png")}
+        )
 
     assert links == [("user", "user-1", "avatar", "asset-1")]
 
@@ -208,7 +272,9 @@ async def test_identifier_without_normalizer_shows_raw_value():
     from fastkit_admin.profile import _profile_summary
 
     user = make_user()
-    identifiers = [SimpleNamespace(id="id-2", type="unknown-provider", value="raw-value")]
+    identifiers = [
+        SimpleNamespace(id="id-2", type="unknown-provider", value="raw-value")
+    ]
 
     summary = _profile_summary(user, identifiers, ["email"])
 
@@ -229,13 +295,31 @@ async def test_upload_router():
     async def file_handler(data, filename, content_type):
         return {"url": "/media/doc.txt", "file_id": None}
 
-    deps = AdminDeps(get_session=lambda: None, get_current_user=get_current_user, get_locale=lambda: "en")
-    app.include_router(build_upload_router(deps, {"image": image_handler, "file": file_handler}))
+    deps = AdminDeps(
+        get_session=lambda: None,
+        get_current_user=get_current_user,
+        get_locale=lambda: "en",
+    )
+    app.include_router(
+        build_upload_router(deps, {"image": image_handler, "file": file_handler})
+    )
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://admin") as client:
-        image = (await client.post("/uploads/image", files={"file": ("x.png", b"data", "image/png")})).json()
-        document = (await client.post("/uploads/file", files={"file": ("d.txt", b"d", "text/plain")})).json()
-        missing = await client.post("/uploads/other", files={"file": ("x", b"x", "text/plain")})
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://admin"
+    ) as client:
+        image = (
+            await client.post(
+                "/uploads/image", files={"file": ("x.png", b"data", "image/png")}
+            )
+        ).json()
+        document = (
+            await client.post(
+                "/uploads/file", files={"file": ("d.txt", b"d", "text/plain")}
+            )
+        ).json()
+        missing = await client.post(
+            "/uploads/other", files={"file": ("x", b"x", "text/plain")}
+        )
 
     assert image["data"]["url"] == "/media/x.png"
     assert image["data"]["file_id"] == "asset-9"

@@ -16,7 +16,13 @@ from fastkit_files.models import (
     UploadStatus,
 )
 from fastkit_files.presets import ImagePreset
-from fastkit_files.security import ALLOWED_IMAGE_MIME, checksum, enforce_mime, enforce_size, random_object_key
+from fastkit_files.security import (
+    ALLOWED_IMAGE_MIME,
+    checksum,
+    enforce_mime,
+    enforce_size,
+    random_object_key,
+)
 
 
 def _aware(value: datetime) -> datetime:
@@ -34,7 +40,11 @@ def _extension(filename: str | None) -> str:
 
 def _kind_for(content_type: str | None) -> str:
     main = (content_type or "").split("/", 1)[0]
-    mapping = {"image": StorageFileKind.image.value, "video": StorageFileKind.video.value, "audio": StorageFileKind.audio.value}
+    mapping = {
+        "image": StorageFileKind.image.value,
+        "video": StorageFileKind.video.value,
+        "audio": StorageFileKind.audio.value,
+    }
 
     return mapping.get(main, StorageFileKind.file.value)
 
@@ -48,7 +58,13 @@ class StorageFileService:
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._max_pixels = max_pixels
 
-    async def create_upload_session(self, tenant_id: int | None, user_id=None, max_size_bytes: int = 10_000_000, ttl_seconds: int = 3600) -> UploadSession:
+    async def create_upload_session(
+        self,
+        tenant_id: int | None,
+        user_id=None,
+        max_size_bytes: int = 10_000_000,
+        ttl_seconds: int = 3600,
+    ) -> UploadSession:
         session_row = UploadSession(
             tenant_id=tenant_id,
             user_id=user_id,
@@ -64,7 +80,9 @@ class StorageFileService:
 
             return session_row
 
-    async def confirm_image_upload(self, session_id, data: bytes, filename: str, declared_mime: str) -> StorageFile:
+    async def confirm_image_upload(
+        self, session_id, data: bytes, filename: str, declared_mime: str
+    ) -> StorageFile:
         upload = await self._reserve_upload(session_id)
         enforce_size(data, upload.max_size_bytes)
         enforce_mime(declared_mime, ALLOWED_IMAGE_MIME)
@@ -93,13 +111,17 @@ class StorageFileService:
 
         return await self._persist(session_id, record)
 
-    async def confirm_upload(self, session_id, data: bytes, filename: str, content_type: str | None) -> StorageFile:
+    async def confirm_upload(
+        self, session_id, data: bytes, filename: str, content_type: str | None
+    ) -> StorageFile:
         upload = await self._reserve_upload(session_id)
         enforce_size(data, upload.max_size_bytes)
 
         extension = _extension(filename)
         object_key = random_object_key(upload.tenant_id, extension)
-        await self._storage.put(object_key, data, content_type=content_type or "application/octet-stream")
+        await self._storage.put(
+            object_key, data, content_type=content_type or "application/octet-stream"
+        )
 
         record = StorageFile(
             tenant_id=upload.tenant_id,
@@ -121,10 +143,15 @@ class StorageFileService:
         async with self._database.session_factory() as session:
             upload = await session.get(UploadSession, session_id)
 
-            if upload.status != UploadStatus.pending.value or _aware(upload.expires_at) <= self._clock():
+            if (
+                upload.status != UploadStatus.pending.value
+                or _aware(upload.expires_at) <= self._clock()
+            ):
                 upload.status = UploadStatus.expired.value
                 await session.commit()
-                raise FastKitError(UPLOAD_SESSION_EXPIRED, message="upload session is not usable")
+                raise FastKitError(
+                    UPLOAD_SESSION_EXPIRED, message="upload session is not usable"
+                )
 
             return upload
 
@@ -158,43 +185,67 @@ class StorageFileService:
             for spec in preset.variants:
                 variant = process_variant(original, spec)
                 variant_key = random_object_key(record.tenant_id, spec.format)
-                await self._storage.put(variant_key, variant.data, content_type=variant.mime_type)
+                await self._storage.put(
+                    variant_key, variant.data, content_type=variant.mime_type
+                )
 
-                await self._save_variant(storage_file_id, spec.name, variant_key, variant)
+                await self._save_variant(
+                    storage_file_id, spec.name, variant_key, variant
+                )
         except FastKitError:
             await self._set_status(storage_file_id, StorageFileStatus.failed.value)
             raise
         except Exception as error:
             await self._set_status(storage_file_id, StorageFileStatus.failed.value)
-            raise FastKitError(PROCESSING_FAILED, message="image processing failed") from error
+            raise FastKitError(
+                PROCESSING_FAILED, message="image processing failed"
+            ) from error
 
         return await self._set_status(storage_file_id, StorageFileStatus.ready.value)
 
-    async def link_slot(self, owner_type: str, owner_id, slot: str, object_key: str | None) -> None:
+    async def link_slot(
+        self, owner_type: str, owner_id, slot: str, object_key: str | None
+    ) -> None:
         async with self._database.session_factory() as session:
             target = None
 
             if object_key:
-                target = (await session.execute(select(StorageFile).where(StorageFile.object_key == object_key))).scalar_one_or_none()
+                target = (
+                    await session.execute(
+                        select(StorageFile).where(StorageFile.object_key == object_key)
+                    )
+                ).scalar_one_or_none()
 
-            await self._reconcile_slot(session, owner_type, owner_id, slot, target.id if target is not None else None)
+            await self._reconcile_slot(
+                session,
+                owner_type,
+                owner_id,
+                slot,
+                target.id if target is not None else None,
+            )
             await session.commit()
 
     async def link(self, owner_type: str, owner_id, slot: str, storage_file_id) -> None:
         async with self._database.session_factory() as session:
-            await self._reconcile_slot(session, owner_type, owner_id, slot, storage_file_id)
+            await self._reconcile_slot(
+                session, owner_type, owner_id, slot, storage_file_id
+            )
             await session.commit()
 
     async def unlink_owner(self, owner_type: str, owner_id) -> None:
         async with self._database.session_factory() as session:
             attachments = (
-                await session.execute(
-                    select(StorageFileReference).where(
-                        StorageFileReference.owner_type == owner_type,
-                        StorageFileReference.owner_id == str(owner_id),
+                (
+                    await session.execute(
+                        select(StorageFileReference).where(
+                            StorageFileReference.owner_type == owner_type,
+                            StorageFileReference.owner_id == str(owner_id),
+                        )
                     )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
             asset_ids = {attachment.storage_file_id for attachment in attachments}
 
@@ -210,12 +261,24 @@ class StorageFileService:
 
     async def cleanup_orphans(self, older_than_seconds: int = 86400) -> int:
         cutoff = self._clock() - timedelta(seconds=older_than_seconds)
-        attached = select(StorageFileReference.id).where(StorageFileReference.storage_file_id == StorageFile.id).exists()
+        attached = (
+            select(StorageFileReference.id)
+            .where(StorageFileReference.storage_file_id == StorageFile.id)
+            .exists()
+        )
 
         async with self._database.session_factory() as session:
             stale = (
-                await session.execute(select(StorageFile).where(StorageFile.created_at < cutoff, ~attached))
-            ).scalars().all()
+                (
+                    await session.execute(
+                        select(StorageFile).where(
+                            StorageFile.created_at < cutoff, ~attached
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
 
             for record in stale:
                 await self._purge(session, record)
@@ -224,16 +287,22 @@ class StorageFileService:
 
         return len(stale)
 
-    async def _reconcile_slot(self, session, owner_type: str, owner_id, slot: str, target_id) -> None:
+    async def _reconcile_slot(
+        self, session, owner_type: str, owner_id, slot: str, target_id
+    ) -> None:
         current = (
-            await session.execute(
-                select(StorageFileReference).where(
-                    StorageFileReference.owner_type == owner_type,
-                    StorageFileReference.owner_id == str(owner_id),
-                    StorageFileReference.slot == slot,
+            (
+                await session.execute(
+                    select(StorageFileReference).where(
+                        StorageFileReference.owner_type == owner_type,
+                        StorageFileReference.owner_id == str(owner_id),
+                        StorageFileReference.slot == slot,
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         detached = []
         keep = False
@@ -246,7 +315,14 @@ class StorageFileService:
                 await session.delete(attachment)
 
         if target_id is not None and not keep:
-            session.add(StorageFileReference(storage_file_id=target_id, owner_type=owner_type, owner_id=str(owner_id), slot=slot))
+            session.add(
+                StorageFileReference(
+                    storage_file_id=target_id,
+                    owner_type=owner_type,
+                    owner_id=str(owner_id),
+                    slot=slot,
+                )
+            )
 
         await session.flush()
 
@@ -255,7 +331,11 @@ class StorageFileService:
 
     async def _purge_if_orphaned(self, session, storage_file_id) -> None:
         remaining = (
-            await session.execute(select(func.count()).select_from(StorageFileReference).where(StorageFileReference.storage_file_id == storage_file_id))
+            await session.execute(
+                select(func.count())
+                .select_from(StorageFileReference)
+                .where(StorageFileReference.storage_file_id == storage_file_id)
+            )
         ).scalar_one()
 
         if remaining:
@@ -265,7 +345,17 @@ class StorageFileService:
         await self._purge(session, record)
 
     async def _purge(self, session, record) -> None:
-        variants = (await session.execute(select(StorageFileVariant).where(StorageFileVariant.storage_file_id == record.id))).scalars().all()
+        variants = (
+            (
+                await session.execute(
+                    select(StorageFileVariant).where(
+                        StorageFileVariant.storage_file_id == record.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         for variant in variants:
             await self._storage.delete(variant.object_key)
@@ -284,7 +374,12 @@ class StorageFileService:
 
     async def _save_variant(self, storage_file_id, name, object_key, variant) -> None:
         async with self._database.session_factory() as session:
-            await session.execute(delete(StorageFileVariant).where(StorageFileVariant.storage_file_id == storage_file_id, StorageFileVariant.name == name))
+            await session.execute(
+                delete(StorageFileVariant).where(
+                    StorageFileVariant.storage_file_id == storage_file_id,
+                    StorageFileVariant.name == name,
+                )
+            )
             session.add(
                 StorageFileVariant(
                     storage_file_id=storage_file_id,

@@ -101,7 +101,7 @@ def test_relative_url_without_scheme_is_allowed():
 
 
 def test_valueless_url_attribute_is_dropped():
-    result = sanitize_html("<img src alt=\"a\">")
+    result = sanitize_html('<img src alt="a">')
 
     assert "src" not in result
     assert 'alt="a"' in result

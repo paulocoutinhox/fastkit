@@ -19,7 +19,9 @@ def discover_apps(group: str = "fastkit.apps") -> dict[str, type[FastKitApp]]:
     return discovered
 
 
-def instantiate_selected(installed: list[str], available: dict[str, type[FastKitApp]]) -> list[FastKitApp]:
+def instantiate_selected(
+    installed: list[str], available: dict[str, type[FastKitApp]]
+) -> list[FastKitApp]:
     seen: set[str] = set()
     apps: list[FastKitApp] = []
 
@@ -46,7 +48,9 @@ def order_apps(apps: list[FastKitApp]) -> list[FastKitApp]:
     for app in apps:
         for requirement in app.requires:
             if requirement not in by_name:
-                raise AppLoadError(f"app '{app.name}' requires '{requirement}' which is not installed")
+                raise AppLoadError(
+                    f"app '{app.name}' requires '{requirement}' which is not installed"
+                )
 
     ordered: list[FastKitApp] = []
     visited: set[str] = set()

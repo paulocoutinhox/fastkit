@@ -11,7 +11,12 @@ class AdminApp(FastKitApp):
 
     def register_services(self, context: BootstrapContext) -> None:
         admin = context.settings.admin
-        site = AdminSite(name="main", title="Administration", path=admin.path, api_path=admin.api_path)
+        site = AdminSite(
+            name="main",
+            title="Administration",
+            path=admin.path,
+            api_path=admin.api_path,
+        )
 
         context.set_component("admin_site", site)
 

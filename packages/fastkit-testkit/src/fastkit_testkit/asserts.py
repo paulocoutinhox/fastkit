@@ -6,7 +6,9 @@ def assert_success(envelope: dict) -> dict:
     """Assert the envelope is a success and return its data."""
 
     if not envelope.get("success"):
-        raise EnvelopeAssertionError(f"expected a success envelope, got {envelope.get('message')}")
+        raise EnvelopeAssertionError(
+            f"expected a success envelope, got {envelope.get('message')}"
+        )
 
     return envelope.get("data")
 
@@ -20,7 +22,9 @@ def assert_error(envelope: dict, code: str | None = None) -> dict:
     message = envelope.get("message") or {}
 
     if code is not None and message.get("code") != code:
-        raise EnvelopeAssertionError(f"expected error code '{code}', got '{message.get('code')}'")
+        raise EnvelopeAssertionError(
+            f"expected error code '{code}', got '{message.get('code')}'"
+        )
 
     return envelope
 

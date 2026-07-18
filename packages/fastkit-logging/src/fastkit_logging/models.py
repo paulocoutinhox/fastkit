@@ -14,7 +14,9 @@ class SystemLog(PrimaryKeyMixin, TimestampMixin, Base):
     event: Mapped[str] = mapped_column(String(120), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
 
-    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    request_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
     trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)

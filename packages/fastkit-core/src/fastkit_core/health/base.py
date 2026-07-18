@@ -35,7 +35,14 @@ class HealthReport:
     def to_dict(self) -> dict:
         return {
             "status": self.status.value,
-            "checks": [{"name": check.name, "status": check.status.value, "detail": check.detail} for check in self.checks],
+            "checks": [
+                {
+                    "name": check.name,
+                    "status": check.status.value,
+                    "detail": check.detail,
+                }
+                for check in self.checks
+            ],
         }
 
 
@@ -61,4 +68,6 @@ class HealthCheckRegistry:
         try:
             return await check()
         except Exception as error:
-            return HealthResult(name=name, status=HealthStatus.unavailable, detail=str(error))
+            return HealthResult(
+                name=name, status=HealthStatus.unavailable, detail=str(error)
+            )

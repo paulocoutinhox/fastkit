@@ -46,8 +46,12 @@ class _Resolver:
 
 
 class _Runtime:
-    def __init__(self, user=None, record=None, translator=None, cookie_name="fastkit_session"):
-        self.settings = SimpleNamespace(auth=SimpleNamespace(session_cookie_name=cookie_name))
+    def __init__(
+        self, user=None, record=None, translator=None, cookie_name="fastkit_session"
+    ):
+        self.settings = SimpleNamespace(
+            auth=SimpleNamespace(session_cookie_name=cookie_name)
+        )
         self._components = {
             "database": _Database(user),
             "session_service": _Sessions(record),
@@ -113,7 +117,9 @@ async def test_get_current_user_returns_the_active_user():
     runtime = _Runtime(user=user, record=SimpleNamespace(user_id=7))
     security = AdminSecurity(runtime)
 
-    resolved = await security.get_current_user(_request(cookies={"fastkit_session": "t"}))
+    resolved = await security.get_current_user(
+        _request(cookies={"fastkit_session": "t"})
+    )
 
     assert resolved is user
 
@@ -134,7 +140,9 @@ async def test_get_current_user_stamps_the_actor_tenant_into_the_request_context
 
 async def test_get_current_user_honours_the_configured_cookie_name():
     user = _user()
-    runtime = _Runtime(user=user, record=SimpleNamespace(user_id=7), cookie_name="app_sid")
+    runtime = _Runtime(
+        user=user, record=SimpleNamespace(user_id=7), cookie_name="app_sid"
+    )
     security = AdminSecurity(runtime)
 
     resolved = await security.get_current_user(_request(cookies={"app_sid": "t"}))
@@ -147,7 +155,10 @@ async def test_get_optional_user_returns_user_when_authenticated():
     runtime = _Runtime(user=user, record=SimpleNamespace(user_id=7))
     security = AdminSecurity(runtime)
 
-    assert await security.get_optional_user(_request(cookies={"fastkit_session": "t"})) is user
+    assert (
+        await security.get_optional_user(_request(cookies={"fastkit_session": "t"}))
+        is user
+    )
 
 
 async def test_get_optional_user_swallows_authentication_errors():
@@ -159,7 +170,9 @@ async def test_get_optional_user_swallows_authentication_errors():
 async def test_get_locale_uses_the_resolver():
     security = AdminSecurity(_Runtime())
 
-    locale = await security.get_locale(_request(cookies={"fastkit_locale": "pt"}, headers={"accept-language": "en"}))
+    locale = await security.get_locale(
+        _request(cookies={"fastkit_locale": "pt"}, headers={"accept-language": "en"})
+    )
 
     assert locale == "pt"
 
@@ -196,7 +209,9 @@ def test_build_admin_deps_honours_an_explicit_security_and_translate():
     def translate(text, locale):
         return text
 
-    deps, returned = build_admin_deps(_Runtime(), security=security, translate=translate)
+    deps, returned = build_admin_deps(
+        _Runtime(), security=security, translate=translate
+    )
 
     assert returned is security
     assert deps.translate is translate

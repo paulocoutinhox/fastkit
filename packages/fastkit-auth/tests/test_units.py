@@ -2,7 +2,11 @@ from datetime import datetime, timezone
 
 import pytest
 
-from fastkit_core.errors.exceptions import AuthenticationError, RateLimitError, ValidationError
+from fastkit_core.errors.exceptions import (
+    AuthenticationError,
+    RateLimitError,
+    ValidationError,
+)
 from fastkit_auth.passwords import PasswordHashService
 from fastkit_auth.ratelimit import RateLimiter
 from fastkit_auth.tokens import TokenService
@@ -127,5 +131,3 @@ def test_rate_limiter_reset():
     limiter.hit("ip")
     limiter.reset("ip")
     limiter.hit("ip")
-
-

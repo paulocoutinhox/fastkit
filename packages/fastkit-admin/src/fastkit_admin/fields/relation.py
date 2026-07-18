@@ -12,7 +12,13 @@ class RelationField(AdminField):
 
     field_type = "relation"
 
-    def __init__(self, *args, depends_on: list[str] | None = None, related: str | None = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        depends_on: list[str] | None = None,
+        related: str | None = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.depends_on = list(depends_on or [])
         self.related = related

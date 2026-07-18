@@ -7,12 +7,28 @@ from sqlalchemy import Integer, func, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from fastkit_core.api.pagination import OffsetPage, clamp_page_size
-from fastkit_core.errors.codes import AUTHORIZATION_DENIED, CONFLICT_UNIQUE, RESOURCE_NOT_FOUND, VALIDATION_FAILED
-from fastkit_core.errors.exceptions import AuthorizationError, ConflictError, NotFoundError, ValidationError
+from fastkit_core.errors.codes import (
+    AUTHORIZATION_DENIED,
+    CONFLICT_UNIQUE,
+    RESOURCE_NOT_FOUND,
+    VALIDATION_FAILED,
+)
+from fastkit_core.errors.exceptions import (
+    AuthorizationError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
 from fastkit_admin.columns import normalize_columns
 from fastkit_admin.fields import PasswordField
 from fastkit_admin.filters import Filter
-from fastkit_admin.serialization import CLIENT_FORMATTED_TYPES, coerce_identifier, grid_value, plain_value, translate_schema
+from fastkit_admin.serialization import (
+    CLIENT_FORMATTED_TYPES,
+    coerce_identifier,
+    grid_value,
+    plain_value,
+    translate_schema,
+)
 
 ModelT = TypeVar("ModelT")
 
@@ -65,7 +81,9 @@ class AdminResource(Generic[ModelT]):
     def __init__(self):
         self._field_map = {field.name: field for field in self.form_fields}
         self._filters = [item for item in self.filters if isinstance(item, Filter)]
-        self._filter_fieldsets = [item for item in self.filters if isinstance(item, Fieldset)]
+        self._filter_fieldsets = [
+            item for item in self.filters if isinstance(item, Fieldset)
+        ]
         self._filter_map = {item.field: item for item in self._filters}
         self._columns = normalize_columns(self.list_columns)
         self._action_map = {action.name: action for action in self.actions}
@@ -76,7 +94,9 @@ class AdminResource(Generic[ModelT]):
         return select(self.model)
 
     def sortable_columns(self) -> set[str]:
-        return {column.name for column in self._columns if column.sortable} | set(self._field_map.keys())
+        return {column.name for column in self._columns if column.sortable} | set(
+            self._field_map.keys()
+        )
 
     def display(self, row) -> str:
         label = getattr(row, "display_label", None)
@@ -105,7 +125,9 @@ class AdminResource(Generic[ModelT]):
             elif self._column_type(column) in CLIENT_FORMATTED_TYPES:
                 data[column.name] = grid_value(getattr(row, column.name, None))
             elif column.name in self._field_map:
-                data[column.name] = self._field_map[column.name].format_value(getattr(row, column.name, None), locale)
+                data[column.name] = self._field_map[column.name].format_value(
+                    getattr(row, column.name, None), locale
+                )
             else:
                 data[column.name] = plain_value(getattr(row, column.name, None))
 
@@ -135,7 +157,10 @@ class AdminResource(Generic[ModelT]):
         if not search or not self.search_fields:
             return query
 
-        conditions = [getattr(self.model, name).ilike(f"%{search}%") for name in self.search_fields]
+        conditions = [
+            getattr(self.model, name).ilike(f"%{search}%")
+            for name in self.search_fields
+        ]
 
         return query.where(or_(*conditions))
 
@@ -174,27 +199,41 @@ class AdminResource(Generic[ModelT]):
 
         name = sort.lstrip("-")
 
-        if name in self.sortable_columns() and (hasattr(self.model, name) or hasattr(self, f"sort_{name}")):
+        if name in self.sortable_columns() and (
+            hasattr(self.model, name) or hasattr(self, f"sort_{name}")
+        ):
             return [sort]
 
         return self._default_ordering()
 
     async def list(self, session, query: GridQuery, locale: str = "en") -> dict:
-        base = self._apply_filters(self._apply_search(self.get_queryset(), query.search), query.filters)
+        base = self._apply_filters(
+            self._apply_search(self.get_queryset(), query.search), query.filters
+        )
 
-        total = int((await session.execute(select(func.count()).select_from(base.subquery()))).scalar_one())
+        total = int(
+            (
+                await session.execute(select(func.count()).select_from(base.subquery()))
+            ).scalar_one()
+        )
 
         page_size = clamp_page_size(query.page_size, self.page_size, self.max_page_size)
         page = max(query.page, 1)
 
-        ordered = self._apply_ordering(base, query.sort).offset((page - 1) * page_size).limit(page_size)
+        ordered = (
+            self._apply_ordering(base, query.sort)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         rows = (await session.execute(ordered)).scalars().all()
 
         await self.resolve(session, rows, locale)
 
         return {
             "rows": [self.serialize_row(row, locale) for row in rows],
-            "pagination": OffsetPage(page=page, page_size=page_size, total_items=total).to_meta(),
+            "pagination": OffsetPage(
+                page=page, page_size=page_size, total_items=total
+            ).to_meta(),
         }
 
     async def resolve(self, session, rows, locale: str = "en") -> None:
@@ -207,14 +246,20 @@ class AdminResource(Generic[ModelT]):
             coerced = coerce_identifier(identifier)
 
             if not isinstance(coerced, int):
-                raise NotFoundError(RESOURCE_NOT_FOUND, message=f"{self.label or self.name} not found")
+                raise NotFoundError(
+                    RESOURCE_NOT_FOUND, message=f"{self.label or self.name} not found"
+                )
         else:
             coerced = identifier
 
-        row = (await session.execute(self.get_queryset().where(column == coerced))).scalar_one_or_none()
+        row = (
+            await session.execute(self.get_queryset().where(column == coerced))
+        ).scalar_one_or_none()
 
         if row is None:
-            raise NotFoundError(RESOURCE_NOT_FOUND, message=f"{self.label or self.name} not found")
+            raise NotFoundError(
+                RESOURCE_NOT_FOUND, message=f"{self.label or self.name} not found"
+            )
 
         return row
 
@@ -243,7 +288,9 @@ class AdminResource(Generic[ModelT]):
 
     def _guard_writable(self) -> None:
         if self.read_only:
-            raise AuthorizationError(AUTHORIZATION_DENIED, message=f"{self.label or self.name} is read-only")
+            raise AuthorizationError(
+                AUTHORIZATION_DENIED, message=f"{self.label or self.name} is read-only"
+            )
 
     def _validate_inlines(self, data: dict, locale: str) -> dict:
         validated = {}
@@ -273,7 +320,10 @@ class AdminResource(Generic[ModelT]):
     async def inline_values(self, session, row, locale: str = "en") -> dict:
         parent_id = getattr(row, self.pk_field)
 
-        return {inline.name: await inline.load(session, parent_id, locale) for inline in self.inlines}
+        return {
+            inline.name: await inline.load(session, parent_id, locale)
+            for inline in self.inlines
+        }
 
     async def create(self, session, data: dict, locale: str = "en"):
         self._guard_writable()
@@ -291,14 +341,19 @@ class AdminResource(Generic[ModelT]):
             await session.commit()
         except IntegrityError as error:
             await session.rollback()
-            raise ConflictError(CONFLICT_UNIQUE, message=f"a {self.label or self.name} with these values already exists") from error
+            raise ConflictError(
+                CONFLICT_UNIQUE,
+                message=f"a {self.label or self.name} with these values already exists",
+            ) from error
 
         await session.refresh(row)
         await self._sync_files(row)
 
         return row
 
-    async def update(self, session, identifier, data: dict, locale: str = "en", partial: bool = False):
+    async def update(
+        self, session, identifier, data: dict, locale: str = "en", partial: bool = False
+    ):
         self._guard_writable()
         row = await self.get_object(session, identifier)
         parsed = self._parse_and_validate(data, locale, partial=partial)
@@ -315,7 +370,10 @@ class AdminResource(Generic[ModelT]):
             await session.commit()
         except IntegrityError as error:
             await session.rollback()
-            raise ConflictError(CONFLICT_UNIQUE, message=f"a {self.label or self.name} with these values already exists") from error
+            raise ConflictError(
+                CONFLICT_UNIQUE,
+                message=f"a {self.label or self.name} with these values already exists",
+            ) from error
 
         await session.refresh(row)
         await self._sync_files(row)
@@ -338,7 +396,9 @@ class AdminResource(Generic[ModelT]):
         owner_id = getattr(row, self.pk_field)
 
         for name in self.file_fields:
-            await self.files.link_slot(self.name, owner_id, name, self._object_key(getattr(row, name, None)))
+            await self.files.link_slot(
+                self.name, owner_id, name, self._object_key(getattr(row, name, None))
+            )
 
     async def _unlink_files(self, owner_id) -> None:
         if self.files is None:
@@ -352,7 +412,7 @@ class AdminResource(Generic[ModelT]):
         if not value or not isinstance(value, str) or not value.startswith(prefix):
             return None
 
-        return value[len(prefix):]
+        return value[len(prefix) :]
 
     # custom actions
 
@@ -360,18 +420,26 @@ class AdminResource(Generic[ModelT]):
         action = self._action_map.get(name)
 
         if action is None:
-            raise NotFoundError(RESOURCE_NOT_FOUND, message=f"action '{name}' is not defined")
+            raise NotFoundError(
+                RESOURCE_NOT_FOUND, message=f"action '{name}' is not defined"
+            )
 
         return action
 
-    async def run_action(self, session, action_name: str, identifiers: list, locale: str = "en") -> dict:
+    async def run_action(
+        self, session, action_name: str, identifiers: list, locale: str = "en"
+    ) -> dict:
         self.get_action(action_name)
         handler = getattr(self, f"action_{action_name}", None)
 
         if handler is None:
-            raise NotFoundError(RESOURCE_NOT_FOUND, message=f"action '{action_name}' has no handler")
+            raise NotFoundError(
+                RESOURCE_NOT_FOUND, message=f"action '{action_name}' has no handler"
+            )
 
-        rows = [await self.get_object(session, identifier) for identifier in identifiers]
+        rows = [
+            await self.get_object(session, identifier) for identifier in identifiers
+        ]
         result = await handler(session, rows, locale)
 
         return result if isinstance(result, dict) else {"affected": len(rows)}
@@ -387,7 +455,9 @@ class AdminResource(Generic[ModelT]):
                 continue
 
             permission = self.permissions.get(action)
-            flags[f"can_{action}"] = True if permission is None else await check(permission)
+            flags[f"can_{action}"] = (
+                True if permission is None else await check(permission)
+            )
 
         return flags
 
@@ -411,7 +481,14 @@ class AdminResource(Generic[ModelT]):
             "label": self.label or self.name,
             "columns": [self._column_schema(column) for column in self._columns],
             "filters": [item.to_schema() for item in self._filters],
-            "filter_fieldsets": [{"title": fieldset.title, "description": fieldset.description, "fields": fieldset.fields} for fieldset in self._filter_fieldsets],
+            "filter_fieldsets": [
+                {
+                    "title": fieldset.title,
+                    "description": fieldset.description,
+                    "fields": fieldset.fields,
+                }
+                for fieldset in self._filter_fieldsets
+            ],
             "actions": [action.to_schema() for action in self.actions],
             "search_fields": self.search_fields,
             "default_sort": self._default_ordering(),
@@ -428,18 +505,31 @@ class AdminResource(Generic[ModelT]):
         return schema
 
     def form_schema(self, mode: str = "create", translate=None) -> dict:
-        available = {admin_field.name: admin_field for admin_field in self.form_fields if not (mode == "create" and admin_field.readonly)}
+        available = {
+            admin_field.name: admin_field
+            for admin_field in self.form_fields
+            if not (mode == "create" and admin_field.readonly)
+        }
 
         if self.fieldsets:
             groups = self.fieldsets
         else:
-            groups = [Fieldset(title=None, fields=[admin_field.name for admin_field in self.form_fields])]
+            groups = [
+                Fieldset(
+                    title=None,
+                    fields=[admin_field.name for admin_field in self.form_fields],
+                )
+            ]
 
         fieldsets = [
             {
                 "title": group.title,
                 "description": group.description,
-                "fields": [available[name].to_schema() for name in group.fields if name in available],
+                "fields": [
+                    available[name].to_schema()
+                    for name in group.fields
+                    if name in available
+                ],
             }
             for group in groups
         ]
@@ -458,11 +548,15 @@ class AdminResource(Generic[ModelT]):
 
         return schema
 
-    async def relation_options(self, session, field_name: str, parent_values: dict, locale: str = "en") -> list[dict]:
+    async def relation_options(
+        self, session, field_name: str, parent_values: dict, locale: str = "en"
+    ) -> list[dict]:
         handler = getattr(self, f"options_{field_name}", None)
 
         if handler is None:
-            raise NotFoundError(RESOURCE_NOT_FOUND, message=f"relation '{field_name}' is not defined")
+            raise NotFoundError(
+                RESOURCE_NOT_FOUND, message=f"relation '{field_name}' is not defined"
+            )
 
         return await handler(session, parent_values, locale)
 

@@ -1,7 +1,18 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from fastkit_db.base import Base, MetadataMixin, TimestampMixin, PrimaryKeyMixin
@@ -44,14 +55,24 @@ class Language(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 
 class Content(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     __tablename__ = "content"
-    __table_args__ = (Index("uq_content_tenant_key", text("coalesce(tenant_id, 0)"), "key", unique=True),)
+    __table_args__ = (
+        Index(
+            "uq_content_tenant_key", text("coalesce(tenant_id, 0)"), "key", unique=True
+        ),
+    )
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     key: Mapped[str] = mapped_column(String(200), nullable=False)
-    type: Mapped[str] = mapped_column(String(20), default=ContentType.rich_text.value, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default=ContentStatus.draft.value, nullable=False)
+    type: Mapped[str] = mapped_column(
+        String(20), default=ContentType.rich_text.value, nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default=ContentStatus.draft.value, nullable=False
+    )
     default_language_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     def display_label(self) -> str:
         return self.key
@@ -59,9 +80,16 @@ class Content(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 
 class ContentTranslation(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     __tablename__ = "content_translation"
-    __table_args__ = (UniqueConstraint("content_id", "language_id", name="uq_content_translation"),)
+    __table_args__ = (
+        UniqueConstraint("content_id", "language_id", name="uq_content_translation"),
+    )
 
-    content_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("content.id", ondelete="CASCADE"), nullable=False, index=True)
+    content_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("content.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     language_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)

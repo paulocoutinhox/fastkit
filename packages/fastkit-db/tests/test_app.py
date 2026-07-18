@@ -20,8 +20,13 @@ class DbSettings:
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp})
-    runtime = Runtime(settings=DbSettings(), installed_apps=["fastkit.core", "fastkit.db"])
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp},
+    )
+    runtime = Runtime(
+        settings=DbSettings(), installed_apps=["fastkit.core", "fastkit.db"]
+    )
     runtime.bootstrap()
 
     yield runtime

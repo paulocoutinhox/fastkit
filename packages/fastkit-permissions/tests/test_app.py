@@ -16,7 +16,13 @@ class Settings:
         pool_pre_ping = True
         echo = False
 
-    installed_apps = ["fastkit.core", "fastkit.db", "fastkit.tenancy", "fastkit.accounts", "fastkit.permissions"]
+    installed_apps = [
+        "fastkit.core",
+        "fastkit.db",
+        "fastkit.tenancy",
+        "fastkit.accounts",
+        "fastkit.permissions",
+    ]
 
 
 @pytest_asyncio.fixture

@@ -32,7 +32,9 @@ def test_middleware_logs_success(caplog):
     with caplog.at_level(logging.INFO, logger="fastkit.request"):
         TestClient(build_app()).get("/ok")
 
-    assert any("request GET /ok -> 200" in record.getMessage() for record in caplog.records)
+    assert any(
+        "request GET /ok -> 200" in record.getMessage() for record in caplog.records
+    )
 
 
 def test_middleware_logs_failure(caplog):
@@ -63,7 +65,14 @@ class LogSettings:
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch, tmp_path):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.logging": LoggingApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.logging": LoggingApp,
+        },
+    )
 
     settings = LogSettings()
     settings.logging.file = str(tmp_path / "app.log")

@@ -16,7 +16,9 @@ class TenantContext:
         return is_global(self.effective_tenant_id)
 
 
-_current_tenant: ContextVar[TenantContext | None] = ContextVar("fastkit_tenant_context", default=None)
+_current_tenant: ContextVar[TenantContext | None] = ContextVar(
+    "fastkit_tenant_context", default=None
+)
 
 
 def get_tenant_context() -> TenantContext | None:
@@ -41,4 +43,9 @@ def reset_tenant_context(token) -> None:
 
 
 def global_context(source: str = "system", resolved_at: str = "") -> TenantContext:
-    return TenantContext(requested_tenant_id=GLOBAL_TENANT_ID, effective_tenant_id=GLOBAL_TENANT_ID, source=source, resolved_at=resolved_at)
+    return TenantContext(
+        requested_tenant_id=GLOBAL_TENANT_ID,
+        effective_tenant_id=GLOBAL_TENANT_ID,
+        source=source,
+        resolved_at=resolved_at,
+    )

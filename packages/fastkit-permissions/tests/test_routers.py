@@ -31,7 +31,10 @@ class _Security:
 def _endpoints(runtime, security, **kwargs):
     router = build_role_router(runtime, security, **kwargs)
 
-    return {(route.path, tuple(sorted(route.methods))): route.endpoint for route in router.routes}
+    return {
+        (route.path, tuple(sorted(route.methods))): route.endpoint
+        for route in router.routes
+    }
 
 
 def _runtime(service):
@@ -43,7 +46,9 @@ async def test_grouped_permissions_requires_and_returns():
     security = _Security()
     endpoints = _endpoints(_runtime(service), security)
 
-    result = await endpoints[("/meta/permissions", ("GET",))](user=SimpleNamespace(id=1))
+    result = await endpoints[("/meta/permissions", ("GET",))](
+        user=SimpleNamespace(id=1)
+    )
 
     assert result["data"] == [{"group": "General", "permissions": []}]
     assert security.checks == ["roles.manage"]
@@ -52,7 +57,9 @@ async def test_grouped_permissions_requires_and_returns():
 async def test_role_permissions_serializes_ids():
     endpoints = _endpoints(_runtime(_PermissionService()), _Security())
 
-    result = await endpoints[("/roles/{role_id}/permissions", ("GET",))](role_id=5, user=SimpleNamespace(id=1))
+    result = await endpoints[("/roles/{role_id}/permissions", ("GET",))](
+        role_id=5, user=SimpleNamespace(id=1)
+    )
 
     assert result["data"] == {"permission_ids": ["1", "2"]}
 
@@ -63,7 +70,11 @@ async def test_set_role_permissions_saves_with_custom_permission():
     endpoints = _endpoints(_runtime(service), security, manage_permission="acl.edit")
     endpoint = endpoints[("/roles/{role_id}/permissions", ("PUT",))]
 
-    result = await endpoint(role_id=9, payload=RolePermissions(permission_ids=[3, 4]), user=SimpleNamespace(id=1))
+    result = await endpoint(
+        role_id=9,
+        payload=RolePermissions(permission_ids=[3, 4]),
+        user=SimpleNamespace(id=1),
+    )
 
     assert service.saved == (9, [3, 4])
     assert security.checks == ["acl.edit"]

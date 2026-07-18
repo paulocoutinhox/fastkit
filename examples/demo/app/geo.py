@@ -8,6 +8,7 @@ GRID_DELAY = 3.0
 async def grid_delay():
     await asyncio.sleep(GRID_DELAY)
 
+
 COUNTRIES = [("br", "Brazil"), ("us", "United States")]
 
 STATES = {
@@ -44,10 +45,18 @@ def _limit(params):
 
 def _options(pairs, params):
     if params.get("value"):
-        return [{"value": value, "label": label} for value, label in pairs if value == params["value"]]
+        return [
+            {"value": value, "label": label}
+            for value, label in pairs
+            if value == params["value"]
+        ]
 
     query = (params.get("q") or "").lower()
-    matches = [{"value": value, "label": label} for value, label in pairs if query in label.lower()]
+    matches = [
+        {"value": value, "label": label}
+        for value, label in pairs
+        if query in label.lower()
+    ]
 
     return matches[: _limit(params)]
 

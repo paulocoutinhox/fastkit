@@ -13,7 +13,9 @@ class LocaleResolver:
         self._default_locale = normalize(default_locale)
 
     def _current(self) -> set[str]:
-        return {normalize(locale) for locale in self._supported()} | {self._default_locale}
+        return {normalize(locale) for locale in self._supported()} | {
+            self._default_locale
+        }
 
     def _pick(self, locale: str | None) -> str | None:
         if locale is None:
@@ -29,7 +31,13 @@ class LocaleResolver:
 
         return base if base in supported else None
 
-    def resolve(self, user_locale: str | None = None, tenant_locale: str | None = None, cookie_locale: str | None = None, accept_language: str | None = None) -> str:
+    def resolve(
+        self,
+        user_locale: str | None = None,
+        tenant_locale: str | None = None,
+        cookie_locale: str | None = None,
+        accept_language: str | None = None,
+    ) -> str:
         for candidate in (user_locale, tenant_locale, cookie_locale):
             picked = self._pick(candidate)
 

@@ -6,7 +6,11 @@ logger = logging.getLogger("demo.tasks")
 async def send_welcome_email(context, payload):
     logger.info("welcome email queued for delivery (%s)", payload)
 
-    return {"sent": True, "template": payload.get("template"), "locale": payload.get("locale")}
+    return {
+        "sent": True,
+        "template": payload.get("template"),
+        "locale": payload.get("locale"),
+    }
 
 
 async def sync(context, payload):

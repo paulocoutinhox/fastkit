@@ -44,7 +44,9 @@ def test_global_tenant_conversions():
 def test_context_lifecycle():
     assert get_tenant_context() is None
 
-    context = TenantContext(requested_tenant_id=1, effective_tenant_id=1, source="header", resolved_at="now")
+    context = TenantContext(
+        requested_tenant_id=1, effective_tenant_id=1, source="header", resolved_at="now"
+    )
     token = set_tenant_context(context)
 
     try:
@@ -96,16 +98,24 @@ def test_explicit_resolver():
 
 
 def test_resolver_chain_returns_first_match():
-    chain = TenantResolverChain([HeaderTenantResolver(), SubdomainTenantResolver("example.com")])
+    chain = TenantResolverChain(
+        [HeaderTenantResolver(), SubdomainTenantResolver("example.com")]
+    )
 
     assert chain.resolve(fake_request(host="acme.example.com")) == ("acme", "subdomain")
-    assert chain.resolve(fake_request(headers={"X-Tenant": "beta"})) == ("beta", "header")
+    assert chain.resolve(fake_request(headers={"X-Tenant": "beta"})) == (
+        "beta",
+        "header",
+    )
     assert chain.resolve(fake_request(host="example.com")) is None
 
 
 def test_resolve_effective_tenant():
     assert resolve_effective_tenant(identity_tenant_id=0, requested_tenant_id=5) == 5
-    assert resolve_effective_tenant(identity_tenant_id=0, requested_tenant_id=None) == GLOBAL_TENANT_ID
+    assert (
+        resolve_effective_tenant(identity_tenant_id=0, requested_tenant_id=None)
+        == GLOBAL_TENANT_ID
+    )
     assert resolve_effective_tenant(identity_tenant_id=3, requested_tenant_id=5) == 3
 
 
@@ -122,7 +132,9 @@ def test_assert_access_rules():
 async def test_service_get_and_require(database):
     async with database.session_factory() as session:
         session.add(Tenant(code="acme", name="Acme"))
-        session.add(Tenant(code="ghost", name="Ghost", status=TenantStatus.disabled.value))
+        session.add(
+            Tenant(code="ghost", name="Ghost", status=TenantStatus.disabled.value)
+        )
         await session.commit()
 
     service = TenantService(database)

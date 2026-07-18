@@ -5,27 +5,60 @@ def _field_with_value(field: dict, value) -> dict:
     return item
 
 
-def form_context(schema: dict, values: dict | None, label: str, mode: str, path: str, resource: str, record_id=None, inline_data: dict | None = None, flags: dict | None = None) -> dict:
+def form_context(
+    schema: dict,
+    values: dict | None,
+    label: str,
+    mode: str,
+    path: str,
+    resource: str,
+    record_id=None,
+    inline_data: dict | None = None,
+    flags: dict | None = None,
+) -> dict:
     fieldsets = []
 
     for fieldset in schema["fieldsets"]:
-        fields = [_field_with_value(field, (values or {}).get(field["name"]) if values else field.get("default")) for field in fieldset["fields"]]
+        fields = [
+            _field_with_value(
+                field,
+                (values or {}).get(field["name"]) if values else field.get("default"),
+            )
+            for field in fieldset["fields"]
+        ]
 
         if fields:
-            fieldsets.append({"title": fieldset["title"], "description": fieldset["description"], "fields": fields})
+            fieldsets.append(
+                {
+                    "title": fieldset["title"],
+                    "description": fieldset["description"],
+                    "fields": fields,
+                }
+            )
 
     inlines = []
 
     for inline in schema.get("inlines", []):
-        rows = [{"id": row.get("id"), "fields": [_field_with_value(field, row.get(field["name"])) for field in inline["fields"]]} for row in (inline_data or {}).get(inline["name"], [])]
-        inlines.append({
-            "name": inline["name"],
-            "label": inline["label"],
-            "fields": inline["fields"],
-            "min_items": inline["min_items"],
-            "max_items": inline["max_items"],
-            "rows": rows,
-        })
+        rows = [
+            {
+                "id": row.get("id"),
+                "fields": [
+                    _field_with_value(field, row.get(field["name"]))
+                    for field in inline["fields"]
+                ],
+            }
+            for row in (inline_data or {}).get(inline["name"], [])
+        ]
+        inlines.append(
+            {
+                "name": inline["name"],
+                "label": inline["label"],
+                "fields": inline["fields"],
+                "min_items": inline["min_items"],
+                "max_items": inline["max_items"],
+                "rows": rows,
+            }
+        )
 
     return {
         "resource": resource,
@@ -49,13 +82,17 @@ def profile_context(profile: dict, path: str, api_path: str) -> dict:
         "first_name": profile.get("first_name") or "",
         "last_name": profile.get("last_name") or "",
         "avatar_url": profile.get("avatar_url"),
-        "initials": (profile.get("display_name") or profile.get("email") or "?")[:2].upper(),
+        "initials": (profile.get("display_name") or profile.get("email") or "?")[
+            :2
+        ].upper(),
         "identifiers": profile.get("identifiers", []),
         "identifier_types": profile.get("identifier_types", []),
     }
 
 
-def report_context(report: dict, name: str, path: str, api_path: str, query: str = "") -> dict:
+def report_context(
+    report: dict, name: str, path: str, api_path: str, query: str = ""
+) -> dict:
     filters = [dict(item) for item in report.get("filters", [])]
 
     return {
@@ -75,7 +112,15 @@ def report_context(report: dict, name: str, path: str, api_path: str, query: str
     }
 
 
-def detail_context(schema: dict, data: dict, label: str, path: str, resource: str, record_id, flags: dict) -> dict:
+def detail_context(
+    schema: dict,
+    data: dict,
+    label: str,
+    path: str,
+    resource: str,
+    record_id,
+    flags: dict,
+) -> dict:
     html = data.get("_html", {})
     fieldsets = []
 
@@ -89,7 +134,13 @@ def detail_context(schema: dict, data: dict, label: str, path: str, resource: st
             fields.append(item)
 
         if fields:
-            fieldsets.append({"title": fieldset["title"], "description": fieldset["description"], "fields": fields})
+            fieldsets.append(
+                {
+                    "title": fieldset["title"],
+                    "description": fieldset["description"],
+                    "fields": fields,
+                }
+            )
 
     return {
         "resource": resource,
@@ -130,7 +181,14 @@ def _filter_groups(filters: list, fieldsets: list) -> list:
     return groups
 
 
-def list_context(schema: dict, result: dict, path: str, search: str | None, sort: str | None, applied_filters: dict | None = None) -> dict:
+def list_context(
+    schema: dict,
+    result: dict,
+    path: str,
+    search: str | None,
+    sort: str | None,
+    applied_filters: dict | None = None,
+) -> dict:
     applied = applied_filters or {}
     filters = []
 
@@ -160,12 +218,20 @@ def list_context(schema: dict, result: dict, path: str, search: str | None, sort
             is_active = column["name"] == active_name
             item["sort_active"] = is_active
             item["sort_desc"] = is_active and active_desc
-            item["sort_value"] = f"-{column['name']}" if is_active and not active_desc else column["name"]
+            item["sort_value"] = (
+                f"-{column['name']}"
+                if is_active and not active_desc
+                else column["name"]
+            )
 
         columns.append(item)
 
-    bulk_actions = [action for action in schema["actions"] if action.get("scope") == "bulk"]
-    collection_actions = [action for action in schema["actions"] if action.get("scope") == "collection"]
+    bulk_actions = [
+        action for action in schema["actions"] if action.get("scope") == "bulk"
+    ]
+    collection_actions = [
+        action for action in schema["actions"] if action.get("scope") == "collection"
+    ]
     has_bulk = bool(bulk_actions) or schema["flags"].get("can_delete", False)
     pagination = result["pagination"]
     count = len(result["rows"])

@@ -3,9 +3,37 @@ from html.parser import HTMLParser
 
 DEFAULT_ALLOWED_TAGS = frozenset(
     {
-        "p", "br", "strong", "b", "em", "i", "u", "s", "blockquote", "code", "pre",
-        "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "a", "img", "hr",
-        "table", "thead", "tbody", "tr", "th", "td", "span", "div",
+        "p",
+        "br",
+        "strong",
+        "b",
+        "em",
+        "i",
+        "u",
+        "s",
+        "blockquote",
+        "code",
+        "pre",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ul",
+        "ol",
+        "li",
+        "a",
+        "img",
+        "hr",
+        "table",
+        "thead",
+        "tbody",
+        "tr",
+        "th",
+        "td",
+        "span",
+        "div",
     }
 )
 
@@ -46,7 +74,9 @@ class _Sanitizer(HTMLParser):
         self._skip_depth = 0
 
     def _allowed_attributes(self, tag: str) -> frozenset:
-        return self._allowed_attrs.get(tag, frozenset()) | self._allowed_attrs.get("*", frozenset())
+        return self._allowed_attrs.get(tag, frozenset()) | self._allowed_attrs.get(
+            "*", frozenset()
+        )
 
     def handle_starttag(self, tag, attrs):
         if tag in _DROP_CONTENT_TAGS:
@@ -96,10 +126,14 @@ class _Sanitizer(HTMLParser):
         return "".join(self._parts)
 
 
-def sanitize_html(html: str, allowed_tags: frozenset | None = None, allowed_attrs: dict | None = None) -> str:
+def sanitize_html(
+    html: str, allowed_tags: frozenset | None = None, allowed_attrs: dict | None = None
+) -> str:
     """Return HTML containing only allow-listed tags, attributes and safe URLs."""
 
-    parser = _Sanitizer(allowed_tags or DEFAULT_ALLOWED_TAGS, allowed_attrs or DEFAULT_ALLOWED_ATTRS)
+    parser = _Sanitizer(
+        allowed_tags or DEFAULT_ALLOWED_TAGS, allowed_attrs or DEFAULT_ALLOWED_ATTRS
+    )
     parser.feed(html)
     parser.close()
 

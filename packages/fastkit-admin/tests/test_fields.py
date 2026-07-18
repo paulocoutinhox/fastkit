@@ -102,7 +102,9 @@ def test_datetime_field():
 
 
 def test_select_field():
-    field = SelectField("status", choices=[("a", "Active"), ("i", "Inactive")], required=True)
+    field = SelectField(
+        "status", choices=[("a", "Active"), ("i", "Inactive")], required=True
+    )
     schema = field.to_schema()
 
     assert schema["choices"][0] == {"value": "a", "label": "Active"}
@@ -176,7 +178,11 @@ def test_time_field():
 def test_richtext_field_sanitizes():
     from fastkit_admin.fields import RichTextField
 
-    field = RichTextField("body", upload_url="/admin/api/uploads", sanitizer=lambda html: html.replace("<script>", ""))
+    field = RichTextField(
+        "body",
+        upload_url="/admin/api/uploads",
+        sanitizer=lambda html: html.replace("<script>", ""),
+    )
     schema = field.to_schema()
 
     assert schema["type"] == "richtext"
@@ -188,7 +194,9 @@ def test_richtext_field_sanitizes():
 def test_richtext_sanitizes_by_default():
     from fastkit_admin.fields import RichTextField
 
-    cleaned = RichTextField("body").parse_value('<p>ok</p><img src=x onerror="alert(1)"><script>alert(1)</script>')
+    cleaned = RichTextField("body").parse_value(
+        '<p>ok</p><img src=x onerror="alert(1)"><script>alert(1)</script>'
+    )
 
     assert "<p>ok</p>" in cleaned
     assert "onerror" not in cleaned
@@ -313,7 +321,9 @@ def test_masked_field_validation_and_schema():
     from fastkit_core.errors.exceptions import ValidationError
     from fastkit_admin.fields import MaskedField
 
-    field = MaskedField("cpf", mask="###.###.###-##", pattern=r"\d{3}\.\d{3}\.\d{3}-\d{2}")
+    field = MaskedField(
+        "cpf", mask="###.###.###-##", pattern=r"\d{3}\.\d{3}\.\d{3}-\d{2}"
+    )
     schema = field.to_schema()
 
     assert schema["type"] == "masked"
@@ -328,7 +338,13 @@ def test_masked_field_validation_and_schema():
 def test_lookup_field_schema():
     from fastkit_admin.fields import LookupField
 
-    field = LookupField("owner_id", depends_on=["team_id"], min_chars=2, initial_limit=3, search_limit=25)
+    field = LookupField(
+        "owner_id",
+        depends_on=["team_id"],
+        min_chars=2,
+        initial_limit=3,
+        search_limit=25,
+    )
     schema = field.to_schema()
 
     assert schema["type"] == "lookup"
@@ -351,7 +367,12 @@ def test_lookup_field_schema_defaults():
 def test_translations_field_schema():
     from fastkit_admin.fields import TranslationsField
 
-    field = TranslationsField("translations", languages_url="/content/languages", value_url="/content/{id}/translations", save_url="/content/{id}/translations")
+    field = TranslationsField(
+        "translations",
+        languages_url="/content/languages",
+        value_url="/content/{id}/translations",
+        save_url="/content/{id}/translations",
+    )
     schema = field.to_schema()
 
     assert field.virtual is True

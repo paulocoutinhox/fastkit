@@ -43,11 +43,29 @@ class TaskRegistry:
         return list(self._tasks.keys())
 
     def queues(self) -> list[str]:
-        return sorted({definition.queue for definition in self._tasks.values()}) or ["default"]
+        return sorted({definition.queue for definition in self._tasks.values()}) or [
+            "default"
+        ]
 
-    def task(self, name: str, queue: str = "default", max_attempts: int = 1, timeout: int = 60, retry_delay: int = 5):
+    def task(
+        self,
+        name: str,
+        queue: str = "default",
+        max_attempts: int = 1,
+        timeout: int = 60,
+        retry_delay: int = 5,
+    ):
         def decorator(handler):
-            self.register(TaskDefinition(name=name, handler=handler, queue=queue, max_attempts=max_attempts, timeout=timeout, retry_delay=retry_delay))
+            self.register(
+                TaskDefinition(
+                    name=name,
+                    handler=handler,
+                    queue=queue,
+                    max_attempts=max_attempts,
+                    timeout=timeout,
+                    retry_delay=retry_delay,
+                )
+            )
 
             return handler
 

@@ -3,7 +3,10 @@ from fastkit_core.health.base import HealthResult, HealthStatus
 from fastkit_storage.provider import StorageStatus
 from fastkit_storage.providers import storage_providers
 
-_STATUS_MAP = {StorageStatus.healthy: HealthStatus.healthy, StorageStatus.unavailable: HealthStatus.unavailable}
+_STATUS_MAP = {
+    StorageStatus.healthy: HealthStatus.healthy,
+    StorageStatus.unavailable: HealthStatus.unavailable,
+}
 
 
 def build_provider(settings):

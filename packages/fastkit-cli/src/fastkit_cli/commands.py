@@ -37,7 +37,9 @@ async def routes_list(runtime) -> list[str]:
 async def health_report(runtime) -> list[str]:
     report = await runtime.health.run()
 
-    return [f"{check.name}: {check.status.value}" for check in report.checks] or ["no health checks registered"]
+    return [f"{check.name}: {check.status.value}" for check in report.checks] or [
+        "no health checks registered"
+    ]
 
 
 async def db_bootstrap(runtime) -> list[str]:

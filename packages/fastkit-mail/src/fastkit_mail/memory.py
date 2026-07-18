@@ -1,4 +1,9 @@
-from fastkit_mail.provider import EmailMessage, EmailProviderResult, ProviderHealth, ProviderStatus
+from fastkit_mail.provider import (
+    EmailMessage,
+    EmailProviderResult,
+    ProviderHealth,
+    ProviderStatus,
+)
 
 
 class MemoryEmailProvider:
@@ -11,7 +16,9 @@ class MemoryEmailProvider:
 
     async def send(self, message: EmailMessage) -> EmailProviderResult:
         if self.fail:
-            return EmailProviderResult(success=False, error="memory provider forced failure")
+            return EmailProviderResult(
+                success=False, error="memory provider forced failure"
+            )
 
         self._counter += 1
         self.sent.append(message)

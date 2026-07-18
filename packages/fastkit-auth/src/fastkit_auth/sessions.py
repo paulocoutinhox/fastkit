@@ -20,7 +20,14 @@ class SessionService:
         self._ttl_seconds = ttl_seconds
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
-    async def create(self, user_id, identity_tenant_id: int | None, effective_tenant_id: int | None, ip_address: str | None = None, user_agent: str | None = None) -> tuple[Session, str]:
+    async def create(
+        self,
+        user_id,
+        identity_tenant_id: int | None,
+        effective_tenant_id: int | None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> tuple[Session, str]:
         raw_token = secrets.token_urlsafe(32)
         now = self._clock()
 
@@ -47,7 +54,11 @@ class SessionService:
         now = self._clock()
 
         async with self._database.session_factory() as session:
-            record = (await session.execute(select(Session).where(Session.token_hash == token_hash))).scalar_one_or_none()
+            record = (
+                await session.execute(
+                    select(Session).where(Session.token_hash == token_hash)
+                )
+            ).scalar_one_or_none()
 
             if record is None or record.status != SessionStatus.active.value:
                 return None
@@ -69,7 +80,11 @@ class SessionService:
         now = self._clock()
 
         async with self._database.session_factory() as session:
-            record = (await session.execute(select(Session).where(Session.token_hash == token_hash))).scalar_one_or_none()
+            record = (
+                await session.execute(
+                    select(Session).where(Session.token_hash == token_hash)
+                )
+            ).scalar_one_or_none()
 
             if record is None:
                 return False

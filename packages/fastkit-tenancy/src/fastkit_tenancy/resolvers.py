@@ -48,7 +48,7 @@ class PathTenantResolver:
         if not path.startswith(self._prefix):
             return None
 
-        remainder = path[len(self._prefix):].split("/", 1)[0]
+        remainder = path[len(self._prefix) :].split("/", 1)[0]
 
         return remainder or None
 

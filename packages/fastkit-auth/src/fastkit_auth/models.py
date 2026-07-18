@@ -20,12 +20,22 @@ class Session(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     identity_tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     effective_tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
-    status: Mapped[str] = mapped_column(String(20), default=SessionStatus.active.value, nullable=False)
+    token_hash: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True, index=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default=SessionStatus.active.value, nullable=False
+    )
 
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

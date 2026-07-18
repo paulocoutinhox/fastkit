@@ -13,8 +13,14 @@ class I18nApp(FastKitApp):
     def register_services(self, context: BootstrapContext) -> None:
         settings = context.settings.i18n
 
-        translator = Translator(BASE_CATALOGS, supported=settings.supported_locales, default_locale=settings.default_locale)
-        resolver = LocaleResolver(supported=translator.supported, default_locale=settings.default_locale)
+        translator = Translator(
+            BASE_CATALOGS,
+            supported=settings.supported_locales,
+            default_locale=settings.default_locale,
+        )
+        resolver = LocaleResolver(
+            supported=translator.supported, default_locale=settings.default_locale
+        )
 
         context.set_component("translator", translator)
         context.set_component("locale_resolver", resolver)

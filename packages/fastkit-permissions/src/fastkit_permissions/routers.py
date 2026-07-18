@@ -8,7 +8,9 @@ class RolePermissions(BaseModel):
     permission_ids: list[int]
 
 
-def build_role_router(runtime, security, manage_permission: str = "roles.manage") -> APIRouter:
+def build_role_router(
+    runtime, security, manage_permission: str = "roles.manage"
+) -> APIRouter:
     """Role editor endpoints backed by the permission service.
 
     ``security`` supplies ``get_current_user`` and ``authorize``; the consumer decides the
@@ -33,14 +35,22 @@ def build_role_router(runtime, security, manage_permission: str = "roles.manage"
 
         ids = await permission_service.role_permission_ids(role_id)
 
-        return success_envelope(data={"permission_ids": [str(identifier) for identifier in ids]})
+        return success_envelope(
+            data={"permission_ids": [str(identifier) for identifier in ids]}
+        )
 
     @router.put("/roles/{role_id}/permissions")
-    async def set_role_permissions(role_id: int, payload: RolePermissions, user=Depends(security.get_current_user)):
+    async def set_role_permissions(
+        role_id: int, payload: RolePermissions, user=Depends(security.get_current_user)
+    ):
         await _require(user)
 
         await permission_service.set_role_permissions(role_id, payload.permission_ids)
 
-        return success_envelope(message=build_message("roles.permissions_updated", "Role permissions updated."))
+        return success_envelope(
+            message=build_message(
+                "roles.permissions_updated", "Role permissions updated."
+            )
+        )
 
     return router

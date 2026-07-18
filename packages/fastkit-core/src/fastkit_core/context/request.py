@@ -12,7 +12,9 @@ class RequestContext:
     trace_id: str | None = None
 
 
-_current_request: ContextVar[RequestContext | None] = ContextVar("fastkit_request_context", default=None)
+_current_request: ContextVar[RequestContext | None] = ContextVar(
+    "fastkit_request_context", default=None
+)
 
 
 def get_request_context() -> RequestContext:

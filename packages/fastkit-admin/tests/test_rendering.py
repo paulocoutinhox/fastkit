@@ -16,7 +16,17 @@ def test_renders_package_template():
             "primary_color": "#000",
             "primary_color_hover": "#111",
             "captcha": {"provider": None},
-            "login": {"identifier": {"label": "login.email", "type": "email", "autocomplete": "username", "default": ""}, "identifier_types": [], "password": True, "oauth": []},
+            "login": {
+                "identifier": {
+                    "label": "login.email",
+                    "type": "email",
+                    "autocomplete": "username",
+                    "default": "",
+                },
+                "identifier_types": [],
+                "password": True,
+                "oauth": [],
+            },
             "client_json": "{}",
         },
     )
@@ -28,7 +38,9 @@ def test_renders_package_template():
 def test_consumer_directory_overrides_package(tmp_path):
     override = tmp_path / "admin"
     override.mkdir()
-    (override / "_extra_head.html").write_text("<meta name='marker' content='overridden'>")
+    (override / "_extra_head.html").write_text(
+        "<meta name='marker' content='overridden'>"
+    )
 
     renderer = AdminRenderer(override_dirs=[str(tmp_path)])
     html = renderer.render(

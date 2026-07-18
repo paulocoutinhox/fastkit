@@ -8,7 +8,9 @@ def sign(secret: str, key: str, expires_at: int, method: str) -> str:
     return hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
-def verify(secret: str, key: str, expires_at: int, method: str, signature: str, now: int) -> bool:
+def verify(
+    secret: str, key: str, expires_at: int, method: str, signature: str, now: int
+) -> bool:
     if now > expires_at:
         return False
 

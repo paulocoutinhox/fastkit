@@ -168,7 +168,11 @@ def _runtime_translation(request: Request):
         return None, None
 
     resolver = runtime.try_component("locale_resolver")
-    locale = resolver.resolve(accept_language=request.headers.get("accept-language")) if resolver is not None else None
+    locale = (
+        resolver.resolve(accept_language=request.headers.get("accept-language"))
+        if resolver is not None
+        else None
+    )
 
     return translator, locale
 
@@ -213,7 +217,9 @@ def localize_field_errors(request: Request, exc: FastKitError) -> None:
         return
 
     for field_error in exc.field_errors:
-        field_error.message = translator.gettext(field_error.code, locale=locale, **field_error.params)
+        field_error.message = translator.gettext(
+            field_error.code, locale=locale, **field_error.params
+        )
 
 
 def _field_from_loc(loc: tuple) -> tuple[str, list[str]]:
@@ -226,7 +232,10 @@ def _field_from_loc(loc: tuple) -> tuple[str, list[str]]:
 
 
 def _scalar_params(ctx) -> dict:
-    return {key: value if isinstance(value, (str, int, float, bool)) else str(value) for key, value in (ctx or {}).items()}
+    return {
+        key: value if isinstance(value, (str, int, float, bool)) else str(value)
+        for key, value in (ctx or {}).items()
+    }
 
 
 def normalize_validation_error(exc: RequestValidationError) -> ValidationError:
@@ -236,12 +245,21 @@ def normalize_validation_error(exc: RequestValidationError) -> ValidationError:
         field, path = _field_from_loc(tuple(detail.get("loc", ())))
         code = PYDANTIC_CODE_MAP.get(detail.get("type", ""), GENERIC_VALIDATION_CODE)
 
-        field_errors.append(FieldError(field=field, code=code, path=path, params=_scalar_params(detail.get("ctx"))))
+        field_errors.append(
+            FieldError(
+                field=field,
+                code=code,
+                path=path,
+                params=_scalar_params(detail.get("ctx")),
+            )
+        )
 
     return ValidationError(VALIDATION_FAILED, field_errors=field_errors)
 
 
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     error = normalize_validation_error(exc)
     localize_field_errors(request, error)
     envelope = error_envelope(error, text=resolve_error_text(request, error))
@@ -249,15 +267,21 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=VALIDATION_FAILED.http_status, content=envelope)
 
 
-async def fastkit_exception_handler(request: Request, exc: FastKitError) -> JSONResponse:
+async def fastkit_exception_handler(
+    request: Request, exc: FastKitError
+) -> JSONResponse:
     error_id = None
 
     if exc.error_code.should_log:
         error_id = f"ERR-{uuid.uuid4()}"
-        logger.error("fastkit error %s (%s)", exc.error_code.code, error_id, exc_info=exc)
+        logger.error(
+            "fastkit error %s (%s)", exc.error_code.code, error_id, exc_info=exc
+        )
 
     localize_field_errors(request, exc)
-    envelope = error_envelope(exc, error_id=error_id, text=resolve_error_text(request, exc))
+    envelope = error_envelope(
+        exc, error_id=error_id, text=resolve_error_text(request, exc)
+    )
 
     return JSONResponse(status_code=exc.error_code.http_status, content=envelope)
 
@@ -274,11 +298,15 @@ def error_code_for_status(status_code: int) -> ErrorCode:
     return HTTP_ERROR
 
 
-async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> JSONResponse:
     error = FastKitError(error_code_for_status(exc.status_code))
     envelope = error_envelope(error, text=resolve_error_text(request, error))
 
-    return JSONResponse(status_code=exc.status_code, content=envelope, headers=exc.headers)
+    return JSONResponse(
+        status_code=exc.status_code, content=envelope, headers=exc.headers
+    )
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -287,6 +315,11 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
     error = FastKitError(INTERNAL_ERROR)
     request_id = getattr(request.state, "request_id", None)
-    envelope = error_envelope(error, error_id=error_id, text=resolve_error_text(request, error), request_id=request_id)
+    envelope = error_envelope(
+        error,
+        error_id=error_id,
+        text=resolve_error_text(request, error),
+        request_id=request_id,
+    )
 
     return JSONResponse(status_code=INTERNAL_ERROR.http_status, content=envelope)

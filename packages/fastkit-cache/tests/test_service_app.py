@@ -47,7 +47,14 @@ class Settings:
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch, tmp_path):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.cache": CacheApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.cache": CacheApp,
+        },
+    )
 
     settings = Settings()
     settings.cache.directory = str(tmp_path / "cache")

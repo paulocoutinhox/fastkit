@@ -9,10 +9,20 @@ async def test_global_tenant_identifier_uniqueness_is_enforced_at_db_level(servi
 
     from fastkit_accounts.models import LoginIdentifier
 
-    user = await service.create_user(tenant_id=0, identifiers=[("email", "root@x.com")], is_root=True)
+    user = await service.create_user(
+        tenant_id=0, identifiers=[("email", "root@x.com")], is_root=True
+    )
 
     async with service._database.session_factory() as session:
-        session.add(LoginIdentifier(user_id=user.id, tenant_id=None, type="email", value="root@x.com", normalized_value="root@x.com"))
+        session.add(
+            LoginIdentifier(
+                user_id=user.id,
+                tenant_id=None,
+                type="email",
+                value="root@x.com",
+                normalized_value="root@x.com",
+            )
+        )
 
         with pytest.raises(IntegrityError):
             await session.commit()
@@ -27,7 +37,12 @@ async def test_profile_mutators_reject_a_missing_user(service):
 
 
 async def test_create_user_with_identifiers(service):
-    user = await service.create_user(tenant_id=1, identifiers=[("email", "Owner@Acme.com"), ("username", "Owner")], display_name="Owner", is_staff=True)
+    user = await service.create_user(
+        tenant_id=1,
+        identifiers=[("email", "Owner@Acme.com"), ("username", "Owner")],
+        display_name="Owner",
+        is_staff=True,
+    )
 
     assert user.tenant_id == 1
     assert user.email == "owner@acme.com"
@@ -39,7 +54,9 @@ async def test_create_user_with_identifiers(service):
 
 
 async def test_create_global_root_user(service):
-    user = await service.create_user(tenant_id=0, identifiers=[("email", "root@platform.com")], is_root=True)
+    user = await service.create_user(
+        tenant_id=0, identifiers=[("email", "root@platform.com")], is_root=True
+    )
 
     assert user.tenant_id is None
     assert user.is_root is True
@@ -47,7 +64,9 @@ async def test_create_global_root_user(service):
 
 async def test_root_must_be_global(service):
     with pytest.raises(ConflictError, match="global tenant"):
-        await service.create_user(tenant_id=5, identifiers=[("email", "x@y.com")], is_root=True)
+        await service.create_user(
+            tenant_id=5, identifiers=[("email", "x@y.com")], is_root=True
+        )
 
 
 async def test_duplicate_identifier_same_tenant_rejected(service):
@@ -59,12 +78,17 @@ async def test_duplicate_identifier_same_tenant_rejected(service):
 
 async def test_duplicate_identifier_within_one_payload_is_a_conflict_not_a_500(service):
     with pytest.raises(ConflictError, match="already exists"):
-        await service.create_user(tenant_id=1, identifiers=[("email", "twice@acme.com"), ("email", "twice@acme.com")])
+        await service.create_user(
+            tenant_id=1,
+            identifiers=[("email", "twice@acme.com"), ("email", "twice@acme.com")],
+        )
 
 
 async def test_same_identifier_across_tenants_allowed(service):
     await service.create_user(tenant_id=1, identifiers=[("email", "same@acme.com")])
-    other = await service.create_user(tenant_id=2, identifiers=[("email", "same@acme.com")])
+    other = await service.create_user(
+        tenant_id=2, identifiers=[("email", "same@acme.com")]
+    )
 
     assert other.tenant_id == 2
 
@@ -75,10 +99,16 @@ async def test_invalid_identifier_rejected(service):
 
 
 async def test_find_candidates_local_and_global(service):
-    local = await service.create_user(tenant_id=1, identifiers=[("email", "user@acme.com")])
-    global_user = await service.create_user(tenant_id=0, identifiers=[("email", "user@acme.com")])
+    local = await service.create_user(
+        tenant_id=1, identifiers=[("email", "user@acme.com")]
+    )
+    global_user = await service.create_user(
+        tenant_id=0, identifiers=[("email", "user@acme.com")]
+    )
 
-    candidates = await service.find_candidates(requested_tenant_id=1, identifier_type="email", raw_value="user@acme.com")
+    candidates = await service.find_candidates(
+        requested_tenant_id=1, identifier_type="email", raw_value="user@acme.com"
+    )
     ids = {candidate.id for candidate in candidates}
 
     assert local.id in ids
@@ -86,11 +116,19 @@ async def test_find_candidates_local_and_global(service):
 
 
 async def test_find_candidates_empty(service):
-    assert await service.find_candidates(requested_tenant_id=1, identifier_type="email", raw_value="ghost@acme.com") == []
+    assert (
+        await service.find_candidates(
+            requested_tenant_id=1, identifier_type="email", raw_value="ghost@acme.com"
+        )
+        == []
+    )
 
 
 async def test_create_user_with_phone_mirrors_field(service):
-    user = await service.create_user(tenant_id=1, identifiers=[("phone", "+5511988887777"), ("cpf", "123.456.789-09")])
+    user = await service.create_user(
+        tenant_id=1,
+        identifiers=[("phone", "+5511988887777"), ("cpf", "123.456.789-09")],
+    )
 
     assert user.phone == "+5511988887777"
 
@@ -114,13 +152,17 @@ def test_registry_and_service_expose_identifier_types():
 
 def test_user_display_label():
     assert User(display_name="Root").display_label() == "Root"
-    assert User(first_name="Ada", last_name="Lovelace").display_label() == "Ada Lovelace"
+    assert (
+        User(first_name="Ada", last_name="Lovelace").display_label() == "Ada Lovelace"
+    )
     assert User(email="ada@acme.com").display_label() == "ada@acme.com"
     assert User(id=7).display_label() == "7"
 
 
 async def test_get_user_and_identifiers(service):
-    user = await service.create_user(tenant_id=1, identifiers=[("email", "u@acme.com"), ("phone", "+5511988887777")])
+    user = await service.create_user(
+        tenant_id=1, identifiers=[("email", "u@acme.com"), ("phone", "+5511988887777")]
+    )
 
     loaded = await service.get_user(user.id)
     assert loaded.id == user.id
@@ -130,9 +172,13 @@ async def test_get_user_and_identifiers(service):
 
 
 async def test_add_and_remove_identifier(service):
-    user = await service.create_user(tenant_id=1, identifiers=[("email", "add@acme.com")])
+    user = await service.create_user(
+        tenant_id=1, identifiers=[("email", "add@acme.com")]
+    )
 
-    added = await service.add_identifier(user.id, tenant_id=1, identifier_type="cpf", raw_value="123.456.789-09")
+    added = await service.add_identifier(
+        user.id, tenant_id=1, identifier_type="cpf", raw_value="123.456.789-09"
+    )
     assert added.type == "cpf"
     assert added.normalized_value == "12345678909"
 
@@ -149,15 +195,23 @@ async def test_add_and_remove_identifier(service):
 async def test_add_identifier_rejects_duplicate(service):
     from fastkit_core.errors.exceptions import ConflictError
 
-    user = await service.create_user(tenant_id=1, identifiers=[("email", "dup2@acme.com")])
+    user = await service.create_user(
+        tenant_id=1, identifiers=[("email", "dup2@acme.com")]
+    )
 
     with pytest.raises(ConflictError, match="already exists"):
-        await service.add_identifier(user.id, tenant_id=1, identifier_type="email", raw_value="dup2@acme.com")
+        await service.add_identifier(
+            user.id, tenant_id=1, identifier_type="email", raw_value="dup2@acme.com"
+        )
 
 
 async def test_remove_identifier_rejects_other_owner(service):
-    owner = await service.create_user(tenant_id=1, identifiers=[("email", "owner2@acme.com")])
-    other = await service.create_user(tenant_id=1, identifiers=[("email", "other2@acme.com")])
+    owner = await service.create_user(
+        tenant_id=1, identifiers=[("email", "owner2@acme.com")]
+    )
+    other = await service.create_user(
+        tenant_id=1, identifiers=[("email", "other2@acme.com")]
+    )
 
     other_identifier = (await service.list_identifiers(other.id))[0]
 
@@ -168,9 +222,17 @@ async def test_update_profile_and_avatar(service):
     from fastkit_accounts.models import UserProfile
 
     avatar_id = 4242
-    user = await service.create_user(tenant_id=1, identifiers=[("email", "prof@acme.com")], display_name="Old")
+    user = await service.create_user(
+        tenant_id=1, identifiers=[("email", "prof@acme.com")], display_name="Old"
+    )
 
-    updated = await service.update_profile(user.id, display_name="New", first_name="Ada", timezone="Europe/Lisbon", avatar_file_id=avatar_id)
+    updated = await service.update_profile(
+        user.id,
+        display_name="New",
+        first_name="Ada",
+        timezone="Europe/Lisbon",
+        avatar_file_id=avatar_id,
+    )
 
     assert updated.display_name == "New"
     assert updated.first_name == "Ada"
@@ -182,7 +244,9 @@ async def test_update_profile_and_avatar(service):
 
     # cover the branch that lazily creates a profile when one is missing
     async with service._database.session_factory() as session:
-        await session.execute(UserProfile.__table__.delete().where(UserProfile.user_id == user.id))
+        await session.execute(
+            UserProfile.__table__.delete().where(UserProfile.user_id == user.id)
+        )
         await session.commit()
 
     new_avatar = 5252
@@ -191,7 +255,9 @@ async def test_update_profile_and_avatar(service):
 
 
 async def test_set_password_hash(service):
-    user = await service.create_user(tenant_id=1, identifiers=[("email", "pwd@acme.com")])
+    user = await service.create_user(
+        tenant_id=1, identifiers=[("email", "pwd@acme.com")]
+    )
 
     await service.set_password_hash(user.id, "new-hash")
 
@@ -221,8 +287,12 @@ async def test_consumer_can_add_a_custom_identifier_type(database):
 
     assert "membership_number" in service.identifier_types()
 
-    user = await service.create_user(tenant_id=1, identifiers=[("membership_number", " mb-7 ")])
+    user = await service.create_user(
+        tenant_id=1, identifiers=[("membership_number", " mb-7 ")]
+    )
 
-    candidates = await service.find_candidates(requested_tenant_id=1, identifier_type="membership_number", raw_value="mb-7")
+    candidates = await service.find_candidates(
+        requested_tenant_id=1, identifier_type="membership_number", raw_value="mb-7"
+    )
 
     assert [candidate.id for candidate in candidates] == [user.id]

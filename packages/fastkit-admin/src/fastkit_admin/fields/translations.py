@@ -10,7 +10,9 @@ class TranslationsField(AdminField):
 
     field_type = "translations"
 
-    def __init__(self, *args, languages_url: str, value_url: str, save_url: str, **kwargs):
+    def __init__(
+        self, *args, languages_url: str, value_url: str, save_url: str, **kwargs
+    ):
         kwargs.setdefault("virtual", True)
         super().__init__(*args, **kwargs)
         self.languages_url = languages_url

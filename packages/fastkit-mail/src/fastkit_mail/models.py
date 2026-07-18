@@ -37,12 +37,18 @@ class EmailDelivery(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     html_body: Mapped[str] = mapped_column(Text, nullable=False)
     text_body: Mapped[str] = mapped_column(Text, nullable=False)
 
-    status: Mapped[str] = mapped_column(String(20), default=DeliveryStatus.pending.value, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(
+        String(20), default=DeliveryStatus.pending.value, nullable=False, index=True
+    )
     provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
 
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     last_error_code: Mapped[str | None] = mapped_column(String(120), nullable=True)
     last_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

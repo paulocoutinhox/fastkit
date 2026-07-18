@@ -26,16 +26,24 @@ class Registry(Generic[T]):
         self._entries: dict[str, RegistryEntry[T]] = {}
         self._frozen = False
 
-    def register(self, key: str, value: T, source: str = "unknown", priority: int = 0) -> None:
+    def register(
+        self, key: str, value: T, source: str = "unknown", priority: int = 0
+    ) -> None:
         if self._frozen:
-            raise RegistryError(f"registry '{self.name}' is frozen and cannot accept '{key}'")
+            raise RegistryError(
+                f"registry '{self.name}' is frozen and cannot accept '{key}'"
+            )
 
         existing = self._entries.get(key)
 
         if existing is not None and not self.allow_override:
-            raise RegistryError(f"duplicate key '{key}' in registry '{self.name}' (existing source: {existing.source}, new source: {source})")
+            raise RegistryError(
+                f"duplicate key '{key}' in registry '{self.name}' (existing source: {existing.source}, new source: {source})"
+            )
 
-        self._entries[key] = RegistryEntry(key=key, value=value, source=source, priority=priority)
+        self._entries[key] = RegistryEntry(
+            key=key, value=value, source=source, priority=priority
+        )
 
     def get(self, key: str) -> T:
         entry = self._entries.get(key)
@@ -57,7 +65,9 @@ class Registry(Generic[T]):
         return list(self._entries.keys())
 
     def entries(self) -> list[RegistryEntry[T]]:
-        return sorted(self._entries.values(), key=lambda item: (-item.priority, item.key))
+        return sorted(
+            self._entries.values(), key=lambda item: (-item.priority, item.key)
+        )
 
     def values(self) -> list[T]:
         return [entry.value for entry in self.entries()]

@@ -28,7 +28,9 @@ class Repository(Generic[ModelT]):
 
         return result.scalar_one_or_none()
 
-    async def list(self, offset: int = 0, limit: int = 100, order_by=None, **filters) -> list[ModelT]:
+    async def list(
+        self, offset: int = 0, limit: int = 100, order_by=None, **filters
+    ) -> list[ModelT]:
         query = self._filtered_query(filters)
 
         if order_by is not None:

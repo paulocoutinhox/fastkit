@@ -49,7 +49,15 @@ def nav_current(kind: str, args: dict) -> str | None:
     return None
 
 
-def build_header(kind: str, args: dict, path: str, t, label: str | None = None, display: str | None = None, report_title: str | None = None) -> tuple[list[dict], str]:
+def build_header(
+    kind: str,
+    args: dict,
+    path: str,
+    t,
+    label: str | None = None,
+    display: str | None = None,
+    report_title: str | None = None,
+) -> tuple[list[dict], str]:
     home = {"label": t("nav.home"), "url": path}
 
     if kind == "dashboard":

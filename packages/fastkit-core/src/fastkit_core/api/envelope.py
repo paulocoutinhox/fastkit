@@ -27,7 +27,9 @@ def build_message(code: str | None, text: str | None) -> dict | None:
     return {"code": code, "text": text}
 
 
-def success_envelope(data: Any = None, message: dict | None = None, meta_extra: dict | None = None) -> dict:
+def success_envelope(
+    data: Any = None, message: dict | None = None, meta_extra: dict | None = None
+) -> dict:
     return {
         "success": True,
         "message": message,
@@ -47,7 +49,12 @@ def _serialize_field_error(item: FieldError) -> dict:
     }
 
 
-def error_envelope(error: FastKitError, error_id: str | None = None, text: str | None = None, request_id: str | None = None) -> dict:
+def error_envelope(
+    error: FastKitError,
+    error_id: str | None = None,
+    text: str | None = None,
+    request_id: str | None = None,
+) -> dict:
     code = error.error_code
 
     meta_extra = {}

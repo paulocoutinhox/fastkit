@@ -8,7 +8,11 @@ from fastkit_permissions.cache import PermissionCache
 
 async def _user(accounts, tenant_id=1, is_root=False):
     suffix = "root" if is_root else "staff"
-    return await accounts.create_user(tenant_id=tenant_id, identifiers=[("email", f"{suffix}{id(object())}@acme.com")], is_root=is_root)
+    return await accounts.create_user(
+        tenant_id=tenant_id,
+        identifiers=[("email", f"{suffix}{id(object())}@acme.com")],
+        is_root=is_root,
+    )
 
 
 async def test_direct_role_grants_permission(service, authorizer, accounts):
@@ -37,7 +41,9 @@ async def test_duplicate_grant_and_assign_are_idempotent(service, accounts):
     assert await service.role_permission_ids(role.id) == [permission.id]
 
 
-async def test_tenant_scoped_role_does_not_leak_to_other_tenants(service, authorizer, accounts):
+async def test_tenant_scoped_role_does_not_leak_to_other_tenants(
+    service, authorizer, accounts
+):
     user = await _user(accounts)
     permission = await service.create_permission("users.view", "View users")
     role = await service.create_role("Editor", tenant_id=1)
@@ -179,7 +185,9 @@ async def test_set_role_permissions_replaces(service, authorizer, accounts):
     await service.assign_role(user.id, role.id, tenant_id=1)
 
     await service.set_role_permissions(role.id, [view.id, edit.id])
-    assert await service.role_permission_ids(role.id) == [view.id, edit.id] or set(await service.role_permission_ids(role.id)) == {view.id, edit.id}
+    assert await service.role_permission_ids(role.id) == [view.id, edit.id] or set(
+        await service.role_permission_ids(role.id)
+    ) == {view.id, edit.id}
 
     await service.set_role_permissions(role.id, [view.id])
     assert set(await service.role_permission_ids(role.id)) == {view.id}
@@ -204,7 +212,9 @@ async def test_deleting_role_cascades(service, database, accounts):
         await session.commit()
 
     async with database.session_factory() as session:
-        role_permissions = (await session.execute(select(RolePermission))).scalars().all()
+        role_permissions = (
+            (await session.execute(select(RolePermission))).scalars().all()
+        )
         user_roles = (await session.execute(select(UserRole))).scalars().all()
 
     assert role_permissions == []

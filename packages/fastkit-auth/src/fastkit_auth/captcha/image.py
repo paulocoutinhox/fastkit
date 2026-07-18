@@ -35,7 +35,10 @@ class ImageCaptchaProvider(CaptchaProvider):
     def new_challenge(self) -> dict:
         code = "".join(secrets.choice(_ALPHABET) for _ in range(self._length))
         challenge_id = secrets.token_urlsafe(16)
-        self._challenges[challenge_id] = (code, self._clock() + timedelta(seconds=self._ttl_seconds))
+        self._challenges[challenge_id] = (
+            code,
+            self._clock() + timedelta(seconds=self._ttl_seconds),
+        )
 
         return {"challenge_id": challenge_id, "image": self._render(code)}
 
@@ -45,20 +48,28 @@ class ImageCaptchaProvider(CaptchaProvider):
         answer = payload.get("answer")
 
         if not challenge_id or not answer:
-            raise AuthenticationError(CAPTCHA_REQUIRED, message="captcha answer is required")
+            raise AuthenticationError(
+                CAPTCHA_REQUIRED, message="captcha answer is required"
+            )
 
         entry = self._challenges.pop(challenge_id, None)
 
         if entry is None:
-            raise AuthenticationError(CAPTCHA_INVALID, message="captcha challenge is unknown")
+            raise AuthenticationError(
+                CAPTCHA_INVALID, message="captcha challenge is unknown"
+            )
 
         code, expires_at = entry
 
         if expires_at <= self._clock():
-            raise AuthenticationError(CAPTCHA_EXPIRED, message="captcha challenge expired")
+            raise AuthenticationError(
+                CAPTCHA_EXPIRED, message="captcha challenge expired"
+            )
 
         if str(answer).strip().upper() != code:
-            raise AuthenticationError(CAPTCHA_INVALID, message="captcha answer is incorrect")
+            raise AuthenticationError(
+                CAPTCHA_INVALID, message="captcha answer is incorrect"
+            )
 
     def client_config(self) -> dict:
         return {"provider": "image", "enabled": True, "new_url": "/auth/captcha/new"}

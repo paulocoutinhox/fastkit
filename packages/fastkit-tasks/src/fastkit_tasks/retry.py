@@ -8,7 +8,9 @@ class RetryPolicy(str, Enum):
     exponential_jitter = "exponential_jitter"
 
 
-def compute_delay(policy: RetryPolicy, base_delay: int, attempt: int, jitter_source: float = 0.0) -> int:
+def compute_delay(
+    policy: RetryPolicy, base_delay: int, attempt: int, jitter_source: float = 0.0
+) -> int:
     """Return the delay in seconds before the given attempt number under a policy."""
 
     if policy is RetryPolicy.fixed:

@@ -4,7 +4,9 @@ from fastkit_cli import commands
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="fastkit", description="FastKit command line interface")
+    parser = argparse.ArgumentParser(
+        prog="fastkit", description="FastKit command line interface"
+    )
     sub = parser.add_subparsers(dest="group", required=True)
 
     apps = sub.add_parser("apps").add_subparsers(dest="action", required=True)

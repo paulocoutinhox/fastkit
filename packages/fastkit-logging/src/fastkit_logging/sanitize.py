@@ -37,7 +37,10 @@ def sanitize(value, _depth: int = 0):
         return REDACTED if isinstance(value, (dict, list, tuple)) else value
 
     if isinstance(value, dict):
-        return {key: (REDACTED if _is_sensitive(key) else sanitize(item, _depth + 1)) for key, item in value.items()}
+        return {
+            key: (REDACTED if _is_sensitive(key) else sanitize(item, _depth + 1))
+            for key, item in value.items()
+        }
 
     if isinstance(value, (list, tuple)):
         return [sanitize(item, _depth + 1) for item in value]

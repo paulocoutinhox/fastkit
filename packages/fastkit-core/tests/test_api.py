@@ -1,6 +1,10 @@
 from fastkit_core.api.envelope import build_message, error_envelope, success_envelope
 from fastkit_core.api.pagination import CursorPage, OffsetPage, clamp_page_size
-from fastkit_core.context.request import RequestContext, reset_request_context, set_request_context
+from fastkit_core.context.request import (
+    RequestContext,
+    reset_request_context,
+    set_request_context,
+)
 from fastkit_core.errors.codes import RESOURCE_NOT_FOUND
 from fastkit_core.errors.exceptions import FastKitError, FieldError
 
@@ -17,7 +21,11 @@ def test_success_envelope_defaults():
 
 
 def test_success_envelope_with_message_and_data():
-    envelope = success_envelope(data={"id": "1"}, message=build_message("users.created", "Created."), meta_extra={"pagination": {}})
+    envelope = success_envelope(
+        data={"id": "1"},
+        message=build_message("users.created", "Created."),
+        meta_extra={"pagination": {}},
+    )
 
     assert envelope["data"] == {"id": "1"}
     assert envelope["message"] == {"code": "users.created", "text": "Created."}
@@ -30,7 +38,13 @@ def test_build_message_returns_none_when_empty():
 
 
 def test_error_envelope_serializes_field_errors():
-    error = FastKitError(RESOURCE_NOT_FOUND, message="missing", field_errors=[FieldError("email", "validation.required", "Required", ["email"])])
+    error = FastKitError(
+        RESOURCE_NOT_FOUND,
+        message="missing",
+        field_errors=[
+            FieldError("email", "validation.required", "Required", ["email"])
+        ],
+    )
     envelope = error_envelope(error, error_id="ERR-1")
 
     assert envelope["success"] is False
@@ -41,7 +55,9 @@ def test_error_envelope_serializes_field_errors():
 
 
 def test_error_envelope_field_path_defaults_to_field():
-    error = FastKitError(RESOURCE_NOT_FOUND, field_errors=[FieldError("name", "code", "msg")])
+    error = FastKitError(
+        RESOURCE_NOT_FOUND, field_errors=[FieldError("name", "code", "msg")]
+    )
     envelope = error_envelope(error)
 
     assert envelope["errors"][0]["path"] == ["name"]

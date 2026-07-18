@@ -14,7 +14,9 @@ from fastkit_webhooks.signature import compute_signature, verify_signature
 
 
 def _body(event_id="evt_1", event_type="payment.succeeded"):
-    return json.dumps({"id": event_id, "type": event_type, "account_id": "acct_1"}).encode("utf-8")
+    return json.dumps(
+        {"id": event_id, "type": event_type, "account_id": "acct_1"}
+    ).encode("utf-8")
 
 
 def test_signature_helpers():
@@ -52,7 +54,9 @@ async def test_provider_verify_and_normalize(signer):
 
 async def test_receive_valid_webhook(service, signer):
     body = _body()
-    event, created = await service.receive("stripe", {"X-Signature": signer(body)}, body)
+    event, created = await service.receive(
+        "stripe", {"X-Signature": signer(body)}, body
+    )
 
     assert created is True
     assert event.signature_valid is True
@@ -78,7 +82,9 @@ async def test_concurrent_receive_is_idempotent(service, signer):
     body = _body()
     headers = {"X-Signature": signer(body)}
 
-    results = await asyncio.gather(*[service.receive("stripe", headers, body) for _ in range(6)])
+    results = await asyncio.gather(
+        *[service.receive("stripe", headers, body) for _ in range(6)]
+    )
     created = [was_created for _, was_created in results]
 
     assert created.count(True) == 1
@@ -111,9 +117,13 @@ async def test_replaying_a_rejected_webhook_is_idempotent(service):
     assert second.status == WebhookStatus.rejected.value
 
 
-async def test_valid_signature_over_a_malformed_body_is_rejected_not_a_500(service, signer):
+async def test_valid_signature_over_a_malformed_body_is_rejected_not_a_500(
+    service, signer
+):
     body = b"this is not json"
-    event, handled = await service.receive("stripe", {"X-Signature": signer(body)}, body)
+    event, handled = await service.receive(
+        "stripe", {"X-Signature": signer(body)}, body
+    )
 
     assert handled is True
     assert event.status == WebhookStatus.rejected.value
@@ -122,7 +132,9 @@ async def test_valid_signature_over_a_malformed_body_is_rejected_not_a_500(servi
 
 async def test_valid_signature_over_a_non_object_json_body_is_rejected(service, signer):
     body = b"[1, 2, 3]"
-    event, handled = await service.receive("stripe", {"X-Signature": signer(body)}, body)
+    event, handled = await service.receive(
+        "stripe", {"X-Signature": signer(body)}, body
+    )
 
     assert handled is True
     assert event.status == WebhookStatus.rejected.value
@@ -196,7 +208,14 @@ class Settings:
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.webhooks": WebhooksApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.webhooks": WebhooksApp,
+        },
+    )
     runtime = Runtime(settings=Settings(), installed_apps=list(Settings.installed_apps))
     runtime.bootstrap()
 

@@ -23,7 +23,9 @@ def build_gdpr_router(runtime, security: AdminSecurity) -> APIRouter:
             "created_at": user.created_at.isoformat() if user.created_at else None,
         }
 
-        await audit.record("update", "User", resource_id=str(user.id), after={"action": "gdpr_export"})
+        await audit.record(
+            "update", "User", resource_id=str(user.id), after={"action": "gdpr_export"}
+        )
 
         return success_envelope(data=payload)
 
@@ -44,8 +46,12 @@ def build_gdpr_router(runtime, security: AdminSecurity) -> APIRouter:
 
             await session.commit()
 
-        await audit.record("delete", "User", resource_id=str(user.id), before={"action": "gdpr_erase"})
+        await audit.record(
+            "delete", "User", resource_id=str(user.id), before={"action": "gdpr_erase"}
+        )
 
-        return success_envelope(message=build_message("gdpr.erased", "Your personal data has been erased."))
+        return success_envelope(
+            message=build_message("gdpr.erased", "Your personal data has been erased.")
+        )
 
     return router

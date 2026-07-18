@@ -7,7 +7,12 @@ from urllib.parse import urlencode
 from fastkit_core.errors.exceptions import FastKitError
 from fastkit_storage.errors import OBJECT_NOT_FOUND
 from fastkit_storage.paths import safe_key
-from fastkit_storage.provider import ObjectStat, PresignedUrl, StorageHealth, StorageStatus
+from fastkit_storage.provider import (
+    ObjectStat,
+    PresignedUrl,
+    StorageHealth,
+    StorageStatus,
+)
 from fastkit_storage.signing import sign
 
 
@@ -18,7 +23,13 @@ def _content_type_for(key: str, declared: str | None = None) -> str | None:
 class LocalStorageProvider:
     """Filesystem-backed storage with signed local URLs, safe for a single node."""
 
-    def __init__(self, root: str, base_url: str = "/media", secret: str = "local-secret", clock=None):
+    def __init__(
+        self,
+        root: str,
+        base_url: str = "/media",
+        secret: str = "local-secret",
+        clock=None,
+    ):
         self._root = Path(root)
         self._base_url = base_url.rstrip("/")
         self._secret = secret
@@ -32,12 +43,18 @@ class LocalStorageProvider:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
 
-    async def put(self, key: str, data: bytes, content_type: str | None = None) -> ObjectStat:
+    async def put(
+        self, key: str, data: bytes, content_type: str | None = None
+    ) -> ObjectStat:
         path = self._path(key)
         await asyncio.to_thread(self._write, path, data)
         normalized = safe_key(key)
 
-        return ObjectStat(key=normalized, size_bytes=len(data), content_type=_content_type_for(normalized, content_type))
+        return ObjectStat(
+            key=normalized,
+            size_bytes=len(data),
+            content_type=_content_type_for(normalized, content_type),
+        )
 
     async def get(self, key: str) -> bytes:
         path = self._path(key)
@@ -61,7 +78,11 @@ class LocalStorageProvider:
 
         normalized = safe_key(key)
 
-        return ObjectStat(key=normalized, size_bytes=path.stat().st_size, content_type=_content_type_for(normalized))
+        return ObjectStat(
+            key=normalized,
+            size_bytes=path.stat().st_size,
+            content_type=_content_type_for(normalized),
+        )
 
     async def copy(self, source: str, destination: str) -> None:
         data = await self.get(source)
@@ -77,7 +98,11 @@ class LocalStorageProvider:
         signature = sign(self._secret, normalized, expires_at, method)
         query = urlencode({"expires": expires_at, "signature": signature})
 
-        return PresignedUrl(url=f"{self._base_url}/{normalized}?{query}", method=method, expires_in=expires_in)
+        return PresignedUrl(
+            url=f"{self._base_url}/{normalized}?{query}",
+            method=method,
+            expires_in=expires_in,
+        )
 
     async def presign_upload(self, key: str, expires_in: int = 3600) -> PresignedUrl:
         return self._presign(key, expires_in, "PUT")

@@ -12,7 +12,17 @@ class InlineResource:
     rows no longer present are deleted (an id-diff formset, so child references survive an edit).
     """
 
-    def __init__(self, name: str, form_fields: list, model: type, fk_field: str, label: str | None = None, min_items: int = 0, max_items: int | None = None, pk_field: str = "id"):
+    def __init__(
+        self,
+        name: str,
+        form_fields: list,
+        model: type,
+        fk_field: str,
+        label: str | None = None,
+        min_items: int = 0,
+        max_items: int | None = None,
+        pk_field: str = "id",
+    ):
         self.name = name
         self.form_fields = form_fields
         self.model = model
@@ -35,14 +45,24 @@ class InlineResource:
         data = {"id": str(getattr(child, self.pk_field))}
 
         for admin_field in self.form_fields:
-            data[admin_field.name] = admin_field.format_value(getattr(child, admin_field.name, None), locale)
+            data[admin_field.name] = admin_field.format_value(
+                getattr(child, admin_field.name, None), locale
+            )
 
         return data
 
     async def load(self, session, parent_id, locale: str) -> list[dict]:
         column = getattr(self.model, self.fk_field)
         pk = getattr(self.model, self.pk_field)
-        children = (await session.execute(select(self.model).where(column == parent_id).order_by(pk))).scalars().all()
+        children = (
+            (
+                await session.execute(
+                    select(self.model).where(column == parent_id).order_by(pk)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         return [self.serialize(child, locale) for child in children]
 
@@ -76,7 +96,12 @@ class InlineResource:
 
     async def persist(self, session, parent_id, parsed: list) -> None:
         column = getattr(self.model, self.fk_field)
-        existing = {getattr(child, self.pk_field): child for child in (await session.execute(select(self.model).where(column == parent_id))).scalars()}
+        existing = {
+            getattr(child, self.pk_field): child
+            for child in (
+                await session.execute(select(self.model).where(column == parent_id))
+            ).scalars()
+        }
         seen = set()
 
         for raw_id, values in parsed:

@@ -23,7 +23,9 @@ class CircuitOpenError(Exception):
 class CircuitBreaker:
     """Opens after repeated failures and half-opens after a cooldown to probe recovery."""
 
-    def __init__(self, failure_threshold: int = 5, reset_after_seconds: float = 30.0, clock=None):
+    def __init__(
+        self, failure_threshold: int = 5, reset_after_seconds: float = 30.0, clock=None
+    ):
         self._failure_threshold = failure_threshold
         self._reset_after_seconds = reset_after_seconds
         self._clock = clock or time.monotonic
@@ -73,7 +75,15 @@ class RetryPolicy:
         return capped + capped * self.jitter * jitter_source
 
 
-async def run_with_retry(operation, policy: RetryPolicy | None = None, *, breaker: CircuitBreaker | None = None, sleep=asyncio.sleep, jitter_source=random.random, name: str = "operation"):
+async def run_with_retry(
+    operation,
+    policy: RetryPolicy | None = None,
+    *,
+    breaker: CircuitBreaker | None = None,
+    sleep=asyncio.sleep,
+    jitter_source=random.random,
+    name: str = "operation",
+):
     """Run an async operation with retries, exponential backoff and an optional circuit breaker.
 
     Failures are logged. When a breaker is supplied it records outcomes and rejects calls
@@ -101,7 +111,14 @@ async def run_with_retry(operation, policy: RetryPolicy | None = None, *, breake
                 raise
 
             delay = policy.delay_for(attempt, jitter_source())
-            logger.info("%s failed on attempt %d/%d, retrying in %.2fs: %s", name, attempt, policy.max_attempts, delay, error)
+            logger.info(
+                "%s failed on attempt %d/%d, retrying in %.2fs: %s",
+                name,
+                attempt,
+                policy.max_attempts,
+                delay,
+                error,
+            )
             await sleep(delay)
         else:
             if breaker is not None:

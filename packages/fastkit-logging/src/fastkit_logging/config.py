@@ -31,12 +31,16 @@ def build_file_handler(file_path: str, json_format: bool) -> RotatingFileHandler
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    handler = RotatingFileHandler(path, maxBytes=5_000_000, backupCount=5, encoding="utf-8")
+    handler = RotatingFileHandler(
+        path, maxBytes=5_000_000, backupCount=5, encoding="utf-8"
+    )
 
     if json_format:
         handler.setFormatter(JsonLogFormatter())
     else:
-        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+        )
 
     return handler
 
@@ -55,7 +59,11 @@ def setup_logging(level: str, file_path: str, environment: str) -> logging.Logge
     root.addHandler(build_file_handler(file_path, json_format))
 
     console = logging.StreamHandler()
-    console.setFormatter(JsonLogFormatter() if json_format else logging.Formatter("%(levelname)s %(name)s %(message)s"))
+    console.setFormatter(
+        JsonLogFormatter()
+        if json_format
+        else logging.Formatter("%(levelname)s %(name)s %(message)s")
+    )
     root.addHandler(console)
 
     return root

@@ -11,10 +11,30 @@ def _provider(mount, assets, static_dir="/tmp"):
 
 
 def test_registry_orders_and_filters_by_kind():
-    registry = AssetRegistry([
-        _provider("/vendor/a", [{"name": "a-js", "kind": "js", "path": "a.js", "order": 30}, {"name": "a-css", "kind": "css", "path": "a.css", "order": 20}]),
-        _provider("/vendor/b", [{"name": "b-css", "kind": "css", "path": "b.css", "order": 10}, {"name": "b-js", "kind": "js", "path": "b.js", "order": 5, "attrs": {"referrerpolicy": "origin"}}]),
-    ])
+    registry = AssetRegistry(
+        [
+            _provider(
+                "/vendor/a",
+                [
+                    {"name": "a-js", "kind": "js", "path": "a.js", "order": 30},
+                    {"name": "a-css", "kind": "css", "path": "a.css", "order": 20},
+                ],
+            ),
+            _provider(
+                "/vendor/b",
+                [
+                    {"name": "b-css", "kind": "css", "path": "b.css", "order": 10},
+                    {
+                        "name": "b-js",
+                        "kind": "js",
+                        "path": "b.js",
+                        "order": 5,
+                        "attrs": {"referrerpolicy": "origin"},
+                    },
+                ],
+            ),
+        ]
+    )
 
     css = registry.tags("css")
     js = registry.tags("js")
@@ -26,7 +46,9 @@ def test_registry_orders_and_filters_by_kind():
 
 
 def test_registry_default_order_is_stable():
-    registry = AssetRegistry([_provider("/vendor/a", [{"name": "x", "kind": "js", "path": "x.js"}])])
+    registry = AssetRegistry(
+        [_provider("/vendor/a", [{"name": "x", "kind": "js", "path": "x.js"}])]
+    )
 
     assert registry.tags("js")[0].url == "/vendor/a/x.js"
 

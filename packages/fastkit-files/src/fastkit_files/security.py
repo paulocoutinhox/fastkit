@@ -24,9 +24,13 @@ def random_object_key(tenant_id: int | None, extension: str) -> str:
 
 def enforce_size(data: bytes, max_size_bytes: int) -> None:
     if len(data) > max_size_bytes:
-        raise FastKitError(FILE_TOO_LARGE, message="file exceeds the maximum allowed size")
+        raise FastKitError(
+            FILE_TOO_LARGE, message="file exceeds the maximum allowed size"
+        )
 
 
 def enforce_mime(declared_mime: str, allowed: frozenset[str]) -> None:
     if declared_mime not in allowed:
-        raise FastKitError(INVALID_MIME, message=f"mime type '{declared_mime}' is not allowed")
+        raise FastKitError(
+            INVALID_MIME, message=f"mime type '{declared_mime}' is not allowed"
+        )

@@ -7,7 +7,9 @@ from fastkit_storage.signing import sign, verify
 
 
 def provider(tmp_path, clock):
-    return LocalStorageProvider(str(tmp_path / "media"), base_url="/media", secret="s3cret", clock=clock)
+    return LocalStorageProvider(
+        str(tmp_path / "media"), base_url="/media", secret="s3cret", clock=clock
+    )
 
 
 def test_safe_key_rejects_traversal():

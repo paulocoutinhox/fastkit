@@ -8,7 +8,13 @@ from fastkit_core.app_config import CoreApp
 from fastkit_core.runtime import Runtime
 from fastkit_db.app import DbApp
 from fastkit_tasks.app import TasksApp
-from fastkit_tasks.models import ExecutionStatus, ScheduledTask, ScheduleType, TaskAttempt, TaskExecution
+from fastkit_tasks.models import (
+    ExecutionStatus,
+    ScheduledTask,
+    ScheduleType,
+    TaskAttempt,
+    TaskExecution,
+)
 from fastkit_tasks.queue import TaskQueue
 from fastkit_tasks.registry import PermanentTaskError, TaskRegistry
 from fastkit_tasks.scheduler import Scheduler, _aware
@@ -16,7 +22,9 @@ from fastkit_tasks.worker import Worker
 
 
 def worker_for(queue, registry, database, clock):
-    return Worker(queue, registry, database, worker_id="w1", queues=["default"], clock=clock)
+    return Worker(
+        queue, registry, database, worker_id="w1", queues=["default"], clock=clock
+    )
 
 
 async def test_worker_runs_task_successfully(queue, registry, database, clock):
@@ -58,7 +66,9 @@ async def test_worker_retries_on_error(queue, registry, database, clock):
     assert status == ExecutionStatus.retrying.value
 
 
-async def test_worker_fails_unregistered_task_without_retry(queue, registry, database, clock):
+async def test_worker_fails_unregistered_task_without_retry(
+    queue, registry, database, clock
+):
     await queue.enqueue("ghost.task", max_attempts=5)
     status = await worker_for(queue, registry, database, clock).run_once()
 
@@ -96,7 +106,14 @@ async def test_worker_drain_materializes_and_runs(queue, registry, database, clo
         return {"ok": True}
 
     scheduler = Scheduler(database, queue, clock=clock)
-    await _make_scheduled(database, clock, name="beat", task_name="beat.work", schedule_type=ScheduleType.interval.value, interval_seconds=60)
+    await _make_scheduled(
+        database,
+        clock,
+        name="beat",
+        task_name="beat.work",
+        schedule_type=ScheduleType.interval.value,
+        interval_seconds=60,
+    )
 
     await worker_for(queue, registry, database, clock).drain(scheduler)
 
@@ -117,7 +134,9 @@ async def test_worker_run_loop_processes_then_cancels(queue, registry, database,
         return {"ok": True}
 
     await queue.enqueue("loop.work")
-    task = asyncio.create_task(worker_for(queue, registry, database, clock).run(poll_interval=0.01))
+    task = asyncio.create_task(
+        worker_for(queue, registry, database, clock).run(poll_interval=0.01)
+    )
 
     for _ in range(100):
         await asyncio.sleep(0.01)
@@ -131,7 +150,9 @@ async def test_worker_run_loop_processes_then_cancels(queue, registry, database,
         await task
 
 
-async def test_success_is_not_undone_by_a_failing_attempt_record(queue, registry, database, clock, monkeypatch):
+async def test_success_is_not_undone_by_a_failing_attempt_record(
+    queue, registry, database, clock, monkeypatch
+):
     @registry.task("ok.work")
     async def handler(context, payload):
         return {"ok": True}
@@ -158,7 +179,11 @@ async def test_worker_run_loop_survives_a_cycle_error(queue, registry, database,
         async def tick(self):
             raise RuntimeError("scheduler down")
 
-    task = asyncio.create_task(worker_for(queue, registry, database, clock).run(poll_interval=0.01, scheduler=_BoomScheduler()))
+    task = asyncio.create_task(
+        worker_for(queue, registry, database, clock).run(
+            poll_interval=0.01, scheduler=_BoomScheduler()
+        )
+    )
     await asyncio.sleep(0.05)
 
     assert not task.done()
@@ -168,13 +193,22 @@ async def test_worker_run_loop_survives_a_cycle_error(queue, registry, database,
         await task
 
 
-async def test_scheduler_transient_enqueue_error_does_not_drop_the_slot(database, clock):
+async def test_scheduler_transient_enqueue_error_does_not_drop_the_slot(
+    database, clock
+):
     class _BoomQueue:
         async def enqueue(self, **kwargs):
             raise RuntimeError("database unavailable")
 
     scheduler = Scheduler(database, _BoomQueue(), clock=clock)
-    task = await _make_scheduled(database, clock, name="beat", task_name="do.work", schedule_type=ScheduleType.interval.value, interval_seconds=60)
+    task = await _make_scheduled(
+        database,
+        clock,
+        name="beat",
+        task_name="do.work",
+        schedule_type=ScheduleType.interval.value,
+        interval_seconds=60,
+    )
     original_next = _aware(task.next_run_at)
 
     assert await scheduler.tick() == 0
@@ -197,7 +231,14 @@ async def _make_scheduled(database, clock, **kwargs):
 
 async def test_scheduler_materializes_interval(queue, database, clock):
     scheduler = Scheduler(database, queue, clock=clock)
-    await _make_scheduled(database, clock, name="beat", task_name="do.work", schedule_type=ScheduleType.interval.value, interval_seconds=60)
+    await _make_scheduled(
+        database,
+        clock,
+        name="beat",
+        task_name="do.work",
+        schedule_type=ScheduleType.interval.value,
+        interval_seconds=60,
+    )
 
     count = await scheduler.tick()
     assert count == 1
@@ -213,7 +254,13 @@ async def test_scheduler_materializes_interval(queue, database, clock):
 
 async def test_scheduler_once_disables(queue, database, clock):
     scheduler = Scheduler(database, queue, clock=clock)
-    await _make_scheduled(database, clock, name="single", task_name="do.work", schedule_type=ScheduleType.once.value)
+    await _make_scheduled(
+        database,
+        clock,
+        name="single",
+        task_name="do.work",
+        schedule_type=ScheduleType.once.value,
+    )
 
     await scheduler.tick()
 
@@ -226,7 +273,14 @@ async def test_scheduler_once_disables(queue, database, clock):
 
 async def test_scheduler_cron(queue, database, clock):
     scheduler = Scheduler(database, queue, clock=clock)
-    await _make_scheduled(database, clock, name="cronjob", task_name="do.work", schedule_type=ScheduleType.cron.value, cron_expression="0 * * * *")
+    await _make_scheduled(
+        database,
+        clock,
+        name="cronjob",
+        task_name="do.work",
+        schedule_type=ScheduleType.cron.value,
+        cron_expression="0 * * * *",
+    )
 
     await scheduler.tick()
 
@@ -238,7 +292,14 @@ async def test_scheduler_cron(queue, database, clock):
 
 async def test_scheduler_disables_a_task_with_an_invalid_cron(queue, database, clock):
     scheduler = Scheduler(database, queue, clock=clock)
-    await _make_scheduled(database, clock, name="broken", task_name="do.work", schedule_type=ScheduleType.cron.value, cron_expression="not a cron")
+    await _make_scheduled(
+        database,
+        clock,
+        name="broken",
+        task_name="do.work",
+        schedule_type=ScheduleType.cron.value,
+        cron_expression="not a cron",
+    )
 
     await scheduler.tick()
 
@@ -251,10 +312,22 @@ async def test_scheduler_disables_a_task_with_an_invalid_cron(queue, database, c
 
 async def test_scheduler_duplicate_slot_is_safe(queue, database, clock):
     scheduler = Scheduler(database, queue, clock=clock)
-    task = await _make_scheduled(database, clock, name="dup", task_name="do.work", schedule_type=ScheduleType.interval.value, interval_seconds=60)
+    task = await _make_scheduled(
+        database,
+        clock,
+        name="dup",
+        task_name="do.work",
+        schedule_type=ScheduleType.interval.value,
+        interval_seconds=60,
+    )
 
     # pre-create the execution for this exact slot so the scheduler hits the unique constraint
-    await queue.enqueue("do.work", scheduled_task_id=task.id, scheduled_for=clock(), available_at=clock())
+    await queue.enqueue(
+        "do.work",
+        scheduled_task_id=task.id,
+        scheduled_for=clock(),
+        available_at=clock(),
+    )
 
     materialized = await scheduler.tick()
 
@@ -270,7 +343,15 @@ async def test_scheduler_skips_disabled(queue, database, clock):
     scheduler = Scheduler(database, queue, clock=clock)
 
     async with database.session_factory() as session:
-        session.add(ScheduledTask(name="off", task_name="do.work", schedule_type=ScheduleType.once.value, next_run_at=clock(), enabled=False))
+        session.add(
+            ScheduledTask(
+                name="off",
+                task_name="do.work",
+                schedule_type=ScheduleType.once.value,
+                next_run_at=clock(),
+                enabled=False,
+            )
+        )
         await session.commit()
 
     assert await scheduler.tick() == 0
@@ -287,7 +368,14 @@ class Settings:
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.tasks": TasksApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.tasks": TasksApp,
+        },
+    )
     runtime = Runtime(settings=Settings(), installed_apps=list(Settings.installed_apps))
     runtime.bootstrap()
 
@@ -335,7 +423,14 @@ def _worker_settings(tmp_path, run_worker, worker_queues, poll=0.01):
 
 
 async def _bootstrapped_runtime(monkeypatch, settings):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.tasks": TasksApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.tasks": TasksApp,
+        },
+    )
     runtime = Runtime(settings=settings(), installed_apps=list(settings.installed_apps))
     runtime.bootstrap()
 
@@ -347,17 +442,23 @@ async def _bootstrapped_runtime(monkeypatch, settings):
 
 
 async def test_tasks_app_does_not_run_worker_when_disabled(monkeypatch, tmp_path):
-    runtime = await _bootstrapped_runtime(monkeypatch, _worker_settings(tmp_path, run_worker=False, worker_queues=None))
+    runtime = await _bootstrapped_runtime(
+        monkeypatch, _worker_settings(tmp_path, run_worker=False, worker_queues=None)
+    )
 
     await runtime.start()
     await runtime.stop()
 
 
 async def test_tasks_app_runs_in_process_worker_when_enabled(monkeypatch, tmp_path):
-    runtime = await _bootstrapped_runtime(monkeypatch, _worker_settings(tmp_path, run_worker=True, worker_queues=None))
+    runtime = await _bootstrapped_runtime(
+        monkeypatch, _worker_settings(tmp_path, run_worker=True, worker_queues=None)
+    )
     ran = {}
 
-    runtime.component("task_registry").task("app.work")(lambda context, payload: ran.setdefault("ok", True))
+    runtime.component("task_registry").task("app.work")(
+        lambda context, payload: ran.setdefault("ok", True)
+    )
     await runtime.component("task_queue").enqueue("app.work")
 
     await runtime.start()
@@ -373,7 +474,10 @@ async def test_tasks_app_runs_in_process_worker_when_enabled(monkeypatch, tmp_pa
 
 
 async def test_tasks_app_honours_explicit_worker_queues(monkeypatch, tmp_path):
-    runtime = await _bootstrapped_runtime(monkeypatch, _worker_settings(tmp_path, run_worker=True, worker_queues=["default"]))
+    runtime = await _bootstrapped_runtime(
+        monkeypatch,
+        _worker_settings(tmp_path, run_worker=True, worker_queues=["default"]),
+    )
 
     await runtime.start()
     await runtime.stop()

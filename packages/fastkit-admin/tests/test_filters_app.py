@@ -30,20 +30,27 @@ def test_text_filter(product_model):
     base = select(product_model)
 
     assert "WHERE" not in _compiled(TextFilter("name").apply(base, product_model, ""))
-    assert "lower" in _compiled(TextFilter("name").apply(base, product_model, "abc")).lower()
+    assert (
+        "lower"
+        in _compiled(TextFilter("name").apply(base, product_model, "abc")).lower()
+    )
 
 
 def test_exact_filter(product_model):
     base = select(product_model)
 
-    assert "WHERE" not in _compiled(ExactFilter("category").apply(base, product_model, ""))
+    assert "WHERE" not in _compiled(
+        ExactFilter("category").apply(base, product_model, "")
+    )
     assert "= 'x'" in _compiled(ExactFilter("category").apply(base, product_model, "x"))
 
 
 def test_boolean_filter(product_model):
     base = select(product_model)
 
-    assert "WHERE" not in _compiled(BooleanFilter("is_active").apply(base, product_model, ""))
+    assert "WHERE" not in _compiled(
+        BooleanFilter("is_active").apply(base, product_model, "")
+    )
 
     truthy = _compiled(BooleanFilter("is_active").apply(base, product_model, "true"))
     falsy = _compiled(BooleanFilter("is_active").apply(base, product_model, "false"))
@@ -55,7 +62,9 @@ def test_boolean_filter(product_model):
 def test_number_filter(product_model):
     base = select(product_model)
 
-    assert "WHERE" not in _compiled(NumberFilter("price").apply(base, product_model, ""))
+    assert "WHERE" not in _compiled(
+        NumberFilter("price").apply(base, product_model, "")
+    )
     assert "= 10" in _compiled(NumberFilter("price").apply(base, product_model, 10))
 
 
@@ -73,9 +82,19 @@ def test_string_column_filters_skip_a_non_scalar_value(product_model):
 
     # a range/list shape (e.g. filter[category][from]=x) on an equality/choice/multichoice filter over a
     # string column must be skipped, never compiled into `column == {...}` which would 500 at the driver
-    assert "WHERE" not in _compiled(ExactFilter("category").apply(base, product_model, {"from": "x"}))
-    assert "WHERE" not in _compiled(ChoiceFilter("category", choices=[("a", "A")]).apply(base, product_model, {"from": "x"}))
-    assert "WHERE" not in _compiled(MultiChoiceFilter("category", choices=[("a", "A")]).apply(base, product_model, {"from": "x"}))
+    assert "WHERE" not in _compiled(
+        ExactFilter("category").apply(base, product_model, {"from": "x"})
+    )
+    assert "WHERE" not in _compiled(
+        ChoiceFilter("category", choices=[("a", "A")]).apply(
+            base, product_model, {"from": "x"}
+        )
+    )
+    assert "WHERE" not in _compiled(
+        MultiChoiceFilter("category", choices=[("a", "A")]).apply(
+            base, product_model, {"from": "x"}
+        )
+    )
 
 
 def test_date_range_filter(product_model):
@@ -85,7 +104,9 @@ def test_date_range_filter(product_model):
     assert "WHERE" not in _compiled(filt.apply(base, product_model, None))
     assert "WHERE" not in _compiled(filt.apply(base, product_model, {}))
 
-    both = _compiled(filt.apply(base, product_model, {"from": "2026-01-01", "to": "2026-12-31"}))
+    both = _compiled(
+        filt.apply(base, product_model, {"from": "2026-01-01", "to": "2026-12-31"})
+    )
     assert ">=" in both and "<=" in both
 
     only_from = _compiled(filt.apply(base, product_model, {"from": "2026-01-01"}))
@@ -105,7 +126,17 @@ def test_coerce_for_column_by_type():
     from datetime import date, datetime, time
     from decimal import Decimal
 
-    from sqlalchemy import Boolean, Column, Date, DateTime, Float, Integer, Numeric, String, Time
+    from sqlalchemy import (
+        Boolean,
+        Column,
+        Date,
+        DateTime,
+        Float,
+        Integer,
+        Numeric,
+        String,
+        Time,
+    )
 
     from fastkit_admin.filters import _SKIP, _coerce_for_column
 
@@ -115,7 +146,9 @@ def test_coerce_for_column_by_type():
     assert _coerce_for_column(Column("x", Boolean()), "true") is True
     assert _coerce_for_column(Column("x", Date()), "2026-01-02") == date(2026, 1, 2)
     assert _coerce_for_column(Column("x", Time()), "10:30:00") == time(10, 30)
-    assert _coerce_for_column(Column("x", DateTime()), "2026-01-02T10:30:00") == datetime(2026, 1, 2, 10, 30)
+    assert _coerce_for_column(
+        Column("x", DateTime()), "2026-01-02T10:30:00"
+    ) == datetime(2026, 1, 2, 10, 30)
     assert _coerce_for_column(Column("x", String()), "kept") == "kept"
     assert _coerce_for_column(Column("x", Integer()), 7) == 7
     assert _coerce_for_column(Column("x", Integer()), "bad") is _SKIP
@@ -143,9 +176,15 @@ def test_typed_filters_ignore_unparseable_values(product_model):
 
     base = select(product_model)
 
-    assert "WHERE" not in _compiled(NumberFilter("price").apply(base, product_model, "abc"))
+    assert "WHERE" not in _compiled(
+        NumberFilter("price").apply(base, product_model, "abc")
+    )
     assert "12.5" in _compiled(NumberFilter("price").apply(base, product_model, "12.5"))
-    assert ">=" in _compiled(DateRangeFilter("created_at").apply(base, product_model, {"from": "2026-01-01", "to": "bad"}))
+    assert ">=" in _compiled(
+        DateRangeFilter("created_at").apply(
+            base, product_model, {"from": "2026-01-01", "to": "bad"}
+        )
+    )
 
 
 def test_multichoice_filter_drops_unparseable_entries(product_model):
@@ -166,7 +205,11 @@ def test_base_filter_is_noop(product_model):
 
 
 def test_filter_schema():
-    assert TextFilter("name", label="Name").to_schema() == {"field": "name", "type": "text", "label": "Name"}
+    assert TextFilter("name", label="Name").to_schema() == {
+        "field": "name",
+        "type": "text",
+        "label": "Name",
+    }
 
 
 class Settings:
@@ -212,7 +255,16 @@ class Settings:
         default_locale = "en"
         supported_locales = ["en", "pt", "es"]
 
-    installed_apps = ["fastkit.core", "fastkit.db", "fastkit.tenancy", "fastkit.accounts", "fastkit.auth", "fastkit.permissions", "fastkit.i18n", "fastkit.admin"]
+    installed_apps = [
+        "fastkit.core",
+        "fastkit.db",
+        "fastkit.tenancy",
+        "fastkit.accounts",
+        "fastkit.auth",
+        "fastkit.permissions",
+        "fastkit.i18n",
+        "fastkit.admin",
+    ]
 
 
 @pytest_asyncio.fixture
@@ -282,7 +334,12 @@ def test_multichoice_filter(product_model):
 def test_select_filter(product_model):
     from fastkit_admin.filters import SelectFilter
 
-    flt = SelectFilter("category", choices=[("a", "A")], options="category_options", depends_on=["parent"])
+    flt = SelectFilter(
+        "category",
+        choices=[("a", "A")],
+        options="category_options",
+        depends_on=["parent"],
+    )
     base = select(product_model)
     schema = flt.to_schema()
 
@@ -297,7 +354,14 @@ def test_select_filter(product_model):
 def test_lookup_filter(product_model):
     from fastkit_admin.filters import LookupFilter
 
-    flt = LookupFilter("category", options="category_options", depends_on=["parent"], min_chars=2, initial_limit=5, search_limit=15)
+    flt = LookupFilter(
+        "category",
+        options="category_options",
+        depends_on=["parent"],
+        min_chars=2,
+        initial_limit=5,
+        search_limit=15,
+    )
     base = select(product_model)
     schema = flt.to_schema()
 

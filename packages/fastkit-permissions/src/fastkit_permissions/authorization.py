@@ -28,7 +28,9 @@ class Authorizer:
 
         return computed
 
-    async def has_permission(self, user, permission: str, tenant_id: int | None = None) -> bool:
+    async def has_permission(
+        self, user, permission: str, tenant_id: int | None = None
+    ) -> bool:
         if not getattr(user, "is_active", True):
             return False
 
@@ -37,19 +39,27 @@ class Authorizer:
 
         return permission in await self.permissions_for(user, tenant_id)
 
-    async def require(self, user, permission: str, tenant_id: int | None = None) -> None:
+    async def require(
+        self, user, permission: str, tenant_id: int | None = None
+    ) -> None:
         if not await self.has_permission(user, permission, tenant_id):
-            raise AuthorizationError(AUTHORIZATION_DENIED, message=f"permission '{permission}' is required")
+            raise AuthorizationError(
+                AUTHORIZATION_DENIED, message=f"permission '{permission}' is required"
+            )
 
     def _safe_cache_get(self, user_id, tenant_id):
         try:
             return self._cache.get(user_id, tenant_id)
         except Exception:
-            logger.warning("permission cache read failed, falling back to database", exc_info=True)
+            logger.warning(
+                "permission cache read failed, falling back to database", exc_info=True
+            )
 
             return None
 
-    def _safe_cache_set(self, user_id, tenant_id, permissions, observed_version) -> None:
+    def _safe_cache_set(
+        self, user_id, tenant_id, permissions, observed_version
+    ) -> None:
         try:
             self._cache.set(user_id, tenant_id, permissions, observed_version)
         except Exception:

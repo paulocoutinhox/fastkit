@@ -12,7 +12,9 @@ from fastkit_mail.memory import MemoryEmailProvider
 from fastkit_mail.service import MailService
 from fastkit_mail.templates import MailTemplateRenderer
 
-PACKAGE_TEMPLATES = str(Path(__file__).resolve().parents[1] / "src" / "fastkit_mail" / "templates")
+PACKAGE_TEMPLATES = str(
+    Path(__file__).resolve().parents[1] / "src" / "fastkit_mail" / "templates"
+)
 
 
 class Clock:
@@ -50,4 +52,6 @@ def provider():
 
 @pytest.fixture
 def service(database, renderer, provider):
-    return MailService(database, renderer, provider, "memory", "no-reply@fastkit.local", clock=Clock())
+    return MailService(
+        database, renderer, provider, "memory", "no-reply@fastkit.local", clock=Clock()
+    )

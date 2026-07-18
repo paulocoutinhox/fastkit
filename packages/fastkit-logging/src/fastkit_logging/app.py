@@ -16,9 +16,15 @@ class LoggingApp(FastKitApp):
 
     def register_services(self, context: BootstrapContext) -> None:
         settings = context.settings
-        setup_logging(level=settings.logging.level, file_path=settings.logging.file, environment=settings.app.environment)
+        setup_logging(
+            level=settings.logging.level,
+            file_path=settings.logging.file,
+            environment=settings.app.environment,
+        )
 
         database = context.component("database")
 
-        context.set_component("system_log_service", SystemLogService(database, settings.app.environment))
+        context.set_component(
+            "system_log_service", SystemLogService(database, settings.app.environment)
+        )
         context.set_component("audit_log_service", AuditLogService(database))

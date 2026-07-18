@@ -7,7 +7,13 @@ from fastkit_db.app import DbApp
 from fastkit_reports.app import ReportsApp
 from fastkit_reports.contracts import ReportRegistry, ReportResult
 from fastkit_reports.models import ExecutionStatus, ReportExecution
-from fastkit_reports.renderers import CsvRenderer, HtmlRenderer, JsonRenderer, PdfRenderer, ScreenRenderer
+from fastkit_reports.renderers import (
+    CsvRenderer,
+    HtmlRenderer,
+    JsonRenderer,
+    PdfRenderer,
+    ScreenRenderer,
+)
 from fastkit_reports.service import ReportService
 
 
@@ -54,7 +60,9 @@ def test_csv_renderer(sample_result):
 
 
 def test_csv_renderer_neutralizes_formula_injection(sales_def):
-    result = ReportResult(definition=sales_def, rows=[{"product": "=HYPERLINK(x)", "total": 1}])
+    result = ReportResult(
+        definition=sales_def, rows=[{"product": "=HYPERLINK(x)", "total": 1}]
+    )
     output = CsvRenderer().render(result).decode("utf-8")
 
     assert "'=HYPERLINK(x)" in output
@@ -62,7 +70,9 @@ def test_csv_renderer_neutralizes_formula_injection(sales_def):
 
 def test_html_renderer_escapes(sales_def):
     definition = sales_def
-    result = ReportResult(definition=definition, rows=[{"product": "<script>", "total": 1}])
+    result = ReportResult(
+        definition=definition, rows=[{"product": "<script>", "total": 1}]
+    )
     output = HtmlRenderer().render(result)
 
     assert "<table>" in output
@@ -105,7 +115,10 @@ async def test_resolve_options_returns_handler_result(service, database):
     async with database.session_factory() as session:
         options = await service.resolve_options("sales", session, "region", {})
 
-    assert options == [{"value": "north", "label": "North"}, {"value": "south", "label": "South"}]
+    assert options == [
+        {"value": "north", "label": "North"},
+        {"value": "south", "label": "South"},
+    ]
 
 
 async def test_resolve_options_unknown_field_raises(service, database):
@@ -150,7 +163,14 @@ class Settings:
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.reports": ReportsApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.reports": ReportsApp,
+        },
+    )
     runtime = Runtime(settings=Settings(), installed_apps=list(Settings.installed_apps))
     runtime.bootstrap()
 

@@ -32,10 +32,18 @@ class Scheduler:
 
         async with self._database.session_factory() as session:
             due = (
-                await session.execute(
-                    select(ScheduledTask).where(ScheduledTask.enabled.is_(True), ScheduledTask.next_run_at.isnot(None), ScheduledTask.next_run_at <= now)
+                (
+                    await session.execute(
+                        select(ScheduledTask).where(
+                            ScheduledTask.enabled.is_(True),
+                            ScheduledTask.next_run_at.isnot(None),
+                            ScheduledTask.next_run_at <= now,
+                        )
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
         for task in due:
             if await self._materialize(task, now):
@@ -85,7 +93,11 @@ class Scheduler:
             try:
                 return next_run(task.cron_expression, now)
             except CronError:
-                logger.exception("disabling scheduled task %s with invalid cron '%s'", task.id, task.cron_expression)
+                logger.exception(
+                    "disabling scheduled task %s with invalid cron '%s'",
+                    task.id,
+                    task.cron_expression,
+                )
 
                 return None
 

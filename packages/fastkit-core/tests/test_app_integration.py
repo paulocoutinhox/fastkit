@@ -5,7 +5,11 @@ from fastapi.testclient import TestClient
 from fastkit_core.app import FastKit, create_application
 from fastkit_core.apps.base import FastKitApp
 from fastkit_core.context.middleware import REQUEST_ID_HEADER
-from fastkit_core.registries.components import ModelRegistry, RouterRegistry, TemplateRegistry
+from fastkit_core.registries.components import (
+    ModelRegistry,
+    RouterRegistry,
+    TemplateRegistry,
+)
 
 
 def client_for(app: FastAPI) -> TestClient:
@@ -13,7 +17,9 @@ def client_for(app: FastAPI) -> TestClient:
 
 
 def test_request_id_header_roundtrip(error_app):
-    response = client_for(error_app).get("/ok", headers={REQUEST_ID_HEADER: "custom-id"})
+    response = client_for(error_app).get(
+        "/ok", headers={REQUEST_ID_HEADER: "custom-id"}
+    )
 
     assert response.headers[REQUEST_ID_HEADER] == "custom-id"
 
@@ -78,7 +84,9 @@ def test_fastkit_error_envelope(error_app):
 
 
 def test_unhandled_error_is_masked(error_app):
-    response = client_for(error_app).get("/boom", headers={REQUEST_ID_HEADER: "trace-500"})
+    response = client_for(error_app).get(
+        "/boom", headers={REQUEST_ID_HEADER: "trace-500"}
+    )
     body = response.json()
 
     assert response.status_code == 500
@@ -152,7 +160,16 @@ def _app_with_runtime(runtime):
         from fastkit_core.errors.codes import VALIDATION_FAILED
         from fastkit_core.errors.exceptions import FieldError, ValidationError
 
-        raise ValidationError(VALIDATION_FAILED, field_errors=[FieldError("password", "validation.password-too-short", params={"min_length": 8})])
+        raise ValidationError(
+            VALIDATION_FAILED,
+            field_errors=[
+                FieldError(
+                    "password",
+                    "validation.password-too-short",
+                    params={"min_length": 8},
+                )
+            ],
+        )
 
     app.include_router(router)
 
@@ -160,8 +177,13 @@ def _app_with_runtime(runtime):
 
 
 def test_error_text_is_translated_from_runtime():
-    runtime = _FakeRuntime(translator=_Translator({("error.internal", "pt"): "Algo deu errado."}), resolver=_Resolver())
-    response = client_for(_app_with_runtime(runtime)).get("/boom", headers={"Accept-Language": "pt-BR"})
+    runtime = _FakeRuntime(
+        translator=_Translator({("error.internal", "pt"): "Algo deu errado."}),
+        resolver=_Resolver(),
+    )
+    response = client_for(_app_with_runtime(runtime)).get(
+        "/boom", headers={"Accept-Language": "pt-BR"}
+    )
 
     assert response.json()["message"]["text"] == "Algo deu errado."
 
@@ -170,18 +192,34 @@ def test_error_text_falls_back_to_generic_when_no_translation():
     runtime = _FakeRuntime(translator=_Translator({}))
     response = client_for(_app_with_runtime(runtime)).get("/lookup")
 
-    assert response.json()["message"]["text"] == "Something went wrong. Please try again."
+    assert (
+        response.json()["message"]["text"] == "Something went wrong. Please try again."
+    )
 
 
 def test_error_text_falls_back_to_generic_when_no_translator():
     response = client_for(_app_with_runtime(_FakeRuntime())).get("/lookup")
 
-    assert response.json()["message"]["text"] == "Something went wrong. Please try again."
+    assert (
+        response.json()["message"]["text"] == "Something went wrong. Please try again."
+    )
 
 
 def test_field_error_messages_are_translated_with_params():
-    runtime = _FakeRuntime(translator=_Translator({("validation.password-too-short", "pt"): "A senha deve ter pelo menos {min_length} caracteres."}), resolver=_Resolver())
-    response = client_for(_app_with_runtime(runtime)).get("/field-error", headers={"Accept-Language": "pt-BR"})
+    runtime = _FakeRuntime(
+        translator=_Translator(
+            {
+                (
+                    "validation.password-too-short",
+                    "pt",
+                ): "A senha deve ter pelo menos {min_length} caracteres."
+            }
+        ),
+        resolver=_Resolver(),
+    )
+    response = client_for(_app_with_runtime(runtime)).get(
+        "/field-error", headers={"Accept-Language": "pt-BR"}
+    )
     body = response.json()
 
     assert body["errors"][0]["code"] == "validation.password-too-short"
@@ -189,15 +227,23 @@ def test_field_error_messages_are_translated_with_params():
 
 
 def test_non_user_visible_error_never_leaks_its_message():
-    runtime = _FakeRuntime(translator=_Translator({("error.internal", "en"): "Generic problem."}), resolver=_Resolver())
+    runtime = _FakeRuntime(
+        translator=_Translator({("error.internal", "en"): "Generic problem."}),
+        resolver=_Resolver(),
+    )
     response = client_for(_app_with_runtime(runtime)).get("/cache-boom")
 
     assert response.json()["message"]["text"] == "Generic problem."
 
 
 def test_http_error_text_is_translated_from_runtime():
-    runtime = _FakeRuntime(translator=_Translator({("error.not-found", "pt"): "Não encontrado."}), resolver=_Resolver())
-    response = client_for(_app_with_runtime(runtime)).get("/nope", headers={"Accept-Language": "pt-BR"})
+    runtime = _FakeRuntime(
+        translator=_Translator({("error.not-found", "pt"): "Não encontrado."}),
+        resolver=_Resolver(),
+    )
+    response = client_for(_app_with_runtime(runtime)).get(
+        "/nope", headers={"Accept-Language": "pt-BR"}
+    )
 
     assert response.status_code == 404
     assert response.json()["message"]["text"] == "Não encontrado."

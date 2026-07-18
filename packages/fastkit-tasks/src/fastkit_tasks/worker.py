@@ -19,14 +19,27 @@ class TaskContext:
         self.worker_id = worker_id
         self._lease_seconds = lease_seconds
 
-    async def heartbeat(self, progress: int | None = None, message: str | None = None) -> None:
-        await self.queue.heartbeat(self.execution.id, self.worker_id, self._lease_seconds, progress, message)
+    async def heartbeat(
+        self, progress: int | None = None, message: str | None = None
+    ) -> None:
+        await self.queue.heartbeat(
+            self.execution.id, self.worker_id, self._lease_seconds, progress, message
+        )
 
 
 class Worker:
     """Leases one execution at a time, runs it under a timeout and records the attempt."""
 
-    def __init__(self, queue: TaskQueue, registry: TaskRegistry, database, worker_id: str, queues: list[str] | None = None, lease_seconds: int = 60, clock=None):
+    def __init__(
+        self,
+        queue: TaskQueue,
+        registry: TaskRegistry,
+        database,
+        worker_id: str,
+        queues: list[str] | None = None,
+        lease_seconds: int = 60,
+        clock=None,
+    ):
         self._queue = queue
         self._registry = registry
         self._database = database
@@ -36,7 +49,9 @@ class Worker:
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
     async def run_once(self) -> str | None:
-        execution = await self._queue.lease(self._worker_id, self._queues, self._lease_seconds)
+        execution = await self._queue.lease(
+            self._worker_id, self._queues, self._lease_seconds
+        )
 
         if execution is None:
             return None
@@ -47,32 +62,68 @@ class Worker:
             definition = self._registry.get(execution.task_name)
         except KeyError:
             message = f"task '{execution.task_name}' is not registered"
-            status = await self._queue.fail(execution.id, self._worker_id, "task.unregistered", message, retryable=False)
-            await self._record_attempt(execution, "failed", started, "task.unregistered", message)
+            status = await self._queue.fail(
+                execution.id,
+                self._worker_id,
+                "task.unregistered",
+                message,
+                retryable=False,
+            )
+            await self._record_attempt(
+                execution, "failed", started, "task.unregistered", message
+            )
 
             return status
 
-        context = TaskContext(self._queue, execution, self._worker_id, self._lease_seconds)
+        context = TaskContext(
+            self._queue, execution, self._worker_id, self._lease_seconds
+        )
 
         try:
-            result = await asyncio.wait_for(definition.handler(context, execution.payload or {}), timeout=execution.timeout_seconds)
+            result = await asyncio.wait_for(
+                definition.handler(context, execution.payload or {}),
+                timeout=execution.timeout_seconds,
+            )
         except PermanentTaskError as error:
-            status = await self._queue.fail(execution.id, self._worker_id, "task.permanent", str(error), retryable=False)
-            await self._record_attempt(execution, "failed", started, "task.permanent", str(error))
+            status = await self._queue.fail(
+                execution.id,
+                self._worker_id,
+                "task.permanent",
+                str(error),
+                retryable=False,
+            )
+            await self._record_attempt(
+                execution, "failed", started, "task.permanent", str(error)
+            )
 
             return status
         except asyncio.TimeoutError:
-            status = await self._queue.fail(execution.id, self._worker_id, "task.timeout", "task timed out", retryable=True, retry_policy=RetryPolicy.exponential)
-            await self._record_attempt(execution, "failed", started, "task.timeout", "task timed out")
+            status = await self._queue.fail(
+                execution.id,
+                self._worker_id,
+                "task.timeout",
+                "task timed out",
+                retryable=True,
+                retry_policy=RetryPolicy.exponential,
+            )
+            await self._record_attempt(
+                execution, "failed", started, "task.timeout", "task timed out"
+            )
 
             return status
         except Exception as error:
-            status = await self._queue.fail(execution.id, self._worker_id, "task.error", str(error), retryable=True)
-            await self._record_attempt(execution, "failed", started, "task.error", str(error))
+            status = await self._queue.fail(
+                execution.id, self._worker_id, "task.error", str(error), retryable=True
+            )
+            await self._record_attempt(
+                execution, "failed", started, "task.error", str(error)
+            )
 
             return status
 
-        await self._queue.complete(execution.id, self._worker_id, result if isinstance(result, dict) else None)
+        await self._queue.complete(
+            execution.id, self._worker_id, result if isinstance(result, dict) else None
+        )
         await self._record_attempt(execution, "succeeded", started, None, None)
 
         return "succeeded"
@@ -103,7 +154,9 @@ class Worker:
 
             await asyncio.sleep(poll_interval)
 
-    async def _record_attempt(self, execution, status, started, error_code, error_message) -> None:
+    async def _record_attempt(
+        self, execution, status, started, error_code, error_message
+    ) -> None:
         async with self._database.session_factory() as session:
             session.add(
                 TaskAttempt(

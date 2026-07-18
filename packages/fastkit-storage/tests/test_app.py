@@ -26,7 +26,10 @@ class Settings:
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch, tmp_path):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.storage": StorageApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {"fastkit.core": CoreApp, "fastkit.storage": StorageApp},
+    )
 
     settings = Settings()
     settings.storage.root = str(tmp_path / "media")

@@ -6,7 +6,9 @@ from typing import Any, Awaitable, Callable, TypeVar
 
 T = TypeVar("T")
 
-_resolving_chain: contextvars.ContextVar[set | None] = contextvars.ContextVar("fastkit_resolving_chain", default=None)
+_resolving_chain: contextvars.ContextVar[set | None] = contextvars.ContextVar(
+    "fastkit_resolving_chain", default=None
+)
 
 
 class Lifetime(str, Enum):
@@ -20,7 +22,9 @@ class ServiceError(RuntimeError):
 
 
 class ServiceRegistration:
-    def __init__(self, key: type, factory: Callable[["ServiceScope"], Any], lifetime: Lifetime):
+    def __init__(
+        self, key: type, factory: Callable[["ServiceScope"], Any], lifetime: Lifetime
+    ):
         self.key = key
         self.factory = factory
         self.lifetime = lifetime
@@ -36,19 +40,35 @@ class ServiceContainer:
         self._locks: dict[type, asyncio.Lock] = {}
         self._locks_guard = asyncio.Lock()
 
-    def register(self, key: type, factory: Callable[["ServiceScope"], Any], lifetime: Lifetime = Lifetime.singleton) -> None:
+    def register(
+        self,
+        key: type,
+        factory: Callable[["ServiceScope"], Any],
+        lifetime: Lifetime = Lifetime.singleton,
+    ) -> None:
         self._registrations[key] = ServiceRegistration(key, factory, lifetime)
 
-    def register_singleton(self, key: type, factory: Callable[["ServiceScope"], Any]) -> None:
+    def register_singleton(
+        self, key: type, factory: Callable[["ServiceScope"], Any]
+    ) -> None:
         self.register(key, factory, Lifetime.singleton)
 
-    def register_scoped(self, key: type, factory: Callable[["ServiceScope"], Any]) -> None:
+    def register_scoped(
+        self, key: type, factory: Callable[["ServiceScope"], Any]
+    ) -> None:
         self.register(key, factory, Lifetime.scoped)
 
-    def register_transient(self, key: type, factory: Callable[["ServiceScope"], Any]) -> None:
+    def register_transient(
+        self, key: type, factory: Callable[["ServiceScope"], Any]
+    ) -> None:
         self.register(key, factory, Lifetime.transient)
 
-    def override(self, key: type, factory: Callable[["ServiceScope"], Any], lifetime: Lifetime = Lifetime.singleton) -> None:
+    def override(
+        self,
+        key: type,
+        factory: Callable[["ServiceScope"], Any],
+        lifetime: Lifetime = Lifetime.singleton,
+    ) -> None:
         self._singletons.pop(key, None)
         self.register(key, factory, lifetime)
 
@@ -58,7 +78,9 @@ class ServiceContainer:
     def scope(self) -> "ServiceScope":
         return ServiceScope(self)
 
-    async def _create(self, registration: ServiceRegistration, scope: "ServiceScope") -> Any:
+    async def _create(
+        self, registration: ServiceRegistration, scope: "ServiceScope"
+    ) -> Any:
         chain = _resolving_chain.get()
         owns_chain = chain is None
 
@@ -67,7 +89,9 @@ class ServiceContainer:
             token = _resolving_chain.set(chain)
 
         if registration.key in chain:
-            raise ServiceError(f"circular dependency detected while resolving {registration.key.__name__}")
+            raise ServiceError(
+                f"circular dependency detected while resolving {registration.key.__name__}"
+            )
 
         chain.add(registration.key)
 
@@ -106,7 +130,9 @@ class ServiceContainer:
         chain = _resolving_chain.get()
 
         if chain is not None and key in chain:
-            raise ServiceError(f"circular dependency detected while resolving {key.__name__}")
+            raise ServiceError(
+                f"circular dependency detected while resolving {key.__name__}"
+            )
 
         lock = await self._lock_for(key)
 
@@ -162,7 +188,9 @@ class ServiceScope:
 
             async with await self._lock_for(key):
                 if key not in self._scoped:
-                    self._scoped[key] = await self._container._create(registration, self)
+                    self._scoped[key] = await self._container._create(
+                        registration, self
+                    )
 
                 return self._scoped[key]
 

@@ -53,7 +53,11 @@ def test_locale_contextvar():
 
 
 def test_translator_lookup_and_fallback():
-    translator = Translator({"en": {"a": "A"}, "pt": {"a": "Aa"}}, supported=["en", "pt"], default_locale="en")
+    translator = Translator(
+        {"en": {"a": "A"}, "pt": {"a": "Aa"}},
+        supported=["en", "pt"],
+        default_locale="en",
+    )
 
     assert translator.gettext("a", locale="pt") == "Aa"
     assert translator.gettext("a", locale="pt_BR") == "Aa"
@@ -61,7 +65,11 @@ def test_translator_lookup_and_fallback():
 
 
 def test_translator_params_and_plural():
-    translator = Translator({"en": {"hello": "Hello {name}", "one": "1 item", "many": "{count} items"}}, supported=["en"], default_locale="en")
+    translator = Translator(
+        {"en": {"hello": "Hello {name}", "one": "1 item", "many": "{count} items"}},
+        supported=["en"],
+        default_locale="en",
+    )
 
     assert translator.gettext("hello", locale="en", name="Ada") == "Hello Ada"
     assert translator.ngettext("one", "many", 1, locale="en") == "1 item"
@@ -80,7 +88,9 @@ def test_translator_activate_and_add_catalog():
 
 
 def test_translator_add_new_locale_registers_and_resolves():
-    translator = Translator({"en": {"k": "value"}}, supported=["en"], default_locale="en")
+    translator = Translator(
+        {"en": {"k": "value"}}, supported=["en"], default_locale="en"
+    )
 
     # a locale that was never declared can be added at runtime
     translator.add_catalog("de", {"k": "Wert"})
@@ -93,7 +103,11 @@ def test_translator_add_new_locale_registers_and_resolves():
 
 
 def test_gettext_lenient_formatting_never_crashes():
-    translator = Translator({"en": {"a": "Hi {name}", "b": "Raw brace {"}}, supported=["en"], default_locale="en")
+    translator = Translator(
+        {"en": {"a": "Hi {name}", "b": "Raw brace {"}},
+        supported=["en"],
+        default_locale="en",
+    )
 
     assert translator.gettext("a", locale="en", other="x") == "Hi {name}"
     assert translator.gettext("b", locale="en", x=1) == "Raw brace {"
@@ -105,7 +119,9 @@ def test_base_catalogs_are_key_symmetric():
     english = set(BASE_CATALOGS["en"])
 
     for locale, catalog in BASE_CATALOGS.items():
-        assert set(catalog) == english, f"{locale} catalog keys differ from en: {english.symmetric_difference(catalog)}"
+        assert set(catalog) == english, (
+            f"{locale} catalog keys differ from en: {english.symmetric_difference(catalog)}"
+        )
 
 
 def test_translator_messages_merges_fallback_chain():
@@ -136,7 +152,9 @@ def test_resolver_order():
 
 
 def test_registering_a_new_locale_makes_it_resolvable():
-    translator = Translator({"en": {"error.internal": "Oops"}}, supported=["en"], default_locale="en")
+    translator = Translator(
+        {"en": {"error.internal": "Oops"}}, supported=["en"], default_locale="en"
+    )
     resolver = LocaleResolver(supported=translator.supported, default_locale="en")
 
     assert resolver.resolve(user_locale="de") == "en"
@@ -151,7 +169,9 @@ def test_jinja_integration():
         def __init__(self):
             self.globals = {}
 
-    translator = Translator({"en": {"admin.save": "Save"}}, supported=["en"], default_locale="en")
+    translator = Translator(
+        {"en": {"admin.save": "Save"}}, supported=["en"], default_locale="en"
+    )
     env = FakeEnv()
     install_i18n(env, translator)
 
@@ -169,7 +189,10 @@ class Settings:
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.i18n": I18nApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {"fastkit.core": CoreApp, "fastkit.i18n": I18nApp},
+    )
     runtime = Runtime(settings=Settings(), installed_apps=list(Settings.installed_apps))
     runtime.bootstrap()
 
@@ -182,7 +205,10 @@ async def test_i18n_app_registers(runtime):
     translator = runtime.component("translator")
     resolver = runtime.component("locale_resolver")
 
-    assert translator.gettext("error.not-found", locale="pt") == "O recurso solicitado não foi encontrado."
+    assert (
+        translator.gettext("error.not-found", locale="pt")
+        == "O recurso solicitado não foi encontrado."
+    )
     assert resolver.resolve(user_locale="pt") == "pt"
 
     translator.add_catalog("de", {"error.internal": "Hoppla"})

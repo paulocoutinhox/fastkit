@@ -13,7 +13,15 @@ def build_login_config(login: dict | None) -> dict:
     login = login or {}
 
     return {
-        "identifier": login.get("identifier", {"label": "login.email", "type": "email", "autocomplete": "username", "default": ""}),
+        "identifier": login.get(
+            "identifier",
+            {
+                "label": "login.email",
+                "type": "email",
+                "autocomplete": "username",
+                "default": "",
+            },
+        ),
         "identifier_type": login.get("identifier_type", "email"),
         "identifier_types": login.get("identifier_types", []),
         "password": login.get("password", True),
@@ -21,7 +29,14 @@ def build_login_config(login: dict | None) -> dict:
     }
 
 
-def build_page_config(admin_settings, theme: dict | None = None, captcha: dict | None = None, login: dict | None = None, static_base: str = "/admin-static", registry: AssetRegistry | None = None) -> dict:
+def build_page_config(
+    admin_settings,
+    theme: dict | None = None,
+    captcha: dict | None = None,
+    login: dict | None = None,
+    static_base: str = "/admin-static",
+    registry: AssetRegistry | None = None,
+) -> dict:
     """Build the context every admin template receives, including the client bootstrap JSON.
 
     `captcha` is the active captcha provider's `client_config()` dict (or None/disabled) and `login`
@@ -69,8 +84,13 @@ def render_client_json(config: dict, locale: str, messages: dict) -> str:
 
     payload = json.dumps({**config["client"], "locale": locale, "messages": messages})
 
-    return (payload.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
-            .replace(" ", "\\u2028").replace(" ", "\\u2029"))
+    return (
+        payload.replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("&", "\\u0026")
+        .replace(" ", "\\u2028")
+        .replace(" ", "\\u2029")
+    )
 
 
 def make_t(translator, locale: str):

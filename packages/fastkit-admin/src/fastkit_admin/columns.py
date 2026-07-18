@@ -18,8 +18,16 @@ class Column:
         return self.label or self.name.replace("_", " ").title()
 
     def to_schema(self) -> dict:
-        return {"name": self.name, "label": self.display_label(), "align": self.align, "sortable": self.sortable}
+        return {
+            "name": self.name,
+            "label": self.display_label(),
+            "align": self.align,
+            "sortable": self.sortable,
+        }
 
 
 def normalize_columns(columns: list) -> list[Column]:
-    return [column if isinstance(column, Column) else Column(name=column) for column in columns]
+    return [
+        column if isinstance(column, Column) else Column(name=column)
+        for column in columns
+    ]

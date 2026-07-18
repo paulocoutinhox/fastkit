@@ -1,6 +1,12 @@
 from contextlib import contextmanager
 
-from fastkit_i18n.locale import fallback_chain, get_locale, normalize, reset_locale, set_locale
+from fastkit_i18n.locale import (
+    fallback_chain,
+    get_locale,
+    normalize,
+    reset_locale,
+    set_locale,
+)
 
 
 class _LenientParams(dict):
@@ -26,10 +32,21 @@ class Translator:
     be resolved.
     """
 
-    def __init__(self, catalogs: dict[str, dict[str, str]], supported: list[str], default_locale: str = "en"):
+    def __init__(
+        self,
+        catalogs: dict[str, dict[str, str]],
+        supported: list[str],
+        default_locale: str = "en",
+    ):
         self._default_locale = normalize(default_locale)
-        self._catalogs = {normalize(locale): dict(messages) for locale, messages in catalogs.items()}
-        self._supported = {normalize(locale) for locale in supported} | {self._default_locale} | set(self._catalogs)
+        self._catalogs = {
+            normalize(locale): dict(messages) for locale, messages in catalogs.items()
+        }
+        self._supported = (
+            {normalize(locale) for locale in supported}
+            | {self._default_locale}
+            | set(self._catalogs)
+        )
 
     def add_catalog(self, locale: str, messages: dict[str, str]) -> None:
         """Merge new keys into a locale, creating and registering the locale if needed."""
@@ -52,7 +69,14 @@ class Translator:
 
         return key
 
-    def ngettext(self, singular_key: str, plural_key: str, count: int, locale: str | None = None, **params) -> str:
+    def ngettext(
+        self,
+        singular_key: str,
+        plural_key: str,
+        count: int,
+        locale: str | None = None,
+        **params,
+    ) -> str:
         key = singular_key if count == 1 else plural_key
 
         return self.gettext(key, locale=locale, count=count, **params)
@@ -65,7 +89,9 @@ class Translator:
 
         merged: dict[str, str] = {}
 
-        for candidate in reversed(fallback_chain(normalize(locale), self.supported(), self._default_locale)):
+        for candidate in reversed(
+            fallback_chain(normalize(locale), self.supported(), self._default_locale)
+        ):
             merged.update(self._catalogs.get(candidate, {}))
 
         return merged

@@ -32,7 +32,10 @@ class ReportDefinition:
         return {
             "name": self.name,
             "title": self.title,
-            "columns": [{"key": column.key, "label": column.label, "align": column.align} for column in self.columns],
+            "columns": [
+                {"key": column.key, "label": column.label, "align": column.align}
+                for column in self.columns
+            ],
             "filters": [item.to_schema() for item in self.filters],
         }
 

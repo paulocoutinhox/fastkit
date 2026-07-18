@@ -3,7 +3,11 @@ import logging
 import pytest_asyncio
 from sqlalchemy import select
 
-from fastkit_core.context.request import RequestContext, reset_request_context, set_request_context
+from fastkit_core.context.request import (
+    RequestContext,
+    reset_request_context,
+    set_request_context,
+)
 from fastkit_logging.config import JsonLogFormatter, build_file_handler, setup_logging
 from fastkit_logging.models import SystemLog
 from fastkit_logging.sanitize import REDACTED, sanitize
@@ -11,7 +15,11 @@ from fastkit_logging.service import AuditLogService, SystemLogService
 
 
 def test_sanitize_redacts_sensitive_keys():
-    payload = {"email": "a@b.c", "password": "secret", "nested": {"access_token": "x", "value": 1}}
+    payload = {
+        "email": "a@b.c",
+        "password": "secret",
+        "nested": {"access_token": "x", "value": 1},
+    }
 
     cleaned = sanitize(payload)
 
@@ -27,7 +35,16 @@ def test_sanitize_handles_lists_and_scalars():
 
 
 def test_sanitize_covers_high_value_markers():
-    cleaned = sanitize({"api_key": "sk-1", "bearer": "b", "cvv": "123", "ssn": "111", "card_number": "4111", "safe": "ok"})
+    cleaned = sanitize(
+        {
+            "api_key": "sk-1",
+            "bearer": "b",
+            "cvv": "123",
+            "ssn": "111",
+            "card_number": "4111",
+            "safe": "ok",
+        }
+    )
 
     assert cleaned["api_key"] == REDACTED
     assert cleaned["bearer"] == REDACTED
@@ -38,7 +55,9 @@ def test_sanitize_covers_high_value_markers():
 
 
 def test_sanitize_does_not_over_redact_benign_keys():
-    cleaned = sanitize({"wildcard": "*.example.com", "discard_reason": "spam", "scorecard": 5})
+    cleaned = sanitize(
+        {"wildcard": "*.example.com", "discard_reason": "spam", "scorecard": 5}
+    )
 
     assert cleaned["wildcard"] == "*.example.com"
     assert cleaned["discard_reason"] == "spam"
@@ -58,10 +77,14 @@ def test_sanitize_depth_guard_does_not_leak_deep_secrets():
 
 
 def test_json_formatter_includes_context():
-    token = set_request_context(RequestContext(request_id="req-1", tenant_id=7, user_id="u-1"))
+    token = set_request_context(
+        RequestContext(request_id="req-1", tenant_id=7, user_id="u-1")
+    )
 
     try:
-        record = logging.LogRecord("fastkit", logging.INFO, __file__, 1, "hello", None, None)
+        record = logging.LogRecord(
+            "fastkit", logging.INFO, __file__, 1, "hello", None, None
+        )
         line = JsonLogFormatter().format(record)
     finally:
         reset_request_context(token)
@@ -76,7 +99,9 @@ def test_json_formatter_includes_exception():
     except ValueError:
         import sys
 
-        record = logging.LogRecord("fastkit", logging.ERROR, __file__, 1, "failed", None, sys.exc_info())
+        record = logging.LogRecord(
+            "fastkit", logging.ERROR, __file__, 1, "failed", None, sys.exc_info()
+        )
 
     line = JsonLogFormatter().format(record)
 
@@ -106,12 +131,19 @@ def test_setup_logging_dev_and_prod(tmp_path):
 
     prod_root = setup_logging("WARNING", str(tmp_path / "prod.log"), "prod")
     assert prod_root.level == logging.WARNING
-    assert any(isinstance(handler.formatter, JsonLogFormatter) for handler in prod_root.handlers)
+    assert any(
+        isinstance(handler.formatter, JsonLogFormatter)
+        for handler in prod_root.handlers
+    )
 
 
 @pytest_asyncio.fixture
 async def context_reset():
-    token = set_request_context(RequestContext(request_id="req-2", tenant_id=3, user_id="00000000000000000000000000000001"))
+    token = set_request_context(
+        RequestContext(
+            request_id="req-2", tenant_id=3, user_id="00000000000000000000000000000001"
+        )
+    )
 
     yield
 
@@ -121,7 +153,13 @@ async def context_reset():
 async def test_system_log_service_persists(database, context_reset):
     service = SystemLogService(database, "test")
 
-    row = await service.record("INFO", "security", "login", "user logged in", payload={"password": "x", "ok": True})
+    row = await service.record(
+        "INFO",
+        "security",
+        "login",
+        "user logged in",
+        payload={"password": "x", "ok": True},
+    )
 
     assert row is not None
 
@@ -154,7 +192,13 @@ async def test_system_log_service_survives_db_failure(context_reset):
 async def test_audit_log_service_records_before_after(database, context_reset):
     service = AuditLogService(database)
 
-    row = await service.record("update", "User", resource_id="1", before={"name": "a", "token": "x"}, after={"name": "b"})
+    row = await service.record(
+        "update",
+        "User",
+        resource_id="1",
+        before={"name": "a", "token": "x"},
+        after={"name": "b"},
+    )
 
     assert row.action == "update"
     assert row.before_data == {"name": "a", "token": REDACTED}

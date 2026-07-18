@@ -16,7 +16,16 @@ from fastkit_db.base import (
 from fastkit_db.engine import Database
 
 
-class Widget(PrimaryKeyMixin, TimestampMixin, TenantMixin, SoftDeleteMixin, VersionMixin, MetadataMixin, ActiveFlagMixin, Base):
+class Widget(
+    PrimaryKeyMixin,
+    TimestampMixin,
+    TenantMixin,
+    SoftDeleteMixin,
+    VersionMixin,
+    MetadataMixin,
+    ActiveFlagMixin,
+    Base,
+):
     __tablename__ = "widgets"
 
     name: Mapped[str] = mapped_column(String(120), nullable=False)

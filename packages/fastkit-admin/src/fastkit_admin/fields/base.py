@@ -7,7 +7,19 @@ class AdminField:
 
     field_type = "text"
 
-    def __init__(self, name: str, label: str | None = None, required: bool = False, readonly: bool = False, help_text: str | None = None, placeholder: str | None = None, default=None, write_only: bool = False, virtual: bool = False, hide_label: bool = False):
+    def __init__(
+        self,
+        name: str,
+        label: str | None = None,
+        required: bool = False,
+        readonly: bool = False,
+        help_text: str | None = None,
+        placeholder: str | None = None,
+        default=None,
+        write_only: bool = False,
+        virtual: bool = False,
+        hide_label: bool = False,
+    ):
         self.name = name
         self.label = label or name.replace("_", " ").title()
         self.required = required
@@ -40,7 +52,9 @@ class AdminField:
         return raw
 
     def _fail(self, code: str) -> ValidationError:
-        return ValidationError(VALIDATION_FAILED, field_errors=[FieldError(self.name, code)])
+        return ValidationError(
+            VALIDATION_FAILED, field_errors=[FieldError(self.name, code)]
+        )
 
     def validate(self, value) -> None:
         if self.required and (value is None or value == ""):

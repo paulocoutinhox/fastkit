@@ -28,11 +28,9 @@ class NormalizedWebhook:
 class WebhookProvider(Protocol):
     name: str
 
-    async def verify(self, request: RawWebhookRequest) -> VerificationResult:
-        ...
+    async def verify(self, request: RawWebhookRequest) -> VerificationResult: ...
 
-    async def normalize(self, request: RawWebhookRequest) -> NormalizedWebhook:
-        ...
+    async def normalize(self, request: RawWebhookRequest) -> NormalizedWebhook: ...
 
 
 class HmacWebhookProvider:
@@ -44,7 +42,9 @@ class HmacWebhookProvider:
         self._signature_header = signature_header.lower()
 
     async def verify(self, request: RawWebhookRequest) -> VerificationResult:
-        provided = {key.lower(): value for key, value in request.headers.items()}.get(self._signature_header)
+        provided = {key.lower(): value for key, value in request.headers.items()}.get(
+            self._signature_header
+        )
 
         if verify_signature(self._secret, request.body, provided):
             return VerificationResult(valid=True)

@@ -17,11 +17,15 @@ class RateLimiter:
         key = ":".join(str(part) for part in parts)
         now = self._clock()
 
-        recent = [stamp for stamp in self._buckets[key] if now - stamp < self._window_seconds]
+        recent = [
+            stamp for stamp in self._buckets[key] if now - stamp < self._window_seconds
+        ]
 
         if len(recent) >= self._max_attempts:
             self._buckets[key] = recent
-            raise RateLimitError(RATE_LIMITED, message="too many attempts, please try again later")
+            raise RateLimitError(
+                RATE_LIMITED, message="too many attempts, please try again later"
+            )
 
         recent.append(now)
         self._buckets[key] = recent

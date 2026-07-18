@@ -57,14 +57,20 @@ async def test_content_translation_and_fallback(languages, content):
     same = await content.ensure_content("home.hero", tenant_id=1)
     assert node.id == same.id
 
-    en = await (languages.get_by_code("en"))
+    en = await languages.get_by_code("en")
     pt = await languages.get_by_code("pt")
 
     await content.set_translation(node.id, en.id, title="Hero", body="<p>Welcome</p>")
     await content.set_translation(node.id, pt.id, title="Hero", body="<p>Bem-vindo</p>")
 
-    assert await content.get("home.hero", "pt_BR", tenant_id=1, supported=["en", "pt"]) == "<p>Bem-vindo</p>"
-    assert await content.get("home.hero", "es", tenant_id=1, supported=["en", "pt", "es"]) == "<p>Welcome</p>"
+    assert (
+        await content.get("home.hero", "pt_BR", tenant_id=1, supported=["en", "pt"])
+        == "<p>Bem-vindo</p>"
+    )
+    assert (
+        await content.get("home.hero", "es", tenant_id=1, supported=["en", "pt", "es"])
+        == "<p>Welcome</p>"
+    )
 
 
 async def test_get_without_locale_uses_default_language(languages, content):
@@ -106,7 +112,9 @@ async def test_get_honours_content_default_language(languages, content, database
     assert await content.get("promo", tenant_id=1) == "<p>en</p>"
 
 
-async def test_get_falls_back_to_default_locale_without_default_language(languages, content, database):
+async def test_get_falls_back_to_default_locale_without_default_language(
+    languages, content, database
+):
     from sqlalchemy import update
 
     from fastkit_content.models import Language
@@ -120,7 +128,10 @@ async def test_get_falls_back_to_default_locale_without_default_language(languag
         await session.execute(update(Language).values(is_default=False))
         await session.commit()
 
-    assert await content.get("plain", tenant_id=1, default_locale="en") == "<p>fallback</p>"
+    assert (
+        await content.get("plain", tenant_id=1, default_locale="en")
+        == "<p>fallback</p>"
+    )
 
 
 async def test_translations_by_content_id(languages, content):
@@ -154,10 +165,14 @@ async def test_translations_lists_every_language(languages, content):
 
 async def test_set_translation_sanitizes_rich_html(languages, content):
     await languages.seed_defaults()
-    node = await content.ensure_content("page.body", tenant_id=1, content_type=ContentType.rich_text.value)
+    node = await content.ensure_content(
+        "page.body", tenant_id=1, content_type=ContentType.rich_text.value
+    )
     en = await languages.get_by_code("en")
 
-    translation = await content.set_translation(node.id, en.id, body='<p>ok</p><script>alert(1)</script>')
+    translation = await content.set_translation(
+        node.id, en.id, body="<p>ok</p><script>alert(1)</script>"
+    )
 
     assert "script" not in translation.body
     assert "<p>ok</p>" in translation.body
@@ -165,7 +180,9 @@ async def test_set_translation_sanitizes_rich_html(languages, content):
 
 async def test_plain_text_is_not_sanitized(languages, content):
     await languages.seed_defaults()
-    node = await content.ensure_content("raw", tenant_id=1, content_type=ContentType.plain_text.value)
+    node = await content.ensure_content(
+        "raw", tenant_id=1, content_type=ContentType.plain_text.value
+    )
     en = await languages.get_by_code("en")
 
     translation = await content.set_translation(node.id, en.id, body="1 < 2")
@@ -212,7 +229,9 @@ async def test_get_skips_unknown_language_in_chain(languages, content):
     en = await languages.get_by_code("en")
     await content.set_translation(node.id, en.id, body="<p>hi</p>")
 
-    assert await content.get("k", "de", tenant_id=1, supported=["de", "en"]) == "<p>hi</p>"
+    assert (
+        await content.get("k", "de", tenant_id=1, supported=["de", "en"]) == "<p>hi</p>"
+    )
 
 
 class Settings:
@@ -232,7 +251,12 @@ class Settings:
 async def runtime(monkeypatch):
     monkeypatch.setattr(
         "fastkit_core.runtime.discover_apps",
-        lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.i18n": I18nApp, "fastkit.content": ContentApp},
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.i18n": I18nApp,
+            "fastkit.content": ContentApp,
+        },
     )
     runtime = Runtime(settings=Settings(), installed_apps=list(Settings.installed_apps))
     runtime.bootstrap()

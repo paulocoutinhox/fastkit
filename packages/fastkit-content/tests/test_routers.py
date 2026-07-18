@@ -1,11 +1,18 @@
 from types import SimpleNamespace
 
-from fastkit_content.routers import TranslationEntry, TranslationsPayload, build_content_router
+from fastkit_content.routers import (
+    TranslationEntry,
+    TranslationsPayload,
+    build_content_router,
+)
 
 
 class _LanguageService:
     async def list_active(self):
-        return [SimpleNamespace(id=1, code="en", name="English"), SimpleNamespace(id=2, code="pt", name="Portuguese")]
+        return [
+            SimpleNamespace(id=1, code="en", name="English"),
+            SimpleNamespace(id=2, code="pt", name="Portuguese"),
+        ]
 
 
 class _ContentService:
@@ -45,7 +52,10 @@ def _runtime(content, languages):
 def _endpoints(runtime, security, **kwargs):
     router = build_content_router(runtime, security, **kwargs)
 
-    return {(route.path, tuple(sorted(route.methods))): route.endpoint for route in router.routes}
+    return {
+        (route.path, tuple(sorted(route.methods))): route.endpoint
+        for route in router.routes
+    }
 
 
 async def test_languages_lists_active():
@@ -54,36 +64,53 @@ async def test_languages_lists_active():
 
     result = await endpoints[("/content/languages", ("GET",))](user=SimpleNamespace())
 
-    assert result["data"] == [{"code": "en", "name": "English"}, {"code": "pt", "name": "Portuguese"}]
+    assert result["data"] == [
+        {"code": "en", "name": "English"},
+        {"code": "pt", "name": "Portuguese"},
+    ]
     assert security.checks == ["content.publish"]
 
 
 async def test_get_translations_returns_service_payload():
     endpoints = _endpoints(_runtime(_ContentService(), _LanguageService()), _Security())
 
-    result = await endpoints[("/content/{content_id}/translations", ("GET",))](content_id=3, user=SimpleNamespace())
+    result = await endpoints[("/content/{content_id}/translations", ("GET",))](
+        content_id=3, user=SimpleNamespace()
+    )
 
     assert result["data"] == {"translations": [{"language": "en", "title": "Hi"}]}
 
 
 async def test_set_translations_skips_unknown_languages():
     content = _ContentService()
-    endpoints = _endpoints(_runtime(content, _LanguageService()), _Security(), publish_permission="cms.write")
-    payload = TranslationsPayload(translations=[
-        TranslationEntry(language="pt", title="Olá", body="<p>oi</p>"),
-        TranslationEntry(language="zz", title="ignored"),
-    ])
+    endpoints = _endpoints(
+        _runtime(content, _LanguageService()),
+        _Security(),
+        publish_permission="cms.write",
+    )
+    payload = TranslationsPayload(
+        translations=[
+            TranslationEntry(language="pt", title="Olá", body="<p>oi</p>"),
+            TranslationEntry(language="zz", title="ignored"),
+        ]
+    )
 
-    await endpoints[("/content/{content_id}/translations", ("PUT",))](content_id=7, payload=payload, user=SimpleNamespace())
+    await endpoints[("/content/{content_id}/translations", ("PUT",))](
+        content_id=7, payload=payload, user=SimpleNamespace()
+    )
 
     assert content.saved == [(7, 2, "Olá", None, "<p>oi</p>")]
 
 
 async def test_read_by_key_resolves_against_the_tenant():
     content = _ContentService()
-    endpoints = _endpoints(_runtime(content, _LanguageService()), _Security(), tenant_id=4)
+    endpoints = _endpoints(
+        _runtime(content, _LanguageService()), _Security(), tenant_id=4
+    )
 
-    result = await endpoints[("/content-by-key/{key}", ("GET",))](key="welcome", language="pt", user=SimpleNamespace())
+    result = await endpoints[("/content-by-key/{key}", ("GET",))](
+        key="welcome", language="pt", user=SimpleNamespace()
+    )
 
     assert result["data"] == {"key": "welcome", "language": "pt", "body": "<p>body</p>"}
     assert content.read == ("welcome", "pt", 4)

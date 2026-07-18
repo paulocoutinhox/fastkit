@@ -16,10 +16,21 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
         except Exception:
             duration_ms = int((time.perf_counter() - started) * 1000)
-            logger.exception("request failed %s %s (%sms)", request.method, request.url.path, duration_ms)
+            logger.exception(
+                "request failed %s %s (%sms)",
+                request.method,
+                request.url.path,
+                duration_ms,
+            )
             raise
 
         duration_ms = int((time.perf_counter() - started) * 1000)
-        logger.info("request %s %s -> %s (%sms)", request.method, request.url.path, response.status_code, duration_ms)
+        logger.info(
+            "request %s %s -> %s (%sms)",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
 
         return response

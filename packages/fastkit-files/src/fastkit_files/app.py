@@ -1,5 +1,10 @@
 from fastkit_core.apps.base import BootstrapContext, FastKitApp
-from fastkit_files.models import StorageFile, StorageFileReference, StorageFileVariant, UploadSession
+from fastkit_files.models import (
+    StorageFile,
+    StorageFileReference,
+    StorageFileVariant,
+    UploadSession,
+)
 from fastkit_files.service import StorageFileService
 
 MODELS = (StorageFile, StorageFileVariant, StorageFileReference, UploadSession)

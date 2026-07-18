@@ -40,20 +40,43 @@ from fastkit_admin.filters import (
 )
 from fastkit_admin.inlines import InlineResource
 from fastkit_admin.resource import AdminResource, Fieldset
-from app.geo import city_options, country_options, district_options, grid_delay, state_options
+from app.geo import (
+    city_options,
+    country_options,
+    district_options,
+    grid_delay,
+    state_options,
+)
 from fastkit_content.models import Content, Language
 from fastkit_logging.models import AuditLog
 from fastkit_permissions.models import Role
 from fastkit_reports.models import ReportExecution
 from fastkit_tasks.models import ScheduledTask, TaskExecution
 from fastkit_tenancy.models import Tenant
-from app.models import Category, GeoSample, Product, Showcase, Subcategory, Survey, SurveyQuestion
+from app.models import (
+    Category,
+    GeoSample,
+    Product,
+    Showcase,
+    Subcategory,
+    Survey,
+    SurveyQuestion,
+)
 
 IMAGE_UPLOAD_URL = "/api/uploads/image"
 FILE_UPLOAD_URL = "/api/uploads/file"
 
-STATUS_CHOICES = [("draft", "Draft"), ("published", "Published"), ("archived", "Archived")]
-TAG_CHOICES = [("new", "New"), ("sale", "Sale"), ("featured", "Featured"), ("limited", "Limited")]
+STATUS_CHOICES = [
+    ("draft", "Draft"),
+    ("published", "Published"),
+    ("archived", "Archived"),
+]
+TAG_CHOICES = [
+    ("new", "New"),
+    ("sale", "Sale"),
+    ("featured", "Featured"),
+    ("limited", "Limited"),
+]
 
 
 def lookup_limit(params):
@@ -68,14 +91,30 @@ async def category_options(session, params, locale):
     elif params.get("q"):
         query = query.where(Category.name.ilike(f"%{params['q']}%"))
 
-    rows = (await session.execute(query.order_by(Category.name).limit(lookup_limit(params)))).scalars().all()
+    rows = (
+        (
+            await session.execute(
+                query.order_by(Category.name).limit(lookup_limit(params))
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     return [{"value": row.id, "label": row.name} for row in rows]
 
 
 async def subcategory_options(session, params, locale):
     if params.get("value"):
-        rows = (await session.execute(select(Subcategory).where(Subcategory.id == int(params["value"])))).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    select(Subcategory).where(Subcategory.id == int(params["value"]))
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         return [{"value": row.id, "label": row.name} for row in rows]
 
@@ -89,7 +128,15 @@ async def subcategory_options(session, params, locale):
     if params.get("q"):
         query = query.where(Subcategory.name.ilike(f"%{params['q']}%"))
 
-    rows = (await session.execute(query.order_by(Subcategory.name).limit(lookup_limit(params)))).scalars().all()
+    rows = (
+        (
+            await session.execute(
+                query.order_by(Subcategory.name).limit(lookup_limit(params))
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     return [{"value": row.id, "label": row.name} for row in rows]
 
@@ -107,9 +154,21 @@ class UserAdmin(AdminResource[User]):
     icon = "users"
     model = User
 
-    list_columns = ["id", "display_name", "email", Column("tenant", sortable=False), "status", "is_staff", Column("created_at", type="datetime")]
+    list_columns = [
+        "id",
+        "display_name",
+        "email",
+        Column("tenant", sortable=False),
+        "status",
+        "is_staff",
+        Column("created_at", type="datetime"),
+    ]
     search_fields = ["display_name", "email", "username"]
-    filters = [TextFilter("email"), BooleanFilter("is_active"), BooleanFilter("is_staff")]
+    filters = [
+        TextFilter("email"),
+        BooleanFilter("is_active"),
+        BooleanFilter("is_staff"),
+    ]
     ordering = ["-created_at"]
 
     async def resolve(self, session, rows, locale="en"):
@@ -117,7 +176,11 @@ class UserAdmin(AdminResource[User]):
         tenants = {}
 
         if tenant_ids:
-            found = (await session.execute(select(Tenant).where(Tenant.id.in_(tenant_ids)))).scalars().all()
+            found = (
+                (await session.execute(select(Tenant).where(Tenant.id.in_(tenant_ids))))
+                .scalars()
+                .all()
+            )
             tenants = {tenant.id: tenant.display_label() for tenant in found}
 
         for row in rows:
@@ -140,7 +203,13 @@ class UserAdmin(AdminResource[User]):
         Fieldset("Access", ["is_active", "is_staff"]),
     ]
 
-    permissions = {"list": "users.view", "detail": "users.view", "create": "users.create", "update": "users.update", "delete": "users.delete"}
+    permissions = {
+        "list": "users.view",
+        "detail": "users.view",
+        "create": "users.create",
+        "update": "users.update",
+        "delete": "users.delete",
+    }
 
     def render_status(self, row, locale):
         label, tone = ("Active", "green") if row.is_active else ("Inactive", "red")
@@ -154,7 +223,13 @@ class CategoryAdmin(AdminResource[Category]):
     icon = "folder"
     model = Category
 
-    list_columns = [Column("image_url", label="Cover", sortable=False), "id", "name", "is_active", Column("created_at", type="datetime")]
+    list_columns = [
+        Column("image_url", label="Cover", sortable=False),
+        "id",
+        "name",
+        "is_active",
+        Column("created_at", type="datetime"),
+    ]
     clickable_columns = ["name"]
     search_fields = ["name"]
     filters = [BooleanFilter("is_active")]
@@ -170,7 +245,13 @@ class CategoryAdmin(AdminResource[Category]):
     def render_image_url(self, row, locale):
         return cover_thumb(row.image_url)
 
-    permissions = {"list": "products.view", "detail": "products.view", "create": "products.create", "update": "products.update", "delete": "products.delete"}
+    permissions = {
+        "list": "products.view",
+        "detail": "products.view",
+        "create": "products.create",
+        "update": "products.update",
+        "delete": "products.delete",
+    }
 
 
 class SurveyAdmin(AdminResource[Survey]):
@@ -198,7 +279,13 @@ class SurveyAdmin(AdminResource[Survey]):
         )
     ]
 
-    permissions = {"list": "products.view", "detail": "products.view", "create": "products.create", "update": "products.update", "delete": "products.delete"}
+    permissions = {
+        "list": "products.view",
+        "detail": "products.view",
+        "create": "products.create",
+        "update": "products.update",
+        "delete": "products.delete",
+    }
 
 
 class SubcategoryAdmin(AdminResource[Subcategory]):
@@ -207,7 +294,12 @@ class SubcategoryAdmin(AdminResource[Subcategory]):
     icon = "sitemap"
     model = Subcategory
 
-    list_columns = [Column("image_url", label="Cover", sortable=False), "id", "name", Column("created_at", type="datetime")]
+    list_columns = [
+        Column("image_url", label="Cover", sortable=False),
+        "id",
+        "name",
+        Column("created_at", type="datetime"),
+    ]
     search_fields = ["name"]
     ordering = ["name"]
     file_fields = ["image_url"]
@@ -218,7 +310,13 @@ class SubcategoryAdmin(AdminResource[Subcategory]):
         RelationField("category_id", label="Category", required=True),
     ]
 
-    permissions = {"list": "products.view", "detail": "products.view", "create": "products.create", "update": "products.update", "delete": "products.delete"}
+    permissions = {
+        "list": "products.view",
+        "detail": "products.view",
+        "create": "products.create",
+        "update": "products.update",
+        "delete": "products.delete",
+    }
 
     options_category_id = staticmethod(category_options)
 
@@ -232,7 +330,16 @@ class ProductAdmin(AdminResource[Product]):
     icon = "package"
     model = Product
 
-    list_columns = [Column("image_url", label="Cover", sortable=False), "id", "name", "sku", Column("category", sortable=False), Column("subcategory", sortable=False), Column("price", align="right"), "is_active"]
+    list_columns = [
+        Column("image_url", label="Cover", sortable=False),
+        "id",
+        "name",
+        "sku",
+        Column("category", sortable=False),
+        Column("subcategory", sortable=False),
+        Column("price", align="right"),
+        "is_active",
+    ]
     search_fields = ["name", "sku"]
     file_fields = ["image_url"]
     filters = [
@@ -241,9 +348,23 @@ class ProductAdmin(AdminResource[Product]):
         TextFilter("name"),
         BooleanFilter("is_active"),
         LookupFilter("category_id", options="category_id", label="Category"),
-        LookupFilter("subcategory_id", options="subcategory_id", depends_on=["category_id"], label="Subcategory"),
+        LookupFilter(
+            "subcategory_id",
+            options="subcategory_id",
+            depends_on=["category_id"],
+            label="Subcategory",
+        ),
     ]
-    actions = [AdminAction(name="deactivate", label="Deactivate", scope="bulk", permission="products.update", confirm=True, confirm_message="Deactivate the selected products?")]
+    actions = [
+        AdminAction(
+            name="deactivate",
+            label="Deactivate",
+            scope="bulk",
+            permission="products.update",
+            confirm=True,
+            confirm_message="Deactivate the selected products?",
+        )
+    ]
 
     form_fields = [
         TextField("name", required=True, max_length=120),
@@ -251,7 +372,12 @@ class ProductAdmin(AdminResource[Product]):
         ImageField("image_url", label="Cover", upload_url=IMAGE_UPLOAD_URL),
         DecimalField("price", required=True, decimal_places=2),
         RelationField("category_id", label="Category", related="categories"),
-        RelationField("subcategory_id", label="Subcategory", depends_on=["category_id"], related="subcategories"),
+        RelationField(
+            "subcategory_id",
+            label="Subcategory",
+            depends_on=["category_id"],
+            related="subcategories",
+        ),
         BooleanField("is_active", label="Active"),
         NumberField("id", label="ID", readonly=True),
         DateTimeField("created_at", label="Created at", readonly=True),
@@ -259,19 +385,39 @@ class ProductAdmin(AdminResource[Product]):
     ]
 
     fieldsets = [
-        Fieldset("Details", ["name", "sku", "image_url", "price"], description="Basic product information."),
-        Fieldset("Classification", ["category_id", "subcategory_id"], description="Subcategory depends on the selected category."),
+        Fieldset(
+            "Details",
+            ["name", "sku", "image_url", "price"],
+            description="Basic product information.",
+        ),
+        Fieldset(
+            "Classification",
+            ["category_id", "subcategory_id"],
+            description="Subcategory depends on the selected category.",
+        ),
         Fieldset("Status", ["is_active"]),
-        Fieldset("Record", ["id", "created_at", "updated_at"], description="Read-only metadata shown on the detail screen."),
+        Fieldset(
+            "Record",
+            ["id", "created_at", "updated_at"],
+            description="Read-only metadata shown on the detail screen.",
+        ),
     ]
 
-    permissions = {"list": "products.view", "detail": "products.view", "create": "products.create", "update": "products.update", "delete": "products.delete"}
+    permissions = {
+        "list": "products.view",
+        "detail": "products.view",
+        "create": "products.create",
+        "update": "products.update",
+        "delete": "products.delete",
+    }
 
     options_category_id = staticmethod(category_options)
     options_subcategory_id = staticmethod(subcategory_options)
 
     def get_queryset(self):
-        return select(Product).options(selectinload(Product.category), selectinload(Product.subcategory))
+        return select(Product).options(
+            selectinload(Product.category), selectinload(Product.subcategory)
+        )
 
     def render_image_url(self, row, locale):
         return cover_thumb(row.image_url)
@@ -316,7 +462,11 @@ class ShowcaseAdmin(AdminResource[Showcase]):
         BooleanFilter("is_featured"),
         DateRangeFilter("release_date"),
     ]
-    actions = [AdminAction(name="publish", label="Publish", scope="bulk", permission="showcase.update")]
+    actions = [
+        AdminAction(
+            name="publish", label="Publish", scope="bulk", permission="showcase.update"
+        )
+    ]
     ordering = ["-created_at"]
 
     form_fields = [
@@ -328,10 +478,20 @@ class ShowcaseAdmin(AdminResource[Showcase]):
         SelectField("status", choices=STATUS_CHOICES),
         MultiSelectField("tags", choices=TAG_CHOICES),
         LookupField("category_id", label="Category", related="categories"),
-        LookupField("subcategory_id", label="Subcategory", depends_on=["category_id"], related="subcategories"),
+        LookupField(
+            "subcategory_id",
+            label="Subcategory",
+            depends_on=["category_id"],
+            related="subcategories",
+        ),
         URLField("website", label="Website"),
         EmailField("contact_email", label="Contact email"),
-        MaskedField("reference_code", label="Reference code", mask="##-####-##", pattern=r"\d{2}-\d{4}-\d{2}"),
+        MaskedField(
+            "reference_code",
+            label="Reference code",
+            mask="##-####-##",
+            pattern=r"\d{2}-\d{4}-\d{2}",
+        ),
         ColorField("brand_color", label="Brand color"),
         BooleanField("is_featured", label="Featured"),
         DateField("release_date", label="Release date"),
@@ -347,12 +507,21 @@ class ShowcaseAdmin(AdminResource[Showcase]):
         Fieldset("Pricing", ["quantity", "price"]),
         Fieldset("Classification", ["status", "tags", "category_id", "subcategory_id"]),
         Fieldset("Contact", ["website", "contact_email", "reference_code"]),
-        Fieldset("Presentation", ["brand_color", "is_featured", "cover_url", "attachment_url"]),
+        Fieldset(
+            "Presentation",
+            ["brand_color", "is_featured", "cover_url", "attachment_url"],
+        ),
         Fieldset("Scheduling", ["release_date", "release_time", "published_at"]),
         Fieldset("Advanced", ["attributes"]),
     ]
 
-    permissions = {"list": "showcase.view", "detail": "showcase.view", "create": "showcase.create", "update": "showcase.update", "delete": "showcase.delete"}
+    permissions = {
+        "list": "showcase.view",
+        "detail": "showcase.view",
+        "create": "showcase.create",
+        "update": "showcase.update",
+        "delete": "showcase.delete",
+    }
 
     options_category_id = staticmethod(category_options)
     options_subcategory_id = staticmethod(subcategory_options)
@@ -385,21 +554,64 @@ class GeoSampleAdmin(AdminResource[GeoSample]):
     icon = "map-pin"
     model = GeoSample
 
-    list_columns = ["id", "name", "sel_country", "sel_state", "sel_city", Column("created_at", type="datetime")]
+    list_columns = [
+        "id",
+        "name",
+        "sel_country",
+        "sel_state",
+        "sel_city",
+        Column("created_at", type="datetime"),
+    ]
     search_fields = ["name"]
     ordering = ["-created_at"]
 
     filters = [
-        Fieldset("Dependent selects", ["sel_country", "sel_state", "sel_city", "sel_district"]),
-        Fieldset("Dependent lookups", ["look_country", "look_state", "look_city", "look_district"]),
+        Fieldset(
+            "Dependent selects",
+            ["sel_country", "sel_state", "sel_city", "sel_district"],
+        ),
+        Fieldset(
+            "Dependent lookups",
+            ["look_country", "look_state", "look_city", "look_district"],
+        ),
         SelectFilter("sel_country", options="sel_country", label="Country (select)"),
-        SelectFilter("sel_state", options="sel_state", depends_on=["sel_country"], label="State (select)"),
-        SelectFilter("sel_city", options="sel_city", depends_on=["sel_state"], label="City (select)"),
-        SelectFilter("sel_district", options="sel_district", depends_on=["sel_city"], label="District (select)"),
+        SelectFilter(
+            "sel_state",
+            options="sel_state",
+            depends_on=["sel_country"],
+            label="State (select)",
+        ),
+        SelectFilter(
+            "sel_city",
+            options="sel_city",
+            depends_on=["sel_state"],
+            label="City (select)",
+        ),
+        SelectFilter(
+            "sel_district",
+            options="sel_district",
+            depends_on=["sel_city"],
+            label="District (select)",
+        ),
         LookupFilter("look_country", options="look_country", label="Country (lookup)"),
-        LookupFilter("look_state", options="look_state", depends_on=["look_country"], label="State (lookup)"),
-        LookupFilter("look_city", options="look_city", depends_on=["look_state"], label="City (lookup)"),
-        LookupFilter("look_district", options="look_district", depends_on=["look_city"], label="District (lookup)"),
+        LookupFilter(
+            "look_state",
+            options="look_state",
+            depends_on=["look_country"],
+            label="State (lookup)",
+        ),
+        LookupFilter(
+            "look_city",
+            options="look_city",
+            depends_on=["look_state"],
+            label="City (lookup)",
+        ),
+        LookupFilter(
+            "look_district",
+            options="look_district",
+            depends_on=["look_city"],
+            label="District (lookup)",
+        ),
     ]
 
     form_fields = [
@@ -407,20 +619,38 @@ class GeoSampleAdmin(AdminResource[GeoSample]):
         RelationField("sel_country", label="Country (select)"),
         RelationField("sel_state", label="State (select)", depends_on=["sel_country"]),
         RelationField("sel_city", label="City (select)", depends_on=["sel_state"]),
-        RelationField("sel_district", label="District (select)", depends_on=["sel_city"]),
+        RelationField(
+            "sel_district", label="District (select)", depends_on=["sel_city"]
+        ),
         LookupField("look_country", label="Country (lookup)"),
         LookupField("look_state", label="State (lookup)", depends_on=["look_country"]),
         LookupField("look_city", label="City (lookup)", depends_on=["look_state"]),
-        LookupField("look_district", label="District (lookup)", depends_on=["look_city"]),
+        LookupField(
+            "look_district", label="District (lookup)", depends_on=["look_city"]
+        ),
     ]
 
     fieldsets = [
         Fieldset("Details", ["name"]),
-        Fieldset("Dependent selects", ["sel_country", "sel_state", "sel_city", "sel_district"], description="A four-level country → state → city → district chain, each loaded from a deliberately slow remote source."),
-        Fieldset("Dependent lookups", ["look_country", "look_state", "look_city", "look_district"], description="The same four-level chain rendered as autocomplete lookups."),
+        Fieldset(
+            "Dependent selects",
+            ["sel_country", "sel_state", "sel_city", "sel_district"],
+            description="A four-level country → state → city → district chain, each loaded from a deliberately slow remote source.",
+        ),
+        Fieldset(
+            "Dependent lookups",
+            ["look_country", "look_state", "look_city", "look_district"],
+            description="The same four-level chain rendered as autocomplete lookups.",
+        ),
     ]
 
-    permissions = {"list": "products.view", "detail": "products.view", "create": "products.create", "update": "products.update", "delete": "products.delete"}
+    permissions = {
+        "list": "products.view",
+        "detail": "products.view",
+        "create": "products.create",
+        "update": "products.update",
+        "delete": "products.delete",
+    }
 
     options_sel_country = staticmethod(country_options())
     options_sel_state = staticmethod(state_options("sel_country"))
@@ -461,10 +691,20 @@ class RoleAdmin(AdminResource[Role]):
 
     fieldsets = [
         Fieldset("Role", ["name", "description"]),
-        Fieldset("Permissions", ["permissions_matrix"], description="Check the permissions this role grants, grouped by module."),
+        Fieldset(
+            "Permissions",
+            ["permissions_matrix"],
+            description="Check the permissions this role grants, grouped by module.",
+        ),
     ]
 
-    permissions = {"list": "roles.manage", "detail": "roles.manage", "create": "roles.manage", "update": "roles.manage", "delete": "roles.manage"}
+    permissions = {
+        "list": "roles.manage",
+        "detail": "roles.manage",
+        "create": "roles.manage",
+        "update": "roles.manage",
+        "delete": "roles.manage",
+    }
 
 
 class LanguageAdmin(AdminResource[Language]):
@@ -473,7 +713,15 @@ class LanguageAdmin(AdminResource[Language]):
     icon = "language"
     model = Language
 
-    list_columns = ["id", "code", "name", "native_name", "is_active", "is_default", "sort_order"]
+    list_columns = [
+        "id",
+        "code",
+        "name",
+        "native_name",
+        "is_active",
+        "is_default",
+        "sort_order",
+    ]
     search_fields = ["code", "name"]
     filters = [BooleanFilter("is_active")]
     ordering = ["sort_order", "code"]
@@ -486,7 +734,13 @@ class LanguageAdmin(AdminResource[Language]):
         NumberField("sort_order", label="Sort order"),
     ]
 
-    permissions = {"list": "content.publish", "detail": "content.publish", "create": "content.publish", "update": "content.publish", "delete": "content.publish"}
+    permissions = {
+        "list": "content.publish",
+        "detail": "content.publish",
+        "create": "content.publish",
+        "update": "content.publish",
+        "delete": "content.publish",
+    }
 
 
 class ContentAdmin(AdminResource[Content]):
@@ -495,14 +749,36 @@ class ContentAdmin(AdminResource[Content]):
     icon = "file-text"
     model = Content
 
-    list_columns = ["id", "key", "type", "status", Column("created_at", type="datetime")]
+    list_columns = [
+        "id",
+        "key",
+        "type",
+        "status",
+        Column("created_at", type="datetime"),
+    ]
     search_fields = ["key"]
-    filters = [EnumFilter("status", choices=[("draft", "Draft"), ("published", "Published"), ("archived", "Archived")])]
+    filters = [
+        EnumFilter(
+            "status",
+            choices=[
+                ("draft", "Draft"),
+                ("published", "Published"),
+                ("archived", "Archived"),
+            ],
+        )
+    ]
     ordering = ["-created_at"]
 
     form_fields = [
         TextField("key", required=True),
-        SelectField("type", choices=[("rich_text", "Rich text"), ("html", "HTML"), ("plain_text", "Plain text")]),
+        SelectField(
+            "type",
+            choices=[
+                ("rich_text", "Rich text"),
+                ("html", "HTML"),
+                ("plain_text", "Plain text"),
+            ],
+        ),
         TranslationsField(
             "translations",
             hide_label=True,
@@ -514,10 +790,20 @@ class ContentAdmin(AdminResource[Content]):
 
     fieldsets = [
         Fieldset("Content", ["key", "type"]),
-        Fieldset("Translations", ["translations"], description="Edit the body for each active language."),
+        Fieldset(
+            "Translations",
+            ["translations"],
+            description="Edit the body for each active language.",
+        ),
     ]
 
-    permissions = {"list": "content.publish", "detail": "content.publish", "create": "content.publish", "update": "content.publish", "delete": "content.publish"}
+    permissions = {
+        "list": "content.publish",
+        "detail": "content.publish",
+        "create": "content.publish",
+        "update": "content.publish",
+        "delete": "content.publish",
+    }
 
 
 class ActivityLogAdmin(AdminResource[AuditLog]):
@@ -527,7 +813,14 @@ class ActivityLogAdmin(AdminResource[AuditLog]):
     model = AuditLog
     read_only = True
 
-    list_columns = ["id", Column("created_at", type="datetime"), "action", "resource_type", "resource_id", "user_id"]
+    list_columns = [
+        "id",
+        Column("created_at", type="datetime"),
+        "action",
+        "resource_type",
+        "resource_id",
+        "user_id",
+    ]
     search_fields = ["resource_type", "action"]
     ordering = ["-created_at"]
 
@@ -549,41 +842,74 @@ class ActivityLogAdmin(AdminResource[AuditLog]):
         LookupFilter("user_id", label="User", options="user_id"),
     ]
 
-    RESOURCE_MODELS = {"users": User, "roles": Role, "categories": Category, "subcategories": Subcategory, "products": Product, "showcase": Showcase, "content": Content, "languages": Language}
+    RESOURCE_MODELS = {
+        "users": User,
+        "roles": Role,
+        "categories": Category,
+        "subcategories": Subcategory,
+        "products": Product,
+        "showcase": Showcase,
+        "content": Content,
+        "languages": Language,
+    }
 
     async def resolve(self, session, rows, locale="en"):
         user_ids = {row.user_id for row in rows if row.user_id is not None}
         users = {}
 
         if user_ids:
-            found = (await session.execute(select(User).where(User.id.in_(user_ids)))).scalars().all()
+            found = (
+                (await session.execute(select(User).where(User.id.in_(user_ids))))
+                .scalars()
+                .all()
+            )
             users = {user.id: user.display_label() for user in found}
 
         labels = {}
 
         for resource_type, model in self.RESOURCE_MODELS.items():
-            ids = {int(row.resource_id) for row in rows if row.resource_type == resource_type and row.resource_id and row.resource_id.isdigit()}
+            ids = {
+                int(row.resource_id)
+                for row in rows
+                if row.resource_type == resource_type
+                and row.resource_id
+                and row.resource_id.isdigit()
+            }
 
             if not ids:
                 continue
 
-            records = (await session.execute(select(model).where(model.id.in_(ids)))).scalars().all()
+            records = (
+                (await session.execute(select(model).where(model.id.in_(ids))))
+                .scalars()
+                .all()
+            )
 
             for record in records:
-                labels[(resource_type, str(record.id))] = record.display_label() if hasattr(record, "display_label") else str(record.id)
+                labels[(resource_type, str(record.id))] = (
+                    record.display_label()
+                    if hasattr(record, "display_label")
+                    else str(record.id)
+                )
 
         for row in rows:
             row._user_label = users.get(row.user_id)
             row._resource_label = labels.get((row.resource_type, row.resource_id))
 
     def render_user_id(self, row, locale):
-        return getattr(row, "_user_label", None) or (str(row.user_id) if row.user_id is not None else None)
+        return getattr(row, "_user_label", None) or (
+            str(row.user_id) if row.user_id is not None else None
+        )
 
     def render_resource_id(self, row, locale):
         return getattr(row, "_resource_label", None) or row.resource_id
 
     async def options_resource_type(self, session, params, locale):
-        types = (await session.execute(select(AuditLog.resource_type).distinct())).scalars().all()
+        types = (
+            (await session.execute(select(AuditLog.resource_type).distinct()))
+            .scalars()
+            .all()
+        )
 
         return [{"value": value, "label": value} for value in sorted(types)]
 
@@ -595,12 +921,27 @@ class ActivityLogAdmin(AdminResource[AuditLog]):
         elif params.get("q"):
             query = query.where(User.display_name.ilike(f"%{params['q']}%"))
 
-        rows = (await session.execute(query.order_by(User.display_name).limit(lookup_limit(params)))).scalars().all()
+        rows = (
+            (
+                await session.execute(
+                    query.order_by(User.display_name).limit(lookup_limit(params))
+                )
+            )
+            .scalars()
+            .all()
+        )
 
         return [{"value": row.id, "label": row.display_label()} for row in rows]
 
 
-STATUS_TONES = {"succeeded": "green", "running": "azure", "retrying": "yellow", "pending": "secondary", "failed": "red", "cancelled": "secondary"}
+STATUS_TONES = {
+    "succeeded": "green",
+    "running": "azure",
+    "retrying": "yellow",
+    "pending": "secondary",
+    "failed": "red",
+    "cancelled": "secondary",
+}
 
 
 def status_badge(value):
@@ -615,25 +956,64 @@ class TenantAdmin(AdminResource[Tenant]):
     icon = "building"
     model = Tenant
 
-    list_columns = ["id", Column("image_url", label="Logo", sortable=False), "name", "code", "status", "default_locale", "is_active"]
+    list_columns = [
+        "id",
+        Column("image_url", label="Logo", sortable=False),
+        "name",
+        "code",
+        "status",
+        "default_locale",
+        "is_active",
+    ]
     search_fields = ["name", "code", "domain"]
-    filters = [BooleanFilter("is_active"), EnumFilter("status", choices=[("active", "Active"), ("suspended", "Suspended"), ("disabled", "Disabled")])]
+    filters = [
+        BooleanFilter("is_active"),
+        EnumFilter(
+            "status",
+            choices=[
+                ("active", "Active"),
+                ("suspended", "Suspended"),
+                ("disabled", "Disabled"),
+            ],
+        ),
+    ]
 
     form_fields = [
         TextField("name", required=True),
         TextField("code", required=True),
         ImageField("image_url", label="Logo", upload_url=IMAGE_UPLOAD_URL),
-        SelectField("status", choices=[("active", "Active"), ("suspended", "Suspended"), ("disabled", "Disabled")]),
+        SelectField(
+            "status",
+            choices=[
+                ("active", "Active"),
+                ("suspended", "Suspended"),
+                ("disabled", "Disabled"),
+            ],
+        ),
         TextField("default_locale", label="Default locale"),
         TextField("timezone"),
         TextField("domain"),
         BooleanField("is_active", label="Active"),
     ]
     fieldsets = [
-        Fieldset("Identity", ["name", "code", "image_url"], description="Tenant name and logo shown across the app."),
-        Fieldset("Preferences", ["status", "default_locale", "timezone", "domain", "is_active"], description="Per-tenant defaults."),
+        Fieldset(
+            "Identity",
+            ["name", "code", "image_url"],
+            description="Tenant name and logo shown across the app.",
+        ),
+        Fieldset(
+            "Preferences",
+            ["status", "default_locale", "timezone", "domain", "is_active"],
+            description="Per-tenant defaults.",
+        ),
     ]
-    permissions = {"list": "tenants.view", "detail": "tenants.view", "create": "tenants.manage", "update": "tenants.manage", "delete": "tenants.manage"}
+    permissions = {
+        "list": "tenants.view",
+        "detail": "tenants.view",
+        "create": "tenants.manage",
+        "update": "tenants.manage",
+        "delete": "tenants.manage",
+    }
 
     def display(self, row):
         return row.name
@@ -652,9 +1032,24 @@ class ScheduledTaskAdmin(AdminResource[ScheduledTask]):
     model = ScheduledTask
     read_only = True
 
-    list_columns = ["id", "name", "task_name", "schedule_type", "queue", "enabled", Column("next_run_at", type="datetime"), Column("last_run_at", type="datetime")]
+    list_columns = [
+        "id",
+        "name",
+        "task_name",
+        "schedule_type",
+        "queue",
+        "enabled",
+        Column("next_run_at", type="datetime"),
+        Column("last_run_at", type="datetime"),
+    ]
     search_fields = ["name", "task_name"]
-    filters = [BooleanFilter("enabled"), EnumFilter("schedule_type", choices=[("cron", "Cron"), ("interval", "Interval"), ("once", "Once")])]
+    filters = [
+        BooleanFilter("enabled"),
+        EnumFilter(
+            "schedule_type",
+            choices=[("cron", "Cron"), ("interval", "Interval"), ("once", "Once")],
+        ),
+    ]
     ordering = ["name"]
 
     form_fields = [
@@ -679,11 +1074,30 @@ class TaskExecutionAdmin(AdminResource[TaskExecution]):
 
     task_queue = None
 
-    list_columns = ["id", "task_name", "queue", "status", "attempt_count", Column("started_at", type="datetime"), Column("finished_at", type="datetime")]
+    list_columns = [
+        "id",
+        "task_name",
+        "queue",
+        "status",
+        "attempt_count",
+        Column("started_at", type="datetime"),
+        Column("finished_at", type="datetime"),
+    ]
     search_fields = ["task_name"]
-    filters = [EnumFilter("status", choices=[(value, value.title()) for value in STATUS_TONES])]
+    filters = [
+        EnumFilter("status", choices=[(value, value.title()) for value in STATUS_TONES])
+    ]
     ordering = ["-created_at"]
-    actions = [AdminAction(name="enqueue_email", label="Enqueue welcome email", scope="collection", variant="primary", icon="ti-mail", permission="tasks.view")]
+    actions = [
+        AdminAction(
+            name="enqueue_email",
+            label="Enqueue welcome email",
+            scope="collection",
+            variant="primary",
+            icon="ti-mail",
+            permission="tasks.view",
+        )
+    ]
 
     form_fields = [
         TextField("task_name", label="Task", readonly=True),
@@ -700,7 +1114,11 @@ class TaskExecutionAdmin(AdminResource[TaskExecution]):
         return status_badge(row.status)
 
     async def action_enqueue_email(self, session, rows, locale):
-        execution = await self.task_queue.enqueue("demo.send_welcome_email", payload={"locale": locale, "template": "welcome"}, queue="emails")
+        execution = await self.task_queue.enqueue(
+            "demo.send_welcome_email",
+            payload={"locale": locale, "template": "welcome"},
+            queue="emails",
+        )
 
         return {"enqueued": str(execution.id)}
 
@@ -712,9 +1130,19 @@ class ReportRunAdmin(AdminResource[ReportExecution]):
     model = ReportExecution
     read_only = True
 
-    list_columns = ["id", "report_name", "status", "progress", "row_count", Column("created_at", type="datetime"), Column("finished_at", type="datetime")]
+    list_columns = [
+        "id",
+        "report_name",
+        "status",
+        "progress",
+        "row_count",
+        Column("created_at", type="datetime"),
+        Column("finished_at", type="datetime"),
+    ]
     search_fields = ["report_name"]
-    filters = [EnumFilter("status", choices=[(value, value.title()) for value in STATUS_TONES])]
+    filters = [
+        EnumFilter("status", choices=[(value, value.title()) for value in STATUS_TONES])
+    ]
     ordering = ["-created_at"]
 
     form_fields = [
@@ -728,4 +1156,20 @@ class ReportRunAdmin(AdminResource[ReportExecution]):
         return status_badge(row.status)
 
 
-ADMIN_RESOURCES = [UserAdmin, CategoryAdmin, SubcategoryAdmin, SurveyAdmin, ProductAdmin, ShowcaseAdmin, GeoSampleAdmin, TenantAdmin, RoleAdmin, LanguageAdmin, ContentAdmin, ScheduledTaskAdmin, TaskExecutionAdmin, ReportRunAdmin, ActivityLogAdmin]
+ADMIN_RESOURCES = [
+    UserAdmin,
+    CategoryAdmin,
+    SubcategoryAdmin,
+    SurveyAdmin,
+    ProductAdmin,
+    ShowcaseAdmin,
+    GeoSampleAdmin,
+    TenantAdmin,
+    RoleAdmin,
+    LanguageAdmin,
+    ContentAdmin,
+    ScheduledTaskAdmin,
+    TaskExecutionAdmin,
+    ReportRunAdmin,
+    ActivityLogAdmin,
+]

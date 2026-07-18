@@ -26,7 +26,10 @@ class FakeS3Client:
 
         record = self.objects[Key]
 
-        return {"ContentLength": len(record["body"]), "ContentType": record["content_type"]}
+        return {
+            "ContentLength": len(record["body"]),
+            "ContentType": record["content_type"],
+        }
 
     async def copy_object(self, Bucket, Key, CopySource):
         self.objects[Key] = dict(self.objects[CopySource["Key"]])

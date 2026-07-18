@@ -10,7 +10,16 @@ async def test_enqueue_applies_registered_task_policy(database, clock, registry)
     async def handler(**kwargs):
         return None
 
-    registry.register(TaskDefinition(name="reports.build", handler=handler, queue="reports", max_attempts=5, timeout=300, retry_delay=30))
+    registry.register(
+        TaskDefinition(
+            name="reports.build",
+            handler=handler,
+            queue="reports",
+            max_attempts=5,
+            timeout=300,
+            retry_delay=30,
+        )
+    )
     queue = TaskQueue(database, registry=registry, clock=clock)
 
     execution = await queue.enqueue("reports.build", queue="reports")
@@ -25,7 +34,9 @@ async def test_enqueue_applies_registered_task_policy(database, clock, registry)
 
 
 async def test_enqueue_creates_pending(queue):
-    execution = await queue.enqueue("emails.send", payload={"to": "a@b.c"}, queue="email", max_attempts=3)
+    execution = await queue.enqueue(
+        "emails.send", payload={"to": "a@b.c"}, queue="email", max_attempts=3
+    )
 
     assert execution.status == ExecutionStatus.pending.value
     assert execution.payload == {"to": "a@b.c"}
@@ -51,7 +62,9 @@ async def test_lease_marks_running(queue):
 
 
 async def test_lease_skips_future_tasks(queue, clock):
-    await queue.enqueue("emails.send", queue="email", available_at=clock() + timedelta(seconds=60))
+    await queue.enqueue(
+        "emails.send", queue="email", available_at=clock() + timedelta(seconds=60)
+    )
 
     assert await queue.lease("worker-1", ["email"]) is None
 
@@ -81,10 +94,14 @@ async def test_complete(queue):
 
 
 async def test_fail_retries_then_exhausts(queue):
-    execution = await queue.enqueue("emails.send", queue="email", max_attempts=2, retry_delay=0)
+    execution = await queue.enqueue(
+        "emails.send", queue="email", max_attempts=2, retry_delay=0
+    )
 
     await queue.lease("worker-1", ["email"])
-    status = await queue.fail(execution.id, "worker-1", "task.error", "boom", retry_policy=RetryPolicy.fixed)
+    status = await queue.fail(
+        execution.id, "worker-1", "task.error", "boom", retry_policy=RetryPolicy.fixed
+    )
     assert status == ExecutionStatus.retrying.value
 
     await queue.lease("worker-1", ["email"])
@@ -104,7 +121,15 @@ async def test_lease_skips_locked_candidate(queue, clock):
                 locked_until=clock() + timedelta(seconds=100),
             )
         )
-        session.add(TaskExecution(task_name="emails.send", queue="email", status=ExecutionStatus.pending.value, priority=0, available_at=clock()))
+        session.add(
+            TaskExecution(
+                task_name="emails.send",
+                queue="email",
+                status=ExecutionStatus.pending.value,
+                priority=0,
+                available_at=clock(),
+            )
+        )
         await session.commit()
 
     leased = await queue.lease("worker-1", ["email"])
@@ -117,7 +142,9 @@ async def test_fail_non_retryable(queue):
     execution = await queue.enqueue("emails.send", queue="email", max_attempts=5)
     await queue.lease("worker-1", ["email"])
 
-    status = await queue.fail(execution.id, "worker-1", "task.permanent", "nope", retryable=False)
+    status = await queue.fail(
+        execution.id, "worker-1", "task.permanent", "nope", retryable=False
+    )
 
     assert status == ExecutionStatus.failed.value
 
@@ -151,7 +178,10 @@ async def test_heartbeat_updates_progress(queue):
     execution = await queue.enqueue("emails.send", queue="email")
     await queue.lease("worker-1", ["email"])
 
-    assert await queue.heartbeat(execution.id, "worker-1", progress=50, message="halfway") is True
+    assert (
+        await queue.heartbeat(execution.id, "worker-1", progress=50, message="halfway")
+        is True
+    )
     assert await queue.heartbeat(execution.id, "worker-2") is False
 
     async with queue._database.session_factory() as session:

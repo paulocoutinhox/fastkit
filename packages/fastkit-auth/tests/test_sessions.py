@@ -7,7 +7,9 @@ def test_hash_token_is_deterministic():
 
 
 async def test_create_and_validate(session_service):
-    record, raw = await session_service.create(1, 0, 5, ip_address="1.1.1.1", user_agent="pytest")
+    record, raw = await session_service.create(
+        1, 0, 5, ip_address="1.1.1.1", user_agent="pytest"
+    )
 
     validated = await session_service.validate(raw)
 

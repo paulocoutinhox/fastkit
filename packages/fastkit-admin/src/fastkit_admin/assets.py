@@ -24,15 +24,29 @@ class AssetRegistry:
 
     @classmethod
     def discover(cls):
-        return cls([entry_point.load() for entry_point in entry_points(group="fastkit.assets")])
+        return cls(
+            [entry_point.load() for entry_point in entry_points(group="fastkit.assets")]
+        )
 
     def mounts(self) -> list[tuple[str, object]]:
         return [(provider.MOUNT, provider.STATIC_DIR) for provider in self._providers]
 
     def _ordered(self):
-        pairs = [(provider.MOUNT, asset) for provider in self._providers for asset in provider.ASSETS]
+        pairs = [
+            (provider.MOUNT, asset)
+            for provider in self._providers
+            for asset in provider.ASSETS
+        ]
 
         return sorted(pairs, key=lambda pair: pair[1].get("order", 100))
 
     def tags(self, kind: str) -> list[AssetTag]:
-        return [AssetTag(kind=asset["kind"], url=f"{mount}/{asset['path']}", attrs=asset.get("attrs", {})) for mount, asset in self._ordered() if asset["kind"] == kind]
+        return [
+            AssetTag(
+                kind=asset["kind"],
+                url=f"{mount}/{asset['path']}",
+                attrs=asset.get("attrs", {}),
+            )
+            for mount, asset in self._ordered()
+            if asset["kind"] == kind
+        ]

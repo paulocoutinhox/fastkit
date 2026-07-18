@@ -2,7 +2,9 @@ import re
 
 from fastkit_admin.resource import GridQuery
 
-_FILTER_KEY = re.compile(r"^filter\[(?P<field>[a-zA-Z0-9_]+)\](?:\[(?P<part>from|to)\])?$")
+_FILTER_KEY = re.compile(
+    r"^filter\[(?P<field>[a-zA-Z0-9_]+)\](?:\[(?P<part>from|to)\])?$"
+)
 
 
 def parse_grid_query(params) -> GridQuery:

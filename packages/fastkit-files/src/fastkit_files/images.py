@@ -8,7 +8,12 @@ from fastkit_files.errors import NOT_AN_IMAGE, TOO_MANY_PIXELS
 from fastkit_files.presets import ImageVariantSpec
 
 _FORMAT_MAP = {"webp": "WEBP", "jpeg": "JPEG", "jpg": "JPEG", "png": "PNG"}
-_MIME_MAP = {"WEBP": "image/webp", "JPEG": "image/jpeg", "PNG": "image/png", "GIF": "image/gif"}
+_MIME_MAP = {
+    "WEBP": "image/webp",
+    "JPEG": "image/jpeg",
+    "PNG": "image/png",
+    "GIF": "image/gif",
+}
 
 
 @dataclass(frozen=True)
@@ -34,10 +39,17 @@ def inspect(data: bytes) -> ImageInfo:
         with Image.open(io.BytesIO(data)) as image:
             image.verify()
     except Exception as error:
-        raise FastKitError(NOT_AN_IMAGE, message="uploaded file is not a valid image") from error
+        raise FastKitError(
+            NOT_AN_IMAGE, message="uploaded file is not a valid image"
+        ) from error
 
     with Image.open(io.BytesIO(data)) as image:
-        return ImageInfo(format=image.format, mime_type=_MIME_MAP.get(image.format, "application/octet-stream"), width=image.width, height=image.height)
+        return ImageInfo(
+            format=image.format,
+            mime_type=_MIME_MAP.get(image.format, "application/octet-stream"),
+            width=image.width,
+            height=image.height,
+        )
 
 
 def enforce_pixels(info: ImageInfo, max_pixels: int) -> None:
@@ -61,20 +73,32 @@ def _resize(image: Image.Image, spec: ImageVariantSpec) -> Image.Image:
         return copy
 
     if spec.mode == "pad":
-        return ImageOps.pad(image, (width, height), method=Image.LANCZOS, color=(255, 255, 255))
+        return ImageOps.pad(
+            image, (width, height), method=Image.LANCZOS, color=(255, 255, 255)
+        )
 
     if spec.mode == "crop":
-        return ImageOps.fit(image, (width, height), method=Image.LANCZOS, centering=(0.5, 0.5))
+        return ImageOps.fit(
+            image, (width, height), method=Image.LANCZOS, centering=(0.5, 0.5)
+        )
 
     if spec.mode == "max_width":
         ratio = width / image.width
 
-        return image.resize((width, max(1, round(image.height * ratio))), Image.LANCZOS) if image.width > width else image
+        return (
+            image.resize((width, max(1, round(image.height * ratio))), Image.LANCZOS)
+            if image.width > width
+            else image
+        )
 
     if spec.mode == "max_height":
         ratio = height / image.height
 
-        return image.resize((max(1, round(image.width * ratio)), height), Image.LANCZOS) if image.height > height else image
+        return (
+            image.resize((max(1, round(image.width * ratio)), height), Image.LANCZOS)
+            if image.height > height
+            else image
+        )
 
     raise FastKitError(NOT_AN_IMAGE, message=f"unknown resize mode '{spec.mode}'")
 
@@ -83,7 +107,9 @@ def process_variant(data: bytes, spec: ImageVariantSpec) -> ProcessedVariant:
     """Strip metadata, honour EXIF orientation, resize and re-encode a clean variant."""
 
     if spec.format not in _FORMAT_MAP:
-        raise FastKitError(NOT_AN_IMAGE, message=f"unknown output format '{spec.format}'")
+        raise FastKitError(
+            NOT_AN_IMAGE, message=f"unknown output format '{spec.format}'"
+        )
 
     pillow_format = _FORMAT_MAP[spec.format]
 
@@ -107,6 +133,15 @@ def process_variant(data: bytes, spec: ImageVariantSpec) -> ProcessedVariant:
     except FastKitError:
         raise
     except Exception as error:
-        raise FastKitError(NOT_AN_IMAGE, message="uploaded file is not a valid image") from error
+        raise FastKitError(
+            NOT_AN_IMAGE, message="uploaded file is not a valid image"
+        ) from error
 
-    return ProcessedVariant(data=payload, format=spec.format, mime_type=_MIME_MAP[pillow_format], width=width, height=height, size_bytes=len(payload))
+    return ProcessedVariant(
+        data=payload,
+        format=spec.format,
+        mime_type=_MIME_MAP[pillow_format],
+        width=width,
+        height=height,
+        size_bytes=len(payload),
+    )

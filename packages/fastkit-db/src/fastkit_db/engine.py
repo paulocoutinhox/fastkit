@@ -14,13 +14,25 @@ def _enable_sqlite_foreign_keys(dbapi_connection, connection_record) -> None:
 class Database:
     """Owns the async engine and session factory and exposes dialect capabilities."""
 
-    def __init__(self, url: str, pool_pre_ping: bool = True, pool_recycle: int = 1800, echo: bool = False):
+    def __init__(
+        self,
+        url: str,
+        pool_pre_ping: bool = True,
+        pool_recycle: int = 1800,
+        echo: bool = False,
+    ):
         self.url = url
-        self.engine: AsyncEngine = create_async_engine(url, pool_pre_ping=pool_pre_ping, pool_recycle=pool_recycle, echo=echo)
-        self.session_factory = async_sessionmaker(bind=self.engine, autoflush=False, expire_on_commit=False)
+        self.engine: AsyncEngine = create_async_engine(
+            url, pool_pre_ping=pool_pre_ping, pool_recycle=pool_recycle, echo=echo
+        )
+        self.session_factory = async_sessionmaker(
+            bind=self.engine, autoflush=False, expire_on_commit=False
+        )
 
         if self.dialect_name == "sqlite":
-            event.listen(self.engine.sync_engine, "connect", _enable_sqlite_foreign_keys)
+            event.listen(
+                self.engine.sync_engine, "connect", _enable_sqlite_foreign_keys
+            )
 
     @property
     def dialect_name(self) -> str:

@@ -20,7 +20,16 @@ class ImagePreset:
 AVATAR_PRESET = ImagePreset(
     name="avatar",
     variants=[
-        ImageVariantSpec(name="large", width=1024, height=1024, mode="cover", format="webp", quality=88),
-        ImageVariantSpec(name="thumb", width=256, height=256, mode="cover", format="webp", quality=82),
+        ImageVariantSpec(
+            name="large",
+            width=1024,
+            height=1024,
+            mode="cover",
+            format="webp",
+            quality=88,
+        ),
+        ImageVariantSpec(
+            name="thumb", width=256, height=256, mode="cover", format="webp", quality=82
+        ),
     ],
 )

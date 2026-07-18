@@ -21,7 +21,11 @@ class Settings:
 async def runtime(monkeypatch):
     monkeypatch.setattr(
         "fastkit_core.runtime.discover_apps",
-        lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.tenancy": TenancyApp},
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.tenancy": TenancyApp,
+        },
     )
     runtime = Runtime(settings=Settings(), installed_apps=list(Settings.installed_apps))
     runtime.bootstrap()

@@ -14,12 +14,10 @@ class CaptchaProvider(ABC):
 
     @property
     @abstractmethod
-    def enabled(self) -> bool:
-        ...
+    def enabled(self) -> bool: ...
 
     @abstractmethod
-    async def verify(self, payload: dict | None) -> None:
-        ...
+    async def verify(self, payload: dict | None) -> None: ...
 
     def client_config(self) -> dict:
         return {"provider": self.name, "enabled": self.enabled}

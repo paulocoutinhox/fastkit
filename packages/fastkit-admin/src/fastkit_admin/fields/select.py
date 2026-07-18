@@ -10,7 +10,9 @@ class SelectField(AdminField):
 
     def to_schema(self) -> dict:
         schema = super().to_schema()
-        schema["choices"] = [{"value": value, "label": label} for value, label in self.choices]
+        schema["choices"] = [
+            {"value": value, "label": label} for value, label in self.choices
+        ]
 
         return schema
 

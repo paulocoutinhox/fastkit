@@ -39,7 +39,12 @@ async def test_put_retries_transient_failures():
     from fastkit_core.resilience import RetryPolicy
 
     client = FlakyClient(failures=2)
-    store = S3StorageProvider(client, bucket="assets", retry_policy=RetryPolicy(max_attempts=3), sleep=_noop_sleep)
+    store = S3StorageProvider(
+        client,
+        bucket="assets",
+        retry_policy=RetryPolicy(max_attempts=3),
+        sleep=_noop_sleep,
+    )
 
     stat = await store.put("a.txt", b"data")
 
@@ -51,7 +56,13 @@ async def test_put_trips_circuit_after_persistent_failure():
     from fastkit_core.resilience import CircuitBreaker, CircuitOpenError, RetryPolicy
 
     breaker = CircuitBreaker(failure_threshold=2, reset_after_seconds=1000)
-    store = S3StorageProvider(FlakyClient(failures=99), bucket="assets", breaker=breaker, retry_policy=RetryPolicy(max_attempts=2), sleep=_noop_sleep)
+    store = S3StorageProvider(
+        FlakyClient(failures=99),
+        bucket="assets",
+        breaker=breaker,
+        retry_policy=RetryPolicy(max_attempts=2),
+        sleep=_noop_sleep,
+    )
 
     with pytest.raises(ConnectionError):
         await store.put("a.txt", b"data")

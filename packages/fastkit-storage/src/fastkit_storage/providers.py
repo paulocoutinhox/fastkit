@@ -5,7 +5,11 @@ storage_providers = ProviderRegistry("storage")
 
 
 def build_local(settings):
-    return LocalStorageProvider(root=settings.storage.root, base_url=settings.storage.base_url, secret=settings.app.secret_key)
+    return LocalStorageProvider(
+        root=settings.storage.root,
+        base_url=settings.storage.base_url,
+        secret=settings.app.secret_key,
+    )
 
 
 def build_s3(settings):

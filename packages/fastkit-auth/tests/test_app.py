@@ -45,7 +45,13 @@ class Settings:
         rate_limit_per_minute = 10
         captcha = Captcha()
 
-    installed_apps = ["fastkit.core", "fastkit.db", "fastkit.tenancy", "fastkit.accounts", "fastkit.auth"]
+    installed_apps = [
+        "fastkit.core",
+        "fastkit.db",
+        "fastkit.tenancy",
+        "fastkit.accounts",
+        "fastkit.auth",
+    ]
 
 
 @pytest_asyncio.fixture

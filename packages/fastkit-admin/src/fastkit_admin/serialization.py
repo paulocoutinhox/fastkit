@@ -3,7 +3,14 @@ from decimal import Decimal
 
 CLIENT_FORMATTED_TYPES = {"boolean", "date", "datetime", "time", "number", "decimal"}
 
-TRANSLATABLE_KEYS = {"label", "title", "description", "help_text", "placeholder", "confirm_message"}
+TRANSLATABLE_KEYS = {
+    "label",
+    "title",
+    "description",
+    "help_text",
+    "placeholder",
+    "confirm_message",
+}
 
 
 def translate_schema(node, translate) -> None:

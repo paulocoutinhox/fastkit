@@ -66,13 +66,18 @@ def test_assert_success():
 
 
 def test_assert_error():
-    assert_error({"success": False, "message": {"code": "validation.failed"}}, "validation.failed")
+    assert_error(
+        {"success": False, "message": {"code": "validation.failed"}},
+        "validation.failed",
+    )
 
     with pytest.raises(EnvelopeAssertionError, match="got success"):
         assert_error({"success": True})
 
     with pytest.raises(EnvelopeAssertionError, match="expected error code"):
-        assert_error({"success": False, "message": {"code": "other"}}, "validation.failed")
+        assert_error(
+            {"success": False, "message": {"code": "other"}}, "validation.failed"
+        )
 
 
 def test_assert_field_error():

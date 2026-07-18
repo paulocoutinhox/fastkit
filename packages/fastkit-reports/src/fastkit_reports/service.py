@@ -19,13 +19,17 @@ class ReportService:
     def export_formats(self) -> list[str]:
         return [name for name in self._renderers if name not in ("screen", "json")]
 
-    async def build_result(self, name: str, session, params: dict | None = None) -> ReportResult:
+    async def build_result(
+        self, name: str, session, params: dict | None = None
+    ) -> ReportResult:
         definition = self._registry.get(name)
         rows = await definition.query(session, params or {})
 
         return ReportResult(definition=definition, rows=rows)
 
-    async def resolve_options(self, name: str, session, field: str, params: dict | None = None, locale=None) -> list[dict]:
+    async def resolve_options(
+        self, name: str, session, field: str, params: dict | None = None, locale=None
+    ) -> list[dict]:
         definition = self._registry.get(name)
         handler = definition.options.get(field)
 
@@ -34,7 +38,9 @@ class ReportService:
 
         return await handler(session, params or {}, locale)
 
-    async def render(self, name: str, session, renderer_name: str, params: dict | None = None):
+    async def render(
+        self, name: str, session, renderer_name: str, params: dict | None = None
+    ):
         result = await self.build_result(name, session, params)
         renderer = self._renderers.get(renderer_name)
 
@@ -43,8 +49,22 @@ class ReportService:
 
         return renderer.render(result)
 
-    async def execute(self, name: str, renderer_name: str, params: dict | None = None, tenant_id: int | None = None, requested_by_id=None) -> ReportExecution:
-        execution = ReportExecution(report_name=name, parameters=params, tenant_id=tenant_id, requested_by_id=requested_by_id, status=ExecutionStatus.running.value, started_at=self._clock())
+    async def execute(
+        self,
+        name: str,
+        renderer_name: str,
+        params: dict | None = None,
+        tenant_id: int | None = None,
+        requested_by_id=None,
+    ) -> ReportExecution:
+        execution = ReportExecution(
+            report_name=name,
+            parameters=params,
+            tenant_id=tenant_id,
+            requested_by_id=requested_by_id,
+            status=ExecutionStatus.running.value,
+            started_at=self._clock(),
+        )
 
         async with self._database.session_factory() as session:
             session.add(execution)

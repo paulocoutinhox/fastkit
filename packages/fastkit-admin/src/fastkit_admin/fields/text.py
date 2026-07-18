@@ -17,5 +17,9 @@ class TextField(AdminField):
     def validate(self, value) -> None:
         super().validate(value)
 
-        if value is not None and self.max_length is not None and len(str(value)) > self.max_length:
+        if (
+            value is not None
+            and self.max_length is not None
+            and len(str(value)) > self.max_length
+        ):
             raise self._fail("validation.string-max-length")

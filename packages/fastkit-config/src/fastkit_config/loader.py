@@ -50,7 +50,7 @@ def _apply_env_overrides(data: dict, environ: dict, prefix: str = "FASTKIT__") -
         if not key.startswith(prefix):
             continue
 
-        path = key[len(prefix):].lower().split("__")
+        path = key[len(prefix) :].lower().split("__")
         cursor = result
 
         for part in path[:-1]:
@@ -66,18 +66,25 @@ def _apply_env_overrides(data: dict, environ: dict, prefix: str = "FASTKIT__") -
     return result
 
 
-def load_settings(config_dir: str | Path, environment: str | None = None, environ: dict | None = None) -> FastKitSettings:
+def load_settings(
+    config_dir: str | Path, environment: str | None = None, environ: dict | None = None
+) -> FastKitSettings:
     """Merge base.toml, the environment file and FASTKIT__ prefixed variables into typed settings."""
 
     environ = environ if environ is not None else dict(os.environ)
     environment = environment or environ.get("APP_ENV", "dev")
 
     if environment not in VALID_ENVIRONMENTS:
-        raise ConfigError(f"unknown environment '{environment}', expected one of {VALID_ENVIRONMENTS}")
+        raise ConfigError(
+            f"unknown environment '{environment}', expected one of {VALID_ENVIRONMENTS}"
+        )
 
     directory = Path(config_dir)
 
-    merged = _deep_merge(_read_toml(directory / "base.toml"), _read_toml(directory / f"{environment}.toml"))
+    merged = _deep_merge(
+        _read_toml(directory / "base.toml"),
+        _read_toml(directory / f"{environment}.toml"),
+    )
     merged = _apply_env_overrides(merged, environ)
     merged.setdefault("app", {})["environment"] = environment
 

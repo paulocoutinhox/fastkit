@@ -39,7 +39,9 @@ class Settings:
 
 def build_runtime(monkeypatch, app):
     runtime = Runtime(settings=Settings(), installed_apps=["recording"])
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"recording": lambda: app})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps", lambda: {"recording": lambda: app}
+    )
 
     return runtime
 
@@ -85,7 +87,9 @@ def test_failing_check_aborts_bootstrap(monkeypatch):
         name = "recording"
 
         def register_checks(self, context):
-            context.checks.register("bad", lambda: [CheckMessage(CheckLevel.error, "nope")])
+            context.checks.register(
+                "bad", lambda: [CheckMessage(CheckLevel.error, "nope")]
+            )
 
     runtime = build_runtime(monkeypatch, FailingApp())
 

@@ -17,7 +17,12 @@ from fastkit_tenancy.constants import to_api, to_persisted
 
 SEED_LANGUAGES = (
     {"code": "en", "name": "English", "native_name": "English", "is_default": True},
-    {"code": "pt", "name": "Portuguese", "native_name": "Português", "is_default": False},
+    {
+        "code": "pt",
+        "name": "Portuguese",
+        "native_name": "Português",
+        "is_default": False,
+    },
     {"code": "es", "name": "Spanish", "native_name": "Español", "is_default": False},
 )
 
@@ -35,10 +40,23 @@ class LanguageService:
 
         async with self._database.session_factory() as session:
             for entry in SEED_LANGUAGES:
-                existing = (await session.execute(select(Language).where(Language.code == entry["code"]))).scalar_one_or_none()
+                existing = (
+                    await session.execute(
+                        select(Language).where(Language.code == entry["code"])
+                    )
+                ).scalar_one_or_none()
 
                 if existing is None:
-                    session.add(Language(code=entry["code"], base_code=entry["code"], name=entry["name"], native_name=entry["native_name"], is_default=entry["is_default"], is_system=True))
+                    session.add(
+                        Language(
+                            code=entry["code"],
+                            base_code=entry["code"],
+                            name=entry["name"],
+                            native_name=entry["native_name"],
+                            is_default=entry["is_default"],
+                            is_system=True,
+                        )
+                    )
                     created += 1
 
             await session.commit()
@@ -47,13 +65,19 @@ class LanguageService:
 
     async def list_active(self) -> list[Language]:
         async with self._database.session_factory() as session:
-            result = await session.execute(select(Language).where(Language.is_active.is_(True)).order_by(Language.sort_order))
+            result = await session.execute(
+                select(Language)
+                .where(Language.is_active.is_(True))
+                .order_by(Language.sort_order)
+            )
 
             return list(result.scalars().all())
 
     async def get_by_code(self, code: str) -> Language | None:
         async with self._database.session_factory() as session:
-            return (await session.execute(select(Language).where(Language.code == code))).scalar_one_or_none()
+            return (
+                await session.execute(select(Language).where(Language.code == code))
+            ).scalar_one_or_none()
 
     async def set_default(self, code: str) -> None:
         async with self._database.session_factory() as session:
@@ -64,9 +88,17 @@ class LanguageService:
 
             await session.commit()
 
-    async def create(self, code: str, name: str, native_name: str, direction: str = "ltr") -> Language:
+    async def create(
+        self, code: str, name: str, native_name: str, direction: str = "ltr"
+    ) -> Language:
         async with self._database.session_factory() as session:
-            language = Language(code=code, base_code=code.split("_")[0], name=name, native_name=native_name, direction=direction)
+            language = Language(
+                code=code,
+                base_code=code.split("_")[0],
+                name=name,
+                native_name=native_name,
+                direction=direction,
+            )
             session.add(language)
             await session.commit()
             await session.refresh(language)
@@ -80,11 +112,22 @@ class ContentService:
     def __init__(self, database):
         self._database = database
 
-    async def ensure_content(self, key: str, tenant_id: int | None = None, content_type: str = ContentType.rich_text.value) -> Content:
+    async def ensure_content(
+        self,
+        key: str,
+        tenant_id: int | None = None,
+        content_type: str = ContentType.rich_text.value,
+    ) -> Content:
         persisted = to_persisted(tenant_id)
 
         async with self._database.session_factory() as session:
-            content = (await session.execute(select(Content).where(Content.tenant_id == persisted, Content.key == key))).scalar_one_or_none()
+            content = (
+                await session.execute(
+                    select(Content).where(
+                        Content.tenant_id == persisted, Content.key == key
+                    )
+                )
+            ).scalar_one_or_none()
 
             if content is None:
                 content = Content(tenant_id=persisted, key=key, type=content_type)
@@ -94,17 +137,39 @@ class ContentService:
 
             return content
 
-    async def set_translation(self, content_id, language_id, title: str | None = None, summary: str | None = None, body: str | None = None) -> ContentTranslation:
+    async def set_translation(
+        self,
+        content_id,
+        language_id,
+        title: str | None = None,
+        summary: str | None = None,
+        body: str | None = None,
+    ) -> ContentTranslation:
         async with self._database.session_factory() as session:
             content = await self._require_content(session, content_id)
-            clean_body = sanitize_html(body) if body is not None and content.type in _SANITIZED_TYPES else body
+            clean_body = (
+                sanitize_html(body)
+                if body is not None and content.type in _SANITIZED_TYPES
+                else body
+            )
 
             translation = (
-                await session.execute(select(ContentTranslation).where(ContentTranslation.content_id == content_id, ContentTranslation.language_id == language_id))
+                await session.execute(
+                    select(ContentTranslation).where(
+                        ContentTranslation.content_id == content_id,
+                        ContentTranslation.language_id == language_id,
+                    )
+                )
             ).scalar_one_or_none()
 
             if translation is None:
-                translation = ContentTranslation(content_id=content_id, language_id=language_id, title=title, summary=summary, body=clean_body)
+                translation = ContentTranslation(
+                    content_id=content_id,
+                    language_id=language_id,
+                    title=title,
+                    summary=summary,
+                    body=clean_body,
+                )
                 session.add(translation)
             else:
                 translation.title = title
@@ -139,7 +204,13 @@ class ContentService:
         persisted = to_persisted(tenant_id)
 
         async with self._database.session_factory() as session:
-            content = (await session.execute(select(Content).where(Content.tenant_id == persisted, Content.key == key))).scalar_one_or_none()
+            content = (
+                await session.execute(
+                    select(Content).where(
+                        Content.tenant_id == persisted, Content.key == key
+                    )
+                )
+            ).scalar_one_or_none()
 
             if content is None:
                 return []
@@ -153,7 +224,15 @@ class ContentService:
                 )
             ).all()
 
-            return [{"language": code, "title": translation.title, "summary": translation.summary, "body": translation.body} for translation, code in rows]
+            return [
+                {
+                    "language": code,
+                    "title": translation.title,
+                    "summary": translation.summary,
+                    "body": translation.body,
+                }
+                for translation, code in rows
+            ]
 
     async def translations_by_content_id(self, content_id) -> list[dict]:
         async with self._database.session_factory() as session:
@@ -164,11 +243,24 @@ class ContentService:
 
         return await self.translations(content.key, tenant_id=to_api(content.tenant_id))
 
-    async def get(self, key: str, locale: str | None = None, tenant_id: int | None = None, supported: list[str] | None = None, default_locale: str = "en") -> str | None:
+    async def get(
+        self,
+        key: str,
+        locale: str | None = None,
+        tenant_id: int | None = None,
+        supported: list[str] | None = None,
+        default_locale: str = "en",
+    ) -> str | None:
         persisted = to_persisted(tenant_id)
 
         async with self._database.session_factory() as session:
-            content = (await session.execute(select(Content).where(Content.tenant_id == persisted, Content.key == key))).scalar_one_or_none()
+            content = (
+                await session.execute(
+                    select(Content).where(
+                        Content.tenant_id == persisted, Content.key == key
+                    )
+                )
+            ).scalar_one_or_none()
 
             if content is None:
                 return None
@@ -176,16 +268,25 @@ class ContentService:
             if locale is None:
                 locale = await self._default_locale(session, content, default_locale)
 
-            codes = fallback_chain(locale, supported or [locale, default_locale], default_locale)
+            codes = fallback_chain(
+                locale, supported or [locale, default_locale], default_locale
+            )
 
             for code in codes:
-                language = (await session.execute(select(Language).where(Language.code == code))).scalar_one_or_none()
+                language = (
+                    await session.execute(select(Language).where(Language.code == code))
+                ).scalar_one_or_none()
 
                 if language is None:
                     continue
 
                 translation = (
-                    await session.execute(select(ContentTranslation).where(ContentTranslation.content_id == content.id, ContentTranslation.language_id == language.id))
+                    await session.execute(
+                        select(ContentTranslation).where(
+                            ContentTranslation.content_id == content.id,
+                            ContentTranslation.language_id == language.id,
+                        )
+                    )
                 ).scalar_one_or_none()
 
                 if translation is not None and translation.body is not None:
@@ -200,6 +301,8 @@ class ContentService:
             if language is not None:
                 return language.code
 
-        system_default = (await session.execute(select(Language).where(Language.is_default.is_(True)))).scalar_one_or_none()
+        system_default = (
+            await session.execute(select(Language).where(Language.is_default.is_(True)))
+        ).scalar_one_or_none()
 
         return system_default.code if system_default is not None else default_locale

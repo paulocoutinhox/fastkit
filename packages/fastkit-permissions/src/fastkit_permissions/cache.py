@@ -19,7 +19,13 @@ class PermissionCache:
     def get(self, user_id: str, tenant_id: int | None) -> set[str] | None:
         return self._entries.get(self._key(user_id, tenant_id))
 
-    def set(self, user_id: str, tenant_id: int | None, permissions: set[str], observed_version: int) -> None:
+    def set(
+        self,
+        user_id: str,
+        tenant_id: int | None,
+        permissions: set[str],
+        observed_version: int,
+    ) -> None:
         if observed_version != self._version:
             return
 

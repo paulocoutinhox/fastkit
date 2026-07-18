@@ -42,7 +42,17 @@ async def test_db_bootstrap(runtime):
 
 
 async def test_create_root(runtime):
-    _, lines = await run(runtime, ["admin", "create-root", "--email", "root@platform.com", "--password", "supersecret-123"])
+    _, lines = await run(
+        runtime,
+        [
+            "admin",
+            "create-root",
+            "--email",
+            "root@platform.com",
+            "--password",
+            "supersecret-123",
+        ],
+    )
 
     assert "created root user root@platform.com" in lines[0]
 
@@ -67,7 +77,9 @@ async def test_checks_with_messages():
         installed_apps = []
 
     runtime = Runtime(settings=Settings(), installed_apps=[])
-    runtime.checks.register("demo", lambda: [CheckMessage(CheckLevel.warning, "careful")])
+    runtime.checks.register(
+        "demo", lambda: [CheckMessage(CheckLevel.warning, "careful")]
+    )
 
     lines = await commands.run_checks(runtime)
 

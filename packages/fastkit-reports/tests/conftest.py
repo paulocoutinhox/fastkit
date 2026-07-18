@@ -5,7 +5,12 @@ from fastkit_db.base import Base
 from fastkit_db.engine import Database
 
 from fastkit_reports import models  # noqa: F401
-from fastkit_reports.contracts import ReportColumn, ReportDefinition, ReportFilter, ReportRegistry
+from fastkit_reports.contracts import (
+    ReportColumn,
+    ReportDefinition,
+    ReportFilter,
+    ReportRegistry,
+)
 from fastkit_reports.renderers import default_renderers
 from fastkit_reports.service import ReportService
 
@@ -30,7 +35,10 @@ def sales_definition() -> ReportDefinition:
     return ReportDefinition(
         name="sales",
         title="Sales Report",
-        columns=[ReportColumn("product", "Product"), ReportColumn("total", "Total", align="right")],
+        columns=[
+            ReportColumn("product", "Product"),
+            ReportColumn("total", "Total", align="right"),
+        ],
         query=_sales_query,
         filters=[ReportFilter("minimum", "Minimum total", "number")],
         options={"region": _region_options},
@@ -69,4 +77,7 @@ def sales_def():
 def sample_result():
     from fastkit_reports.contracts import ReportResult
 
-    return ReportResult(definition=sales_definition(), rows=[{"product": "Alpha", "total": 100}, {"product": "Beta", "total": 250}])
+    return ReportResult(
+        definition=sales_definition(),
+        rows=[{"product": "Alpha", "total": 100}, {"product": "Beta", "total": 250}],
+    )

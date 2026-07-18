@@ -14,7 +14,10 @@ class ScreenRenderer:
     def render(self, result: ReportResult) -> dict:
         return {
             "title": result.definition.title,
-            "columns": [{"key": column.key, "label": column.label, "align": column.align} for column in result.definition.columns],
+            "columns": [
+                {"key": column.key, "label": column.label, "align": column.align}
+                for column in result.definition.columns
+            ],
             "rows": result.rows,
         }
 
@@ -45,7 +48,9 @@ class CsvRenderer:
         writer = csv.writer(buffer)
         keys = result.column_keys()
 
-        writer.writerow([_csv_safe(column.label) for column in result.definition.columns])
+        writer.writerow(
+            [_csv_safe(column.label) for column in result.definition.columns]
+        )
 
         for row in result.rows:
             writer.writerow([_csv_safe(row.get(key, "")) for key in keys])
@@ -58,7 +63,9 @@ class HtmlRenderer:
 
     def render(self, result: ReportResult) -> str:
         keys = result.column_keys()
-        header = "".join(f"<th>{escape(column.label)}</th>" for column in result.definition.columns)
+        header = "".join(
+            f"<th>{escape(column.label)}</th>" for column in result.definition.columns
+        )
         body_rows = []
 
         for row in result.rows:
@@ -84,4 +91,12 @@ class PdfRenderer:
 
 
 def default_renderers() -> dict:
-    return {renderer.name: renderer for renderer in (ScreenRenderer(), JsonRenderer(), CsvRenderer(), HtmlRenderer())}
+    return {
+        renderer.name: renderer
+        for renderer in (
+            ScreenRenderer(),
+            JsonRenderer(),
+            CsvRenderer(),
+            HtmlRenderer(),
+        )
+    }

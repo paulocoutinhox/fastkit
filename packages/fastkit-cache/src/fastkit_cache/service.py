@@ -20,12 +20,25 @@ class Cache:
 
         return None if raw is None else json.loads(raw)
 
-    async def set(self, namespace: str, key: str, value, tenant_id: int | None = None, ttl: int | None = None) -> None:
+    async def set(
+        self,
+        namespace: str,
+        key: str,
+        value,
+        tenant_id: int | None = None,
+        ttl: int | None = None,
+    ) -> None:
         payload = json.dumps(value, separators=(",", ":")).encode("utf-8")
 
-        await self._provider.set(self._key(namespace, key, tenant_id), payload, ttl if ttl is not None else self._default_ttl)
+        await self._provider.set(
+            self._key(namespace, key, tenant_id),
+            payload,
+            ttl if ttl is not None else self._default_ttl,
+        )
 
-    async def delete(self, namespace: str, key: str, tenant_id: int | None = None) -> None:
+    async def delete(
+        self, namespace: str, key: str, tenant_id: int | None = None
+    ) -> None:
         await self._provider.delete(self._key(namespace, key, tenant_id))
 
     async def clear_namespace(self, namespace: str) -> None:

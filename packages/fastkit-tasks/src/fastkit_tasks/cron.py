@@ -51,7 +51,10 @@ def parse_cron(expression: str) -> tuple[set[int], ...]:
     if len(fields) != 5:
         raise CronError("cron expression must have exactly 5 fields")
 
-    parsed = [_parse_field(field, low, high) for field, (low, high) in zip(fields, _FIELD_RANGES)]
+    parsed = [
+        _parse_field(field, low, high)
+        for field, (low, high) in zip(fields, _FIELD_RANGES)
+    ]
 
     # posix cron accepts 7 as sunday, which the matcher expresses as 0
     if 7 in parsed[4]:
@@ -79,7 +82,12 @@ def next_run(expression: str, after: datetime) -> datetime:
         else:
             day_or_weekday = day_match and weekday_match
 
-        if candidate.minute in minutes and candidate.hour in hours and candidate.month in months and day_or_weekday:
+        if (
+            candidate.minute in minutes
+            and candidate.hour in hours
+            and candidate.month in months
+            and day_or_weekday
+        ):
             return candidate
 
         candidate += timedelta(minutes=1)

@@ -21,5 +21,9 @@ class MaskedField(TextField):
     def validate(self, value) -> None:
         super().validate(value)
 
-        if value not in (None, "") and self.pattern is not None and not re.fullmatch(self.pattern, str(value)):
+        if (
+            value not in (None, "")
+            and self.pattern is not None
+            and not re.fullmatch(self.pattern, str(value))
+        ):
             raise self._fail("validation.pattern-invalid")

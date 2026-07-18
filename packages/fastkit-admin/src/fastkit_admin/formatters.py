@@ -13,9 +13,24 @@ class LocaleFormat:
 
 
 LOCALE_FORMATS = {
-    "en": LocaleFormat(thousands=",", decimal=".", date_format="%m/%d/%Y", datetime_format="%m/%d/%Y %H:%M"),
-    "pt": LocaleFormat(thousands=".", decimal=",", date_format="%d/%m/%Y", datetime_format="%d/%m/%Y %H:%M"),
-    "es": LocaleFormat(thousands=".", decimal=",", date_format="%d/%m/%Y", datetime_format="%d/%m/%Y %H:%M"),
+    "en": LocaleFormat(
+        thousands=",",
+        decimal=".",
+        date_format="%m/%d/%Y",
+        datetime_format="%m/%d/%Y %H:%M",
+    ),
+    "pt": LocaleFormat(
+        thousands=".",
+        decimal=",",
+        date_format="%d/%m/%Y",
+        datetime_format="%d/%m/%Y %H:%M",
+    ),
+    "es": LocaleFormat(
+        thousands=".",
+        decimal=",",
+        date_format="%d/%m/%Y",
+        datetime_format="%d/%m/%Y %H:%M",
+    ),
 }
 
 
@@ -27,7 +42,9 @@ class DecimalParseError(ValueError):
     pass
 
 
-def format_decimal(value: Decimal | int | float, locale: str = "en", decimal_places: int = 2) -> str:
+def format_decimal(
+    value: Decimal | int | float, locale: str = "en", decimal_places: int = 2
+) -> str:
     """Render a number with locale-aware thousands and decimal separators."""
 
     fmt = locale_format(locale)
@@ -96,7 +113,11 @@ def parse_date(raw: str, locale: str = "en") -> date:
 def parse_datetime(raw: str, locale: str = "en") -> datetime:
     text = raw.strip().replace("T", " ")
 
-    for pattern in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", locale_format(locale).datetime_format):
+    for pattern in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        locale_format(locale).datetime_format,
+    ):
         try:
             return datetime.strptime(text, pattern)
         except ValueError:

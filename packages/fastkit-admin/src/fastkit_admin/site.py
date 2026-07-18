@@ -26,7 +26,13 @@ class MenuItem:
 class AdminSite:
     """Registry of admin resources plus consumer-defined, permission-aware navigation."""
 
-    def __init__(self, name: str = "main", title: str = "Administration", path: str = "/admin", api_path: str = "/api"):
+    def __init__(
+        self,
+        name: str = "main",
+        title: str = "Administration",
+        path: str = "/admin",
+        api_path: str = "/api",
+    ):
         self.name = name
         self.title = title
         self.path = path
@@ -45,7 +51,9 @@ class AdminSite:
         resource = self._resources.get(name)
 
         if resource is None:
-            raise NotFoundError(RESOURCE_NOT_FOUND, message=f"admin resource '{name}' not found")
+            raise NotFoundError(
+                RESOURCE_NOT_FOUND, message=f"admin resource '{name}' not found"
+            )
 
         return resource
 
@@ -55,20 +63,43 @@ class AdminSite:
     def resources(self) -> list:
         return list(self._resources.values())
 
-    def add_group(self, key: str, label: str, order: int = 0, icon: str | None = None) -> None:
+    def add_group(
+        self, key: str, label: str, order: int = 0, icon: str | None = None
+    ) -> None:
         self._groups[key] = MenuGroup(key=key, label=label, order=order, icon=icon)
 
-    def add_menu(self, label: str, group: str = "general", resource: str | None = None, path: str | None = None, icon: str | None = None, permission: str | None = None, order: int = 0) -> None:
+    def add_menu(
+        self,
+        label: str,
+        group: str = "general",
+        resource: str | None = None,
+        path: str | None = None,
+        icon: str | None = None,
+        permission: str | None = None,
+        order: int = 0,
+    ) -> None:
         if icon is None:
             icon = getattr(self._resources.get(resource), "icon", "point") or "point"
 
-        self._items.append(MenuItem(label=label, group=group, resource=resource, path=path, icon=icon, permission=permission, order=order))
+        self._items.append(
+            MenuItem(
+                label=label,
+                group=group,
+                resource=resource,
+                path=path,
+                icon=icon,
+                permission=permission,
+                order=order,
+            )
+        )
 
     def _effective_permission(self, item: MenuItem) -> str | None:
         if item.permission is not None:
             return item.permission
 
-        resource = self._resources.get(item.resource) if item.resource is not None else None
+        resource = (
+            self._resources.get(item.resource) if item.resource is not None else None
+        )
 
         return resource.permissions.get("list") if resource is not None else None
 
@@ -87,7 +118,9 @@ class AdminSite:
 
         groups = []
 
-        for key in sorted(visible, key=lambda group_key: (self._group_order(group_key), group_key)):
+        for key in sorted(
+            visible, key=lambda group_key: (self._group_order(group_key), group_key)
+        ):
             items = sorted(visible[key], key=lambda item: (item.order, item.label))
             group = self._groups.get(key)
 
@@ -96,7 +129,15 @@ class AdminSite:
                     "key": key,
                     "label": group.label if group else key.title(),
                     "icon": group.icon if group else None,
-                    "items": [{"label": item.label, "resource": item.resource, "path": item.path, "icon": item.icon} for item in items],
+                    "items": [
+                        {
+                            "label": item.label,
+                            "resource": item.resource,
+                            "path": item.path,
+                            "icon": item.icon,
+                        }
+                        for item in items
+                    ],
                 }
             )
 

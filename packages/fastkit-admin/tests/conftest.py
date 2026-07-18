@@ -8,14 +8,23 @@ from sqlalchemy import Boolean, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from fastkit_core.errors.exceptions import FastKitError
-from fastkit_core.errors.handlers import fastkit_exception_handler, validation_exception_handler
+from fastkit_core.errors.handlers import (
+    fastkit_exception_handler,
+    validation_exception_handler,
+)
 from fastkit_db.base import Base, TimestampMixin, PrimaryKeyMixin
 from fastkit_db.engine import Database
 
 from fastkit_admin.actions import AdminAction
 from fastkit_admin.api import AdminDeps, build_admin_router
 from fastkit_admin.columns import Column
-from fastkit_admin.fields import BooleanField, DateTimeField, DecimalField, SelectField, TextField
+from fastkit_admin.fields import (
+    BooleanField,
+    DateTimeField,
+    DecimalField,
+    SelectField,
+    TextField,
+)
 from fastkit_admin.filters import BooleanFilter, ChoiceFilter, TextFilter
 from fastkit_admin.resource import AdminResource
 from fastkit_admin.site import AdminSite
@@ -25,7 +34,9 @@ class Product(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "admin_products"
 
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=Decimal("0"))
+    price: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2), nullable=False, default=Decimal("0")
+    )
     category: Mapped[str] = mapped_column(String(40), default="general", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
@@ -42,11 +53,29 @@ class ProductAdmin(AdminResource[Product]):
     icon = "box"
     model = Product
 
-    list_columns = ["name", Column("price", align="right"), "category", "is_active", "badge", "created_at"]
+    list_columns = [
+        "name",
+        Column("price", align="right"),
+        "category",
+        "is_active",
+        "badge",
+        "created_at",
+    ]
     search_fields = ["name"]
-    filters = [TextFilter("name"), BooleanFilter("is_active"), ChoiceFilter("category", choices=[("general", "General"), ("premium", "Premium")])]
+    filters = [
+        TextFilter("name"),
+        BooleanFilter("is_active"),
+        ChoiceFilter(
+            "category", choices=[("general", "General"), ("premium", "Premium")]
+        ),
+    ]
     actions = [
-        AdminAction(name="deactivate", label="Deactivate", permission="products.update", confirm=True),
+        AdminAction(
+            name="deactivate",
+            label="Deactivate",
+            permission="products.update",
+            confirm=True,
+        ),
         AdminAction(name="touch", label="Touch", scope="bulk"),
     ]
     ordering = ["-created_at"]
@@ -54,12 +83,20 @@ class ProductAdmin(AdminResource[Product]):
     form_fields = [
         TextField("name", required=True, max_length=120),
         DecimalField("price", required=True, decimal_places=2),
-        SelectField("category", choices=[("general", "General"), ("premium", "Premium")]),
+        SelectField(
+            "category", choices=[("general", "General"), ("premium", "Premium")]
+        ),
         BooleanField("is_active"),
         DateTimeField("updated_at", readonly=True),
     ]
 
-    permissions = {"list": "products.view", "detail": "products.view", "create": "products.create", "update": "products.update", "delete": "products.delete"}
+    permissions = {
+        "list": "products.view",
+        "detail": "products.view",
+        "create": "products.create",
+        "update": "products.update",
+        "delete": "products.delete",
+    }
 
     async def options_owner_id(self, session, parent_values, locale):
         category = parent_values.get("category")
@@ -127,7 +164,9 @@ def site():
     admin_site.add_group("internal", "Internal", order=1)
     admin_site.add_menu("Products", group="catalog", resource="products")
     admin_site.add_menu("Open", group="catalog", resource="open")
-    admin_site.add_menu("Reports", group="internal", path="/reports", permission="reports.view")
+    admin_site.add_menu(
+        "Reports", group="internal", path="/reports", permission="reports.view"
+    )
 
     return admin_site
 
@@ -178,9 +217,16 @@ def build_admin_app(database, site, user):
         from fastkit_core.errors.exceptions import AuthorizationError
 
         if not current_user.has(permission):
-            raise AuthorizationError(AUTHORIZATION_DENIED, message=f"permission '{permission}' is required")
+            raise AuthorizationError(
+                AUTHORIZATION_DENIED, message=f"permission '{permission}' is required"
+            )
 
-    deps = AdminDeps(get_session=get_session, get_current_user=get_current_user, get_locale=get_locale, authorize=authorize)
+    deps = AdminDeps(
+        get_session=get_session,
+        get_current_user=get_current_user,
+        get_locale=get_locale,
+        authorize=authorize,
+    )
     app.include_router(build_admin_router(site, deps))
 
     return app

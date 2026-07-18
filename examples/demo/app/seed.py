@@ -59,14 +59,28 @@ async def seed(runtime) -> dict:
     permission_ids = {}
 
     for code, label, group in PERMISSIONS:
-        permission = await permission_service.create_permission(code, label, group=group)
+        permission = await permission_service.create_permission(
+            code, label, group=group
+        )
         permission_ids[code] = permission.id
 
-    admin_role = await permission_service.create_role("Administrator", tenant_id=0, description="Full access to every module.")
-    await permission_service.set_role_permissions(admin_role.id, list(permission_ids.values()))
+    admin_role = await permission_service.create_role(
+        "Administrator", tenant_id=0, description="Full access to every module."
+    )
+    await permission_service.set_role_permissions(
+        admin_role.id, list(permission_ids.values())
+    )
 
-    staff_role = await permission_service.create_role("Staff", tenant_id=0, description="Access to every module except access control.")
-    staff_permission_ids = [identifier for code, identifier in permission_ids.items() if code not in ADMIN_ONLY_PERMISSIONS]
+    staff_role = await permission_service.create_role(
+        "Staff",
+        tenant_id=0,
+        description="Access to every module except access control.",
+    )
+    staff_permission_ids = [
+        identifier
+        for code, identifier in permission_ids.items()
+        if code not in ADMIN_ONLY_PERMISSIONS
+    ]
     await permission_service.set_role_permissions(staff_role.id, staff_permission_ids)
 
     root = await account_service.create_user(
@@ -89,8 +103,12 @@ async def seed(runtime) -> dict:
     )
     await permission_service.assign_role(staff.id, staff_role.id, tenant_id=0)
 
-    viewer_role = await permission_service.create_role("Viewer", tenant_id=0, description="Read-only access to the catalog.")
-    await permission_service.set_role_permissions(viewer_role.id, [permission_ids["products.view"]])
+    viewer_role = await permission_service.create_role(
+        "Viewer", tenant_id=0, description="Read-only access to the catalog."
+    )
+    await permission_service.set_role_permissions(
+        viewer_role.id, [permission_ids["products.view"]]
+    )
 
     viewer = await account_service.create_user(
         tenant_id=0,
@@ -102,9 +120,19 @@ async def seed(runtime) -> dict:
     await permission_service.assign_role(viewer.id, viewer_role.id, tenant_id=0)
 
     async with database.session_factory() as tenant_session:
-        acme = Tenant(code="acme", name="Acme Inc.", default_locale="en", timezone="UTC")
+        acme = Tenant(
+            code="acme", name="Acme Inc.", default_locale="en", timezone="UTC"
+        )
         tenant_session.add(acme)
-        tenant_session.add(Tenant(code="globex", name="Globex", status="suspended", default_locale="pt", timezone="America/Sao_Paulo"))
+        tenant_session.add(
+            Tenant(
+                code="globex",
+                name="Globex",
+                status="suspended",
+                default_locale="pt",
+                timezone="America/Sao_Paulo",
+            )
+        )
         await tenant_session.flush()
         acme_id = acme.id
         await tenant_session.commit()
@@ -127,14 +155,29 @@ async def seed(runtime) -> dict:
             await session.flush()
 
             for subcategory_name in subcategory_names:
-                subcategory = Subcategory(name=subcategory_name, category_id=category.id)
+                subcategory = Subcategory(
+                    name=subcategory_name, category_id=category.id
+                )
                 session.add(subcategory)
                 await session.flush()
-                subcategory_ids[(category_name, subcategory_name)] = (category.id, subcategory.id)
+                subcategory_ids[(category_name, subcategory_name)] = (
+                    category.id,
+                    subcategory.id,
+                )
 
         for name, sku, price, category_name, subcategory_name in SAMPLE_PRODUCTS:
-            category_id, subcategory_id = subcategory_ids[(category_name, subcategory_name)]
-            session.add(Product(name=name, sku=sku, price=price, category_id=category_id, subcategory_id=subcategory_id))
+            category_id, subcategory_id = subcategory_ids[
+                (category_name, subcategory_name)
+            ]
+            session.add(
+                Product(
+                    name=name,
+                    sku=sku,
+                    price=price,
+                    category_id=category_id,
+                    subcategory_id=subcategory_id,
+                )
+            )
 
         session.add(
             Showcase(
@@ -154,20 +197,107 @@ async def seed(runtime) -> dict:
             )
         )
 
-        session.add(GeoSample(name="Sample A", sel_country="br", sel_state="sp", sel_city="sao", sel_district="pin", look_country="br", look_state="sp", look_city="sao", look_district="pin"))
-        session.add(GeoSample(name="Sample B", sel_country="us", sel_state="ca", sel_city="la", sel_district="hol", look_country="us", look_state="ca", look_city="la", look_district="hol"))
+        session.add(
+            GeoSample(
+                name="Sample A",
+                sel_country="br",
+                sel_state="sp",
+                sel_city="sao",
+                sel_district="pin",
+                look_country="br",
+                look_state="sp",
+                look_city="sao",
+                look_district="pin",
+            )
+        )
+        session.add(
+            GeoSample(
+                name="Sample B",
+                sel_country="us",
+                sel_state="ca",
+                sel_city="la",
+                sel_district="hol",
+                look_country="us",
+                look_state="ca",
+                look_city="la",
+                look_district="hol",
+            )
+        )
 
         moment = datetime(2026, 7, 15, 9, 0, tzinfo=timezone.utc)
-        session.add(ScheduledTask(name="Nightly cleanup", task_name="demo.cleanup", schedule_type="cron", cron_expression="0 3 * * *", queue="default", next_run_at=moment))
-        session.add(ScheduledTask(name="Hourly sync", task_name="demo.sync", schedule_type="interval", interval_seconds=3600, queue="default", next_run_at=moment, enabled=False))
+        session.add(
+            ScheduledTask(
+                name="Nightly cleanup",
+                task_name="demo.cleanup",
+                schedule_type="cron",
+                cron_expression="0 3 * * *",
+                queue="default",
+                next_run_at=moment,
+            )
+        )
+        session.add(
+            ScheduledTask(
+                name="Hourly sync",
+                task_name="demo.sync",
+                schedule_type="interval",
+                interval_seconds=3600,
+                queue="default",
+                next_run_at=moment,
+                enabled=False,
+            )
+        )
 
-        session.add(TaskExecution(task_name="demo.cleanup", queue="default", status="succeeded", available_at=moment, started_at=moment, finished_at=moment, attempt_count=1))
-        session.add(TaskExecution(task_name="demo.sync", queue="default", status="running", available_at=moment, started_at=moment, attempt_count=1))
-        session.add(TaskExecution(task_name="demo.export", queue="reports", status="failed", available_at=moment, attempt_count=3, error_message="upstream timeout"))
+        session.add(
+            TaskExecution(
+                task_name="demo.cleanup",
+                queue="default",
+                status="succeeded",
+                available_at=moment,
+                started_at=moment,
+                finished_at=moment,
+                attempt_count=1,
+            )
+        )
+        session.add(
+            TaskExecution(
+                task_name="demo.sync",
+                queue="default",
+                status="running",
+                available_at=moment,
+                started_at=moment,
+                attempt_count=1,
+            )
+        )
+        session.add(
+            TaskExecution(
+                task_name="demo.export",
+                queue="reports",
+                status="failed",
+                available_at=moment,
+                attempt_count=3,
+                error_message="upstream timeout",
+            )
+        )
 
-        session.add(ReportExecution(report_name="sales.summary", status="succeeded", progress=100, row_count=42, finished_at=moment))
-        session.add(ReportExecution(report_name="tenant.usage", status="running", progress=40, row_count=0))
+        session.add(
+            ReportExecution(
+                report_name="sales.summary",
+                status="succeeded",
+                progress=100,
+                row_count=42,
+                finished_at=moment,
+            )
+        )
+        session.add(
+            ReportExecution(
+                report_name="tenant.usage", status="running", progress=40, row_count=0
+            )
+        )
 
         await session.commit()
 
-    return {"root": str(root.id), "staff": str(staff.id), "products": len(SAMPLE_PRODUCTS)}
+    return {
+        "root": str(root.id),
+        "staff": str(staff.id),
+        "products": len(SAMPLE_PRODUCTS),
+    }

@@ -18,13 +18,25 @@ class PasswordHashService:
         if len(password) < self._min_length:
             raise ValidationError(
                 VALIDATION_FAILED,
-                field_errors=[FieldError("password", "validation.password-too-short", params={"min_length": self._min_length})],
+                field_errors=[
+                    FieldError(
+                        "password",
+                        "validation.password-too-short",
+                        params={"min_length": self._min_length},
+                    )
+                ],
             )
 
         if len(password) > self._max_length:
             raise ValidationError(
                 VALIDATION_FAILED,
-                field_errors=[FieldError("password", "validation.password-too-long", params={"max_length": self._max_length})],
+                field_errors=[
+                    FieldError(
+                        "password",
+                        "validation.password-too-long",
+                        params={"max_length": self._max_length},
+                    )
+                ],
             )
 
     def hash(self, password: str) -> str:

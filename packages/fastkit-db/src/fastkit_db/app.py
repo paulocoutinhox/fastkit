@@ -24,7 +24,9 @@ class DbApp(FastKitApp):
 
     def register_services(self, context: BootstrapContext) -> None:
         settings = context.settings.database
-        database = Database(url=settings.url, pool_pre_ping=settings.pool_pre_ping, echo=settings.echo)
+        database = Database(
+            url=settings.url, pool_pre_ping=settings.pool_pre_ping, echo=settings.echo
+        )
 
         context.set_component("database", database)
         context.set_component("metadata", Base.metadata)

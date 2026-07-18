@@ -1,7 +1,14 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from fastkit_db.base import Base, MetadataMixin, TimestampMixin, PrimaryKeyMixin
@@ -34,10 +41,19 @@ class StorageFile(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     __tablename__ = "storage_file"
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
-    kind: Mapped[str] = mapped_column(String(20), default=StorageFileKind.file.value, nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default=StorageFileStatus.pending_upload.value, nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(
+        String(20), default=StorageFileKind.file.value, nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default=StorageFileStatus.pending_upload.value,
+        nullable=False,
+        index=True,
+    )
 
-    storage_alias: Mapped[str] = mapped_column(String(40), default="default", nullable=False)
+    storage_alias: Mapped[str] = mapped_column(
+        String(40), default="default", nullable=False
+    )
     object_key: Mapped[str] = mapped_column(String(500), nullable=False)
     original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     extension: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -48,15 +64,26 @@ class StorageFile(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    visibility: Mapped[str] = mapped_column(String(20), default="private", nullable=False)
+    visibility: Mapped[str] = mapped_column(
+        String(20), default="private", nullable=False
+    )
     created_by_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
 
 class StorageFileVariant(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     __tablename__ = "storage_file_variant"
-    __table_args__ = (UniqueConstraint("storage_file_id", "name", name="uq_storage_file_variant_name"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "storage_file_id", "name", name="uq_storage_file_variant_name"
+        ),
+    )
 
-    storage_file_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("storage_file.id", ondelete="CASCADE"), nullable=False, index=True)
+    storage_file_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("storage_file.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="ready", nullable=False)
     object_key: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -70,7 +97,12 @@ class StorageFileVariant(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 class StorageFileReference(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     __tablename__ = "storage_file_reference"
 
-    storage_file_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("storage_file.id", ondelete="CASCADE"), nullable=False, index=True)
+    storage_file_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("storage_file.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     owner_type: Mapped[str] = mapped_column(String(120), nullable=False)
     owner_id: Mapped[str] = mapped_column(String(64), nullable=False)
     slot: Mapped[str] = mapped_column(String(80), default="default", nullable=False)
@@ -82,10 +114,22 @@ class UploadSession(PrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
 
     tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    storage_alias: Mapped[str] = mapped_column(String(40), default="default", nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default=UploadStatus.pending.value, nullable=False)
-    max_size_bytes: Mapped[int] = mapped_column(Integer, default=10_000_000, nullable=False)
+    storage_alias: Mapped[str] = mapped_column(
+        String(40), default="default", nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(20), default=UploadStatus.pending.value, nullable=False
+    )
+    max_size_bytes: Mapped[int] = mapped_column(
+        Integer, default=10_000_000, nullable=False
+    )
     temporary_object_key: Mapped[str] = mapped_column(String(500), nullable=False)
-    storage_file_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("storage_file.id", ondelete="SET NULL"), nullable=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    storage_file_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("storage_file.id", ondelete="SET NULL"), nullable=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

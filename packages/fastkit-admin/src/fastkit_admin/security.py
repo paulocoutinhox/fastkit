@@ -16,7 +16,9 @@ class AdminSecurity:
     to hand-write it.
     """
 
-    def __init__(self, runtime, tenant_id: int = 0, locale_cookie: str = "fastkit_locale"):
+    def __init__(
+        self, runtime, tenant_id: int = 0, locale_cookie: str = "fastkit_locale"
+    ):
         self._database = runtime.component("database")
         self._sessions = runtime.component("session_service")
         self._authorizer = runtime.component("authorizer")
@@ -33,18 +35,24 @@ class AdminSecurity:
         raw_token = request.cookies.get(self._session_cookie)
 
         if not raw_token:
-            raise AuthenticationError(AUTHENTICATION_REQUIRED, message="authentication is required")
+            raise AuthenticationError(
+                AUTHENTICATION_REQUIRED, message="authentication is required"
+            )
 
         record = await self._sessions.validate(raw_token)
 
         if record is None:
-            raise AuthenticationError(AUTHENTICATION_REQUIRED, message="session is invalid or expired")
+            raise AuthenticationError(
+                AUTHENTICATION_REQUIRED, message="session is invalid or expired"
+            )
 
         async with self._database.session_factory() as session:
             user = await session.get(User, record.user_id)
 
         if user is None or not user.is_active:
-            raise AuthenticationError(AUTHENTICATION_REQUIRED, message="account is not available")
+            raise AuthenticationError(
+                AUTHENTICATION_REQUIRED, message="account is not available"
+            )
 
         update_request_context(user_id=str(user.id), tenant_id=user.tenant_id)
 
@@ -57,13 +65,18 @@ class AdminSecurity:
             return None
 
     async def get_locale(self, request: Request):
-        return self._resolver.resolve(accept_language=request.headers.get("accept-language"), cookie_locale=request.cookies.get(self._locale_cookie))
+        return self._resolver.resolve(
+            accept_language=request.headers.get("accept-language"),
+            cookie_locale=request.cookies.get(self._locale_cookie),
+        )
 
     async def authorize(self, user, permission):
         await self._authorizer.require(user, permission, tenant_id=self._tenant_id)
 
 
-def build_admin_deps(runtime, security=None, audit=None, translate=None, tenant_id: int = 0):
+def build_admin_deps(
+    runtime, security=None, audit=None, translate=None, tenant_id: int = 0
+):
     """Build a fully-wired ``AdminDeps`` from the runtime.
 
     Returns ``(deps, security)`` — the ``AdminSecurity`` is returned too so the same

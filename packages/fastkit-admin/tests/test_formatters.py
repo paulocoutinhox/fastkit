@@ -69,7 +69,9 @@ def test_parse_date_variants():
 
 def test_parse_datetime_variants():
     assert parse_datetime("2026-07-14T09:05", "en") == datetime(2026, 7, 14, 9, 5)
-    assert parse_datetime("2026-07-14 09:05:30", "en") == datetime(2026, 7, 14, 9, 5, 30)
+    assert parse_datetime("2026-07-14 09:05:30", "en") == datetime(
+        2026, 7, 14, 9, 5, 30
+    )
     assert parse_datetime("14/07/2026 09:05", "pt") == datetime(2026, 7, 14, 9, 5)
 
     with pytest.raises(ValueError):

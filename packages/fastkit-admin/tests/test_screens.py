@@ -1,11 +1,24 @@
 from fastkit_admin.fields import NumberField, TextField
 from fastkit_admin.inlines import InlineResource
 from fastkit_admin.rendering import AdminRenderer
-from fastkit_admin.screens import detail_context, form_context, list_context, profile_context, report_context
+from fastkit_admin.screens import (
+    detail_context,
+    form_context,
+    list_context,
+    profile_context,
+    report_context,
+)
 
 
 def test_inline_resource_schema():
-    inline = InlineResource("items", [TextField("name"), NumberField("qty")], model=object, fk_field="order_id", min_items=1, max_items=5)
+    inline = InlineResource(
+        "items",
+        [TextField("name"), NumberField("qty")],
+        model=object,
+        fk_field="order_id",
+        min_items=1,
+        max_items=5,
+    )
     schema = inline.schema()
 
     assert schema["name"] == "items"
@@ -16,7 +29,12 @@ def test_inline_resource_schema():
 
 
 def test_inline_resource_default_label():
-    assert InlineResource("order_lines", [TextField("sku")], model=object, fk_field="order_id").schema()["label"] == "Order Lines"
+    assert (
+        InlineResource(
+            "order_lines", [TextField("sku")], model=object, fk_field="order_id"
+        ).schema()["label"]
+        == "Order Lines"
+    )
 
 
 def _schema():
@@ -24,8 +42,24 @@ def _schema():
         "resource": "products",
         "label": "Products",
         "columns": [
-            {"name": "name", "label": "Name", "align": None, "sortable": True, "clickable": False, "field_type": "text", "html": False},
-            {"name": "is_active", "label": "Active", "align": None, "sortable": False, "clickable": False, "field_type": "boolean", "html": False},
+            {
+                "name": "name",
+                "label": "Name",
+                "align": None,
+                "sortable": True,
+                "clickable": False,
+                "field_type": "text",
+                "html": False,
+            },
+            {
+                "name": "is_active",
+                "label": "Active",
+                "align": None,
+                "sortable": False,
+                "clickable": False,
+                "field_type": "boolean",
+                "html": False,
+            },
         ],
         "filters": [],
         "filter_fieldsets": [],
@@ -36,19 +70,38 @@ def _schema():
         "page_size_options": [10, 25],
         "select_all": False,
         "permissions": {},
-        "flags": {"can_list": True, "can_detail": True, "can_create": True, "can_update": True, "can_delete": True},
+        "flags": {
+            "can_list": True,
+            "can_detail": True,
+            "can_create": True,
+            "can_update": True,
+            "can_delete": True,
+        },
     }
 
 
 def _result():
     return {
-        "rows": [{"id": "1", "name": "Widget", "is_active": True}, {"id": "2", "name": "Gadget", "is_active": False}],
-        "pagination": {"strategy": "offset", "page": 1, "page_size": 25, "total_items": 2, "total_pages": 1, "has_previous": False, "has_next": False},
+        "rows": [
+            {"id": "1", "name": "Widget", "is_active": True},
+            {"id": "2", "name": "Gadget", "is_active": False},
+        ],
+        "pagination": {
+            "strategy": "offset",
+            "page": 1,
+            "page_size": 25,
+            "total_items": 2,
+            "total_pages": 1,
+            "has_previous": False,
+            "has_next": False,
+        },
     }
 
 
 def _render(context):
-    return AdminRenderer().render("admin/partials/_table.html", t=lambda key, **params: key, **context)
+    return AdminRenderer().render(
+        "admin/partials/_table.html", t=lambda key, **params: key, **context
+    )
 
 
 def test_list_context_shapes_columns_sort_and_paging():
@@ -92,7 +145,13 @@ def test_clickable_cell_targets_edit_when_updatable_else_detail():
 
     view_only = _schema()
     view_only["columns"][0]["clickable"] = True
-    view_only["flags"] = {"can_list": True, "can_detail": True, "can_create": False, "can_update": False, "can_delete": False}
+    view_only["flags"] = {
+        "can_list": True,
+        "can_detail": True,
+        "can_create": False,
+        "can_update": False,
+        "can_delete": False,
+    }
     html = _render(list_context(view_only, _result(), "/admin", None, None))
     assert '<a class="fk-cell-link d-block" href="/admin/products/1">' in html
     assert "/admin/products/1/edit" not in html
@@ -104,20 +163,40 @@ def _schema_with_filters():
         {"field": "name", "type": "text", "label": "Name"},
         {"field": "is_active", "type": "boolean", "label": "Active"},
         {"field": "created_at", "type": "date_range", "label": "Created"},
-        {"field": "category", "type": "choice", "label": "Category", "choices": [{"value": "a", "label": "A"}]},
+        {
+            "field": "category",
+            "type": "choice",
+            "label": "Category",
+            "choices": [{"value": "a", "label": "A"}],
+        },
     ]
-    schema["filter_fieldsets"] = [{"title": "Nope", "description": None, "fields": ["ghost"]}, {"title": "Dates", "description": None, "fields": ["created_at"]}]
+    schema["filter_fieldsets"] = [
+        {"title": "Nope", "description": None, "fields": ["ghost"]},
+        {"title": "Dates", "description": None, "fields": ["created_at"]},
+    ]
 
     return schema
 
 
 def test_list_context_attaches_filter_values_and_groups():
-    context = list_context(_schema_with_filters(), _result(), "/admin", None, None, applied_filters={"name": "wid", "created_at": {"from": "2026-01-01", "to": "2026-02-01"}})
+    context = list_context(
+        _schema_with_filters(),
+        _result(),
+        "/admin",
+        None,
+        None,
+        applied_filters={
+            "name": "wid",
+            "created_at": {"from": "2026-01-01", "to": "2026-02-01"},
+        },
+    )
 
     assert context["has_filters"] is True
     name_filter = next(item for item in context["filters"] if item["field"] == "name")
     assert name_filter["value"] == "wid"
-    range_filter = next(item for item in context["filters"] if item["field"] == "created_at")
+    range_filter = next(
+        item for item in context["filters"] if item["field"] == "created_at"
+    )
     assert range_filter["value_from"] == "2026-01-01"
     assert range_filter["value_to"] == "2026-02-01"
 
@@ -127,8 +206,17 @@ def test_list_context_attaches_filter_values_and_groups():
 
 
 def test_filter_panel_renders_widgets_by_type():
-    context = list_context(_schema_with_filters(), _result(), "/admin", None, None, applied_filters={"name": "wid"})
-    html = AdminRenderer().render("admin/partials/_filter_panel.html", t=lambda key, **params: key, **context)
+    context = list_context(
+        _schema_with_filters(),
+        _result(),
+        "/admin",
+        None,
+        None,
+        applied_filters={"name": "wid"},
+    )
+    html = AdminRenderer().render(
+        "admin/partials/_filter_panel.html", t=lambda key, **params: key, **context
+    )
 
     assert 'name="filter[name]"' in html
     assert 'value="wid"' in html
@@ -141,10 +229,20 @@ def test_filter_panel_renders_widgets_by_type():
 def _report():
     return {
         "title": "Sales",
-        "columns": [{"key": "category", "label": "Category", "align": "left"}, {"key": "total", "label": "Total", "align": "right"}],
+        "columns": [
+            {"key": "category", "label": "Category", "align": "left"},
+            {"key": "total", "label": "Total", "align": "right"},
+        ],
         "rows": [{"category": "A", "total": 100}, {"category": "B", "total": None}],
         "formats": ["csv", "pdf"],
-        "filters": [{"field": "category", "type": "choice", "label": "Category", "choices": [{"value": "a", "label": "A"}]}],
+        "filters": [
+            {
+                "field": "category",
+                "type": "choice",
+                "label": "Category",
+                "choices": [{"value": "a", "label": "A"}],
+            }
+        ],
     }
 
 
@@ -154,7 +252,9 @@ def test_report_context_and_table_render():
     assert context["base_url"] == "/admin/reports/sales"
     assert context["has_filters"] is True
 
-    html = AdminRenderer().render("admin/partials/_report_table.html", t=lambda key, **params: key, **context)
+    html = AdminRenderer().render(
+        "admin/partials/_report_table.html", t=lambda key, **params: key, **context
+    )
 
     assert "Category" in html
     assert 'data-testid="report-row"' in html
@@ -165,13 +265,23 @@ def test_report_context_and_table_render():
 
 
 def test_profile_context_and_partial_render():
-    profile = {"email": "root@x.com", "display_name": "Root", "first_name": "", "last_name": "", "avatar_url": None, "identifiers": [{"id": "1", "type": "email", "value": "root@x.com"}], "identifier_types": ["email", "phone"]}
+    profile = {
+        "email": "root@x.com",
+        "display_name": "Root",
+        "first_name": "",
+        "last_name": "",
+        "avatar_url": None,
+        "identifiers": [{"id": "1", "type": "email", "value": "root@x.com"}],
+        "identifier_types": ["email", "phone"],
+    }
     context = profile_context(profile, "/admin", "/api")
 
     assert context["initials"] == "RO"
     assert context["email"] == "root@x.com"
 
-    html = AdminRenderer().render("admin/partials/_profile.html", t=lambda key, **params: key, **context)
+    html = AdminRenderer().render(
+        "admin/partials/_profile.html", t=lambda key, **params: key, **context
+    )
 
     assert 'data-testid="profile-avatar"' in html
     assert "RO" in html
@@ -183,26 +293,54 @@ def test_profile_context_and_partial_render():
 
 
 def _field(**overrides):
-    base = {"name": "title", "type": "text", "label": "Title", "value": None, "required": False, "readonly": False, "help_text": None, "placeholder": None, "hide_label": False}
+    base = {
+        "name": "title",
+        "type": "text",
+        "label": "Title",
+        "value": None,
+        "required": False,
+        "readonly": False,
+        "help_text": None,
+        "placeholder": None,
+        "hide_label": False,
+    }
     base.update(overrides)
 
     return base
 
 
 def _render_field(field):
-    return AdminRenderer().render("admin/partials/_field.html", t=lambda key, **params: key, field=field)
+    return AdminRenderer().render(
+        "admin/partials/_field.html", t=lambda key, **params: key, field=field
+    )
 
 
 def test_form_context_attaches_values_and_drops_empty_fieldsets():
     schema = {
         "fieldsets": [
-            {"title": "Identity", "description": None, "fields": [_field(name="name", label="Name")]},
+            {
+                "title": "Identity",
+                "description": None,
+                "fields": [_field(name="name", label="Name")],
+            },
             {"title": "Empty", "description": None, "fields": []},
-            {"title": "Meta", "description": None, "fields": [_field(name="status", label="Status")]},
+            {
+                "title": "Meta",
+                "description": None,
+                "fields": [_field(name="status", label="Status")],
+            },
         ]
     }
 
-    context = form_context(schema, {"name": "Widget", "status": "active"}, "Products", "edit", "/admin", "products", record_id="1")
+    context = form_context(
+        schema,
+        {"name": "Widget", "status": "active"},
+        "Products",
+        "edit",
+        "/admin",
+        "products",
+        record_id="1",
+    )
 
     assert len(context["fieldsets"]) == 2
     assert context["fieldsets"][0]["fields"][0]["value"] == "Widget"
@@ -227,12 +365,26 @@ def test_field_partial_renders_password_and_boolean_and_select():
     assert 'type="checkbox"' in boolean
     assert "checked" in boolean
 
-    select = _render_field(_field(name="cat", type="select", value="a", choices=[{"value": "a", "label": "A"}, {"value": "b", "label": "B"}]))
+    select = _render_field(
+        _field(
+            name="cat",
+            type="select",
+            value="a",
+            choices=[{"value": "a", "label": "A"}, {"value": "b", "label": "B"}],
+        )
+    )
     assert 'value="a" selected' in select
 
 
 def test_related_buttons_respect_permission_flags():
-    field = _field(name="category_id", type="relation", depends_on=[], value="3", related="categories", related_flags={"add": True, "edit": False, "delete": False})
+    field = _field(
+        name="category_id",
+        type="relation",
+        depends_on=[],
+        value="3",
+        related="categories",
+        related_flags={"add": True, "edit": False, "delete": False},
+    )
     html = _render_field(field)
 
     assert 'data-related="categories"' in html
@@ -244,7 +396,14 @@ def test_related_buttons_respect_permission_flags():
 def test_related_edit_and_delete_are_disabled_without_a_value():
     import re
 
-    field = _field(name="category_id", type="relation", depends_on=[], value=None, related="categories", related_flags={"add": True, "edit": True, "delete": True})
+    field = _field(
+        name="category_id",
+        type="relation",
+        depends_on=[],
+        value=None,
+        related="categories",
+        related_flags={"add": True, "edit": True, "delete": True},
+    )
     html = _render_field(field)
 
     assert re.search(r'related-edit-category_id"[^>]*\bdisabled\b', html)
@@ -253,11 +412,28 @@ def test_related_edit_and_delete_are_disabled_without_a_value():
 
 
 def test_complex_field_partials_render_mount_containers():
-    richtext = _render_field(_field(name="body", type="richtext", upload_url="/api/uploads/image", value="<p>Hi</p>"))
+    richtext = _render_field(
+        _field(
+            name="body",
+            type="richtext",
+            upload_url="/api/uploads/image",
+            value="<p>Hi</p>",
+        )
+    )
     assert 'class="fk-richtext"' in richtext
     assert 'data-upload-url="/api/uploads/image"' in richtext
 
-    lookup = _render_field(_field(name="cat", type="lookup", depends_on=[], min_chars=0, initial_limit=10, search_limit=20, value="5"))
+    lookup = _render_field(
+        _field(
+            name="cat",
+            type="lookup",
+            depends_on=[],
+            min_chars=0,
+            initial_limit=10,
+            search_limit=20,
+            value="5",
+        )
+    )
     assert 'class="fk-lookup flex-fill"' in lookup
     assert 'data-search-limit="20"' in lookup
     assert 'value="5"' in lookup
@@ -270,7 +446,14 @@ def test_complex_field_partials_render_mount_containers():
         "admin/partials/_field.html",
         t=lambda key, **params: key,
         record_id="7",
-        field=_field(name="perms", type="permission_matrix", groups_url="/meta/permissions", value_url="/roles/{id}/permissions", save_url="/roles/{id}/permissions", virtual=True),
+        field=_field(
+            name="perms",
+            type="permission_matrix",
+            groups_url="/meta/permissions",
+            value_url="/roles/{id}/permissions",
+            save_url="/roles/{id}/permissions",
+            virtual=True,
+        ),
     )
     assert 'class="fk-matrix"' in matrix
     assert 'data-groups-url="/meta/permissions"' in matrix
@@ -279,9 +462,29 @@ def test_complex_field_partials_render_mount_containers():
 
 def test_form_context_builds_inline_rows_from_data():
     price = _field(name="price", type="number", label="Price")
-    schema = {"fieldsets": [], "inlines": [{"name": "items", "label": "Items", "fields": [price], "min_items": 0, "max_items": None}]}
+    schema = {
+        "fieldsets": [],
+        "inlines": [
+            {
+                "name": "items",
+                "label": "Items",
+                "fields": [price],
+                "min_items": 0,
+                "max_items": None,
+            }
+        ],
+    }
 
-    context = form_context(schema, None, "Order", "edit", "/admin", "orders", record_id="1", inline_data={"items": [{"id": "7", "price": "10"}, {"id": "8", "price": "20"}]})
+    context = form_context(
+        schema,
+        None,
+        "Order",
+        "edit",
+        "/admin",
+        "orders",
+        record_id="1",
+        inline_data={"items": [{"id": "7", "price": "10"}, {"id": "8", "price": "20"}]},
+    )
 
     assert len(context["inlines"]) == 1
     inline = context["inlines"][0]
@@ -298,10 +501,19 @@ def test_inline_partial_renders_rows_prototype_and_controls():
         "fields": [_field(name="price", type="number", label="Price")],
         "min_items": 0,
         "max_items": 3,
-        "rows": [{"id": "5", "fields": [_field(name="price", type="number", label="Price", value="10")]}],
+        "rows": [
+            {
+                "id": "5",
+                "fields": [
+                    _field(name="price", type="number", label="Price", value="10")
+                ],
+            }
+        ],
     }
 
-    html = AdminRenderer().render("admin/partials/inline.html", t=lambda key, **params: key, inline=inline)
+    html = AdminRenderer().render(
+        "admin/partials/inline.html", t=lambda key, **params: key, inline=inline
+    )
 
     assert 'data-testid="inline-items"' in html
     assert 'data-testid="inline-add-items"' in html
@@ -313,14 +525,39 @@ def test_inline_partial_renders_rows_prototype_and_controls():
 
 
 def _render_detail_field(field, record_id=None):
-    return AdminRenderer().render("admin/partials/_detail_field.html", t=lambda key, **params: key, field=field, record_id=record_id)
+    return AdminRenderer().render(
+        "admin/partials/_detail_field.html",
+        t=lambda key, **params: key,
+        field=field,
+        record_id=record_id,
+    )
 
 
 def test_detail_context_attaches_values_and_render_html():
-    schema = {"fieldsets": [{"title": "Empty", "description": None, "fields": []}, {"title": "Info", "description": None, "fields": [_field(name="name", type="text", label="Name"), _field(name="status", type="text", label="Status")]}]}
-    data = {"id": "1", "_display": "Widget", "name": "Widget", "status": "active", "_html": {"status": "<span class='badge'>active</span>"}}
+    schema = {
+        "fieldsets": [
+            {"title": "Empty", "description": None, "fields": []},
+            {
+                "title": "Info",
+                "description": None,
+                "fields": [
+                    _field(name="name", type="text", label="Name"),
+                    _field(name="status", type="text", label="Status"),
+                ],
+            },
+        ]
+    }
+    data = {
+        "id": "1",
+        "_display": "Widget",
+        "name": "Widget",
+        "status": "active",
+        "_html": {"status": "<span class='badge'>active</span>"},
+    }
 
-    context = detail_context(schema, data, "Products", "/admin", "products", "1", {"can_update": True})
+    context = detail_context(
+        schema, data, "Products", "/admin", "products", "1", {"can_update": True}
+    )
 
     assert context["display"] == "Widget"
     fields = context["fieldsets"][0]["fields"]
@@ -330,12 +567,33 @@ def test_detail_context_attaches_values_and_render_html():
 
 
 def test_detail_field_renders_value_boolean_dash_html_and_matrix():
-    assert "Widget" in _render_detail_field(_field(name="name", type="text", label="Name", value="Widget", html=None))
-    assert "ti-check text-green" in _render_detail_field(_field(name="active", type="boolean", label="Active", value=True, html=None))
-    assert "—" in _render_detail_field(_field(name="note", type="text", label="Note", value=None, html=None))
-    assert "<b>Active</b>" in _render_detail_field(_field(name="status", type="text", label="Status", value="x", html="<b>Active</b>"))
+    assert "Widget" in _render_detail_field(
+        _field(name="name", type="text", label="Name", value="Widget", html=None)
+    )
+    assert "ti-check text-green" in _render_detail_field(
+        _field(name="active", type="boolean", label="Active", value=True, html=None)
+    )
+    assert "—" in _render_detail_field(
+        _field(name="note", type="text", label="Note", value=None, html=None)
+    )
+    assert "<b>Active</b>" in _render_detail_field(
+        _field(
+            name="status", type="text", label="Status", value="x", html="<b>Active</b>"
+        )
+    )
 
-    matrix = _render_detail_field(_field(name="perms", type="permission_matrix", label="Perms", value=None, html=None, groups_url="/meta/permissions", value_url="/roles/{id}/permissions"), record_id="3")
+    matrix = _render_detail_field(
+        _field(
+            name="perms",
+            type="permission_matrix",
+            label="Perms",
+            value=None,
+            html=None,
+            groups_url="/meta/permissions",
+            value_url="/roles/{id}/permissions",
+        ),
+        record_id="3",
+    )
     assert 'class="fk-matrix"' in matrix
     assert 'data-readonly="1"' in matrix
     assert 'data-record-id="3"' in matrix

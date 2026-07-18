@@ -4,7 +4,11 @@ from fastkit_core.checks.base import SystemCheckRegistry
 from fastkit_core.events.bus import EventBus
 from fastkit_core.health.base import HealthCheckRegistry
 from fastkit_core.registries.base import Registry
-from fastkit_core.registries.components import ModelRegistry, RouterRegistry, TemplateRegistry
+from fastkit_core.registries.components import (
+    ModelRegistry,
+    RouterRegistry,
+    TemplateRegistry,
+)
 from fastkit_core.services.container import ServiceContainer
 
 

@@ -17,8 +17,14 @@ def build_app(environment: str | None = None):
 
     media_root = BASE_DIR / settings.storage.root.lstrip("./")
     media_root.mkdir(parents=True, exist_ok=True)
-    application.mount(settings.storage.base_url, StaticFiles(directory=media_root), name="media")
-    application.mount("/demo-static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="demo-static")
+    application.mount(
+        settings.storage.base_url, StaticFiles(directory=media_root), name="media"
+    )
+    application.mount(
+        "/demo-static",
+        StaticFiles(directory=BASE_DIR / "app" / "static"),
+        name="demo-static",
+    )
     mount_admin_static(application)
 
     return application

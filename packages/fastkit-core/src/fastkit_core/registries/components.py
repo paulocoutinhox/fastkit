@@ -12,7 +12,9 @@ class ModelRegistry:
 
         if key in self._models:
             existing = self._models[key][1]
-            raise ValueError(f"model '{key}' already registered by '{existing}', now by '{source}'")
+            raise ValueError(
+                f"model '{key}' already registered by '{existing}', now by '{source}'"
+            )
 
         self._models[key] = (model, source)
 
@@ -29,7 +31,13 @@ class RouterRegistry:
     def __init__(self):
         self._routers: list[tuple] = []
 
-    def include(self, router, prefix: str = "", tags: list[str] | None = None, source: str = "unknown") -> None:
+    def include(
+        self,
+        router,
+        prefix: str = "",
+        tags: list[str] | None = None,
+        source: str = "unknown",
+    ) -> None:
         self._routers.append((router, prefix, tags or [], source))
 
     def all(self) -> list[tuple]:
@@ -59,10 +67,18 @@ class TemplateRegistry:
         self._packages: list[TemplatePackage] = []
         self.overrides: dict[str, str] = {}
 
-    def add_directory(self, path: str, priority: int = 0, source: str = "unknown") -> None:
+    def add_directory(
+        self, path: str, priority: int = 0, source: str = "unknown"
+    ) -> None:
         self._directories.append(TemplateDirectory(str(path), priority, source))
 
-    def add_package(self, package: str, directory: str = "templates", priority: int = 0, source: str = "unknown") -> None:
+    def add_package(
+        self,
+        package: str,
+        directory: str = "templates",
+        priority: int = 0,
+        source: str = "unknown",
+    ) -> None:
         self._packages.append(TemplatePackage(package, directory, priority, source))
 
     def add_override(self, template_key: str, target: str) -> None:

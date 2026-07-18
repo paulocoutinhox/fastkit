@@ -36,4 +36,13 @@ class MailApp(FastKitApp):
 
         context.set_component("mail_renderer", renderer)
         context.set_component("mail_provider", provider)
-        context.set_component("mail_service", MailService(database, renderer, provider, settings.mail.provider, settings.mail.default_from))
+        context.set_component(
+            "mail_service",
+            MailService(
+                database,
+                renderer,
+                provider,
+                settings.mail.provider,
+                settings.mail.default_from,
+            ),
+        )

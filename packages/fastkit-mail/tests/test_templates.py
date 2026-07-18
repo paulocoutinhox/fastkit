@@ -5,7 +5,9 @@ from fastkit_mail.templates import MailTemplateRenderer
 
 
 def test_render_default_template(renderer):
-    rendered = renderer.render("accounts.password_reset", {"user_name": "Ada", "reset_url": "https://x/y"})
+    rendered = renderer.render(
+        "accounts.password_reset", {"user_name": "Ada", "reset_url": "https://x/y"}
+    )
 
     assert rendered.subject == "Reset your password"
     assert "Ada" in rendered.html_body
@@ -21,7 +23,9 @@ def test_project_override_wins(tmp_path, package_templates):
     (override_dir / "body.txt").write_text("hi")
 
     renderer = MailTemplateRenderer(search_dirs=[str(tmp_path), package_templates])
-    rendered = renderer.render("accounts.welcome", {"user_name": "Ada", "app_name": "Acme"})
+    rendered = renderer.render(
+        "accounts.welcome", {"user_name": "Ada", "app_name": "Acme"}
+    )
 
     assert rendered.subject == "Company welcome"
 

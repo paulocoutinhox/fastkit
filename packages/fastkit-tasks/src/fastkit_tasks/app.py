@@ -45,7 +45,11 @@ class TasksApp(FastKitApp):
             queues=config.worker_queues or registry.queues(),
             lease_seconds=config.worker_lease_seconds,
         )
-        self._worker_task = asyncio.create_task(worker.run(config.poll_interval_seconds, context.component("task_scheduler")))
+        self._worker_task = asyncio.create_task(
+            worker.run(
+                config.poll_interval_seconds, context.component("task_scheduler")
+            )
+        )
 
     async def shutdown(self, context: BootstrapContext) -> None:
         task = getattr(self, "_worker_task", None)

@@ -10,13 +10,17 @@ from fastkit_cache.provider import CacheHealth, CacheStatus
 
 class CacheEntry(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "cache_entry"
-    __table_args__ = (UniqueConstraint("namespace", "key_hash", name="uq_cache_namespace_key"),)
+    __table_args__ = (
+        UniqueConstraint("namespace", "key_hash", name="uq_cache_namespace_key"),
+    )
 
     namespace: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     key: Mapped[str] = mapped_column(String(500), nullable=False)
     value: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 def _namespace_of(key: str) -> str:
@@ -33,7 +37,11 @@ class DatabaseCacheProvider:
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
     async def _load(self, session, key: str) -> CacheEntry | None:
-        entry = (await session.execute(select(CacheEntry).where(CacheEntry.key_hash == hash_key(key)))).scalar_one_or_none()
+        entry = (
+            await session.execute(
+                select(CacheEntry).where(CacheEntry.key_hash == hash_key(key))
+            )
+        ).scalar_one_or_none()
 
         if entry is None:
             return None
@@ -56,19 +64,33 @@ class DatabaseCacheProvider:
         expires_at = self._clock() + _seconds(ttl) if ttl is not None else None
 
         async with self._database.session_factory() as session:
-            existing = (await session.execute(select(CacheEntry).where(CacheEntry.key_hash == hash_key(key)))).scalar_one_or_none()
+            existing = (
+                await session.execute(
+                    select(CacheEntry).where(CacheEntry.key_hash == hash_key(key))
+                )
+            ).scalar_one_or_none()
 
             if existing is not None:
                 existing.value = value
                 existing.expires_at = expires_at
             else:
-                session.add(CacheEntry(namespace=_namespace_of(key), key_hash=hash_key(key), key=key, value=value, expires_at=expires_at))
+                session.add(
+                    CacheEntry(
+                        namespace=_namespace_of(key),
+                        key_hash=hash_key(key),
+                        key=key,
+                        value=value,
+                        expires_at=expires_at,
+                    )
+                )
 
             await session.commit()
 
     async def delete(self, key: str) -> None:
         async with self._database.session_factory() as session:
-            await session.execute(delete(CacheEntry).where(CacheEntry.key_hash == hash_key(key)))
+            await session.execute(
+                delete(CacheEntry).where(CacheEntry.key_hash == hash_key(key))
+            )
             await session.commit()
 
     async def delete_many(self, keys: list[str]) -> None:
@@ -95,7 +117,9 @@ class DatabaseCacheProvider:
 
     async def clear_namespace(self, namespace: str) -> None:
         async with self._database.session_factory() as session:
-            await session.execute(delete(CacheEntry).where(CacheEntry.namespace == namespace))
+            await session.execute(
+                delete(CacheEntry).where(CacheEntry.namespace == namespace)
+            )
             await session.commit()
 
     async def health(self) -> CacheHealth:

@@ -16,7 +16,9 @@ from fastkit_mail.provider import EmailMessage
 
 
 async def test_send_template_success(service, provider):
-    delivery = await service.send_template("accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"})
+    delivery = await service.send_template(
+        "accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"}
+    )
 
     assert delivery.status == DeliveryStatus.sent.value
     assert delivery.provider_message_id == "mem-1"
@@ -25,7 +27,9 @@ async def test_send_template_success(service, provider):
 
 
 async def test_preview_does_not_send(service, provider):
-    rendered = service.preview("accounts.welcome", {"user_name": "Ada", "app_name": "Acme"})
+    rendered = service.preview(
+        "accounts.welcome", {"user_name": "Ada", "app_name": "Acme"}
+    )
 
     assert rendered.subject == "Welcome to Acme"
     assert provider.sent == []
@@ -35,7 +39,9 @@ async def test_send_retries_then_fails(database, renderer):
     provider = MemoryEmailProvider(fail=True)
     service = MailService(database, renderer, provider, "memory", "no-reply@x")
 
-    delivery = await service.send_template("accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"})
+    delivery = await service.send_template(
+        "accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"}
+    )
     assert delivery.status == DeliveryStatus.retrying.value
 
     delivery = await service.retry(delivery.id)
@@ -61,9 +67,13 @@ async def test_send_survives_provider_exception(database, renderer):
 
     provider = RaisingProvider()
     breaker = CircuitBreaker(failure_threshold=2)
-    service = MailService(database, renderer, provider, "smtp", "no-reply@x", breaker=breaker)
+    service = MailService(
+        database, renderer, provider, "smtp", "no-reply@x", breaker=breaker
+    )
 
-    delivery = await service.send_template("accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"})
+    delivery = await service.send_template(
+        "accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"}
+    )
 
     assert delivery.status == DeliveryStatus.retrying.value
     assert delivery.last_error_message == "smtp unreachable"
@@ -76,9 +86,13 @@ async def test_open_circuit_skips_provider(database, renderer):
     provider = RaisingProvider()
     breaker = CircuitBreaker(failure_threshold=1, reset_after_seconds=1000)
     breaker.record_failure()
-    service = MailService(database, renderer, provider, "smtp", "no-reply@x", breaker=breaker)
+    service = MailService(
+        database, renderer, provider, "smtp", "no-reply@x", breaker=breaker
+    )
 
-    delivery = await service.send_template("accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"})
+    delivery = await service.send_template(
+        "accounts.welcome", ["a@b.c"], {"user_name": "Ada", "app_name": "Acme"}
+    )
 
     assert delivery.status == DeliveryStatus.retrying.value
     assert "circuit is open" in delivery.last_error_message
@@ -91,7 +105,15 @@ async def test_memory_provider_health():
 
 
 def test_build_mime_has_alternatives():
-    message = EmailMessage(to=["a@b.c"], subject="Hi", html_body="<p>x</p>", text_body="x", from_email="f@x", cc=["c@d.e"], reply_to="r@x")
+    message = EmailMessage(
+        to=["a@b.c"],
+        subject="Hi",
+        html_body="<p>x</p>",
+        text_body="x",
+        from_email="f@x",
+        cc=["c@d.e"],
+        reply_to="r@x",
+    )
     mime = build_mime(message)
 
     assert mime["To"] == "a@b.c"
@@ -122,7 +144,15 @@ class Settings:
 
 def _mail_settings(provider):
     return types.SimpleNamespace(
-        mail=types.SimpleNamespace(provider=provider, host="localhost", port=1025, username="", password="", use_tls=False, default_from="no-reply@x")
+        mail=types.SimpleNamespace(
+            provider=provider,
+            host="localhost",
+            port=1025,
+            username="",
+            password="",
+            use_tls=False,
+            default_from="no-reply@x",
+        )
     )
 
 
@@ -147,7 +177,10 @@ def test_build_renderer_prepends_project_dirs():
 
 @pytest_asyncio.fixture
 async def runtime(monkeypatch):
-    monkeypatch.setattr("fastkit_core.runtime.discover_apps", lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.mail": MailApp})
+    monkeypatch.setattr(
+        "fastkit_core.runtime.discover_apps",
+        lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.mail": MailApp},
+    )
     runtime = Runtime(settings=Settings(), installed_apps=list(Settings.installed_apps))
     runtime.bootstrap()
 
@@ -184,7 +217,13 @@ async def test_smtp_provider_send_and_health(monkeypatch):
     monkeypatch.setitem(sys.modules, "aiosmtplib", fake_module)
 
     provider = SmtpEmailProvider(host="localhost", port=1025)
-    message = EmailMessage(to=["a@b.c"], subject="Hi", html_body="<p>x</p>", text_body="x", from_email="f@x")
+    message = EmailMessage(
+        to=["a@b.c"],
+        subject="Hi",
+        html_body="<p>x</p>",
+        text_body="x",
+        from_email="f@x",
+    )
 
     result = await provider.send(message)
     assert result.success is True
@@ -214,7 +253,13 @@ async def test_smtp_provider_send_failure(monkeypatch):
     monkeypatch.setitem(sys.modules, "aiosmtplib", fake_module)
 
     provider = SmtpEmailProvider(host="localhost", port=1025)
-    message = EmailMessage(to=["a@b.c"], subject="Hi", html_body="<p>x</p>", text_body="x", from_email="f@x")
+    message = EmailMessage(
+        to=["a@b.c"],
+        subject="Hi",
+        html_body="<p>x</p>",
+        text_body="x",
+        from_email="f@x",
+    )
 
     result = await provider.send(message)
     assert result.success is False

@@ -22,7 +22,11 @@ async def database(tmp_path):
 @pytest.fixture
 def registry():
     reg = WebhookRegistry()
-    reg.register(HmacWebhookProvider(name="stripe", secret="whsec_test", signature_header="X-Signature"))
+    reg.register(
+        HmacWebhookProvider(
+            name="stripe", secret="whsec_test", signature_header="X-Signature"
+        )
+    )
 
     return reg
 

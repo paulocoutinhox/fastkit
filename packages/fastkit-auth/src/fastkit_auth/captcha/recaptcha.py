@@ -3,7 +3,11 @@ from typing import Protocol
 
 from fastkit_core.errors.exceptions import AuthenticationError
 from fastkit_auth.captcha.provider import CaptchaProvider
-from fastkit_auth.errors import CAPTCHA_INVALID, CAPTCHA_PROVIDER_UNAVAILABLE, CAPTCHA_REQUIRED
+from fastkit_auth.errors import (
+    CAPTCHA_INVALID,
+    CAPTCHA_PROVIDER_UNAVAILABLE,
+    CAPTCHA_REQUIRED,
+)
 
 
 @dataclass(frozen=True)
@@ -14,8 +18,7 @@ class RecaptchaConfig:
 
 
 class RecaptchaClient(Protocol):
-    async def verify(self, token: str) -> dict:
-        ...
+    async def verify(self, token: str) -> dict: ...
 
 
 class StaticRecaptchaClient:
@@ -41,7 +44,9 @@ class GoogleRecaptchaClient:
         import httpx
 
         async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
-            response = await client.post(self.endpoint, data={"secret": self._secret_key, "response": token})
+            response = await client.post(
+                self.endpoint, data={"secret": self._secret_key, "response": token}
+            )
 
             return response.json()
 
@@ -66,10 +71,14 @@ class RecaptchaProvider(CaptchaProvider):
         token = (payload or {}).get("token")
 
         if not token:
-            raise AuthenticationError(CAPTCHA_REQUIRED, message="captcha token is required")
+            raise AuthenticationError(
+                CAPTCHA_REQUIRED, message="captcha token is required"
+            )
 
         if token in self._used_tokens:
-            raise AuthenticationError(CAPTCHA_INVALID, message="captcha token was already used")
+            raise AuthenticationError(
+                CAPTCHA_INVALID, message="captcha token was already used"
+            )
 
         self._used_tokens.add(token)
 
@@ -80,17 +89,28 @@ class RecaptchaProvider(CaptchaProvider):
         try:
             return await self._client.verify(token)
         except Exception as error:
-            raise AuthenticationError(CAPTCHA_PROVIDER_UNAVAILABLE, message="captcha provider is unavailable") from error
+            raise AuthenticationError(
+                CAPTCHA_PROVIDER_UNAVAILABLE, message="captcha provider is unavailable"
+            ) from error
 
     def _validate_response(self, response: dict) -> None:
         if not response.get("success"):
-            raise AuthenticationError(CAPTCHA_INVALID, message="captcha verification failed")
+            raise AuthenticationError(
+                CAPTCHA_INVALID, message="captcha verification failed"
+            )
 
         if response.get("action") != self._config.action:
-            raise AuthenticationError(CAPTCHA_INVALID, message="captcha action mismatch")
+            raise AuthenticationError(
+                CAPTCHA_INVALID, message="captcha action mismatch"
+            )
 
-        if self._config.allowed_hostnames and response.get("hostname") not in self._config.allowed_hostnames:
-            raise AuthenticationError(CAPTCHA_INVALID, message="captcha hostname mismatch")
+        if (
+            self._config.allowed_hostnames
+            and response.get("hostname") not in self._config.allowed_hostnames
+        ):
+            raise AuthenticationError(
+                CAPTCHA_INVALID, message="captcha hostname mismatch"
+            )
 
         if float(response.get("score", 0.0)) < self._config.minimum_score:
             raise AuthenticationError(CAPTCHA_INVALID, message="captcha score too low")

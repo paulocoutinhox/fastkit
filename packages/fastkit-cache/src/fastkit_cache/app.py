@@ -28,7 +28,9 @@ class CacheApp(FastKitApp):
     def register_services(self, context: BootstrapContext) -> None:
         settings = context.settings
         provider = build_provider(settings, context)
-        cache = Cache(provider, settings.app.environment, settings.cache.default_ttl_seconds)
+        cache = Cache(
+            provider, settings.app.environment, settings.cache.default_ttl_seconds
+        )
 
         context.set_component("cache_provider", provider)
         context.set_component("cache", cache)

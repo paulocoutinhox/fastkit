@@ -12,18 +12,17 @@ EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 class LoginIdentifierNormalizer(Protocol):
     type: str
 
-    def normalize(self, value: str) -> str:
-        ...
+    def normalize(self, value: str) -> str: ...
 
-    def mask(self, value: str) -> str:
-        ...
+    def mask(self, value: str) -> str: ...
 
-    def validate(self, value: str) -> None:
-        ...
+    def validate(self, value: str) -> None: ...
 
 
 def _fail(field: str, code: str) -> ValidationError:
-    return ValidationError(VALIDATION_FAILED, field_errors=[FieldError(field=field, code=code)])
+    return ValidationError(
+        VALIDATION_FAILED, field_errors=[FieldError(field=field, code=code)]
+    )
 
 
 class EmailNormalizer:
@@ -107,7 +106,9 @@ class CnpjNormalizer:
     def mask(self, value: str) -> str:
         digits = self.normalize(value)
 
-        return f"**.***.***/{digits[8:12]}-{digits[12:]}" if len(digits) == 14 else "***"
+        return (
+            f"**.***.***/{digits[8:12]}-{digits[12:]}" if len(digits) == 14 else "***"
+        )
 
     def validate(self, value: str) -> None:
         if len(self.normalize(value)) != 14:
@@ -147,7 +148,9 @@ class NormalizerRegistry:
         normalizer = self._by_type.get(identifier_type)
 
         if normalizer is None:
-            raise KeyError(f"no normalizer registered for identifier type '{identifier_type}'")
+            raise KeyError(
+                f"no normalizer registered for identifier type '{identifier_type}'"
+            )
 
         return normalizer
 
@@ -161,7 +164,13 @@ DEFAULT_SOCIAL_PROVIDERS = ("google", "facebook", "apple")
 def default_registry() -> NormalizerRegistry:
     registry = NormalizerRegistry()
 
-    for normalizer in (EmailNormalizer(), UsernameNormalizer(), PhoneNormalizer(), CpfNormalizer(), CnpjNormalizer()):
+    for normalizer in (
+        EmailNormalizer(),
+        UsernameNormalizer(),
+        PhoneNormalizer(),
+        CpfNormalizer(),
+        CnpjNormalizer(),
+    ):
         registry.register(normalizer)
 
     for provider in DEFAULT_SOCIAL_PROVIDERS:

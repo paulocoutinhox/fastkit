@@ -29,9 +29,19 @@ class EventBus:
     def __init__(self):
         self._handlers: dict[str, list[HandlerRegistration]] = {}
 
-    def subscribe(self, event_name: str, handler: Handler, name: str, priority: int = 0, critical: bool = False, timeout: float = 5.0) -> None:
+    def subscribe(
+        self,
+        event_name: str,
+        handler: Handler,
+        name: str,
+        priority: int = 0,
+        critical: bool = False,
+        timeout: float = 5.0,
+    ) -> None:
         registrations = self._handlers.setdefault(event_name, [])
-        registrations.append(HandlerRegistration(name, handler, priority, critical, timeout))
+        registrations.append(
+            HandlerRegistration(name, handler, priority, critical, timeout)
+        )
         registrations.sort(key=lambda item: -item.priority)
 
     def handlers_for(self, event_name: str) -> list[HandlerRegistration]:
@@ -45,9 +55,13 @@ class EventBus:
 
     async def _run(self, registration: HandlerRegistration, event: Event) -> None:
         try:
-            await asyncio.wait_for(registration.handler(event), timeout=registration.timeout)
+            await asyncio.wait_for(
+                registration.handler(event), timeout=registration.timeout
+            )
         except Exception:
-            logger.exception("event handler '%s' failed for '%s'", registration.name, event.name)
+            logger.exception(
+                "event handler '%s' failed for '%s'", registration.name, event.name
+            )
 
             if registration.critical:
                 raise

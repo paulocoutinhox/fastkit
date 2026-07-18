@@ -2,7 +2,11 @@ import uuid
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from fastkit_core.context.request import RequestContext, reset_request_context, set_request_context
+from fastkit_core.context.request import (
+    RequestContext,
+    reset_request_context,
+    set_request_context,
+)
 
 REQUEST_ID_HEADER = "X-Request-ID"
 

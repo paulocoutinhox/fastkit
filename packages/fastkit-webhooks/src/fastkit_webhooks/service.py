@@ -14,7 +14,9 @@ class WebhookRegistry:
 
     def register(self, provider) -> None:
         if provider.name in self._providers:
-            raise ValueError(f"webhook provider '{provider.name}' is already registered")
+            raise ValueError(
+                f"webhook provider '{provider.name}' is already registered"
+            )
 
         self._providers[provider.name] = provider
 
@@ -35,27 +37,35 @@ class WebhookService:
         self._registry = registry
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
-    async def receive(self, provider_name: str, headers: dict, body: bytes) -> tuple[WebhookEvent, bool]:
+    async def receive(
+        self, provider_name: str, headers: dict, body: bytes
+    ) -> tuple[WebhookEvent, bool]:
         provider = self._registry.get(provider_name)
         request = RawWebhookRequest(headers=headers, body=body)
 
         verification = await provider.verify(request)
 
         if not verification.valid:
-            rejected = await self._store_rejected(provider_name, request, verification.reason)
+            rejected = await self._store_rejected(
+                provider_name, request, verification.reason
+            )
 
             return rejected, True
 
         try:
             normalized = await provider.normalize(request)
         except (ValueError, KeyError) as error:
-            rejected = await self._store_rejected(provider_name, request, f"malformed payload: {error}")
+            rejected = await self._store_rejected(
+                provider_name, request, f"malformed payload: {error}"
+            )
 
             return rejected, True
 
         return await self._store_valid(provider_name, request, normalized)
 
-    async def _store_valid(self, provider_name, request, normalized) -> tuple[WebhookEvent, bool]:
+    async def _store_valid(
+        self, provider_name, request, normalized
+    ) -> tuple[WebhookEvent, bool]:
         event = WebhookEvent(
             provider=provider_name,
             provider_account_id=normalized.provider_account_id,
@@ -80,8 +90,10 @@ class WebhookService:
                     await session.execute(
                         select(WebhookEvent).where(
                             WebhookEvent.provider == provider_name,
-                            WebhookEvent.provider_account_id == normalized.provider_account_id,
-                            WebhookEvent.external_event_id == normalized.external_event_id,
+                            WebhookEvent.provider_account_id
+                            == normalized.provider_account_id,
+                            WebhookEvent.external_event_id
+                            == normalized.external_event_id,
                         )
                     )
                 ).scalar_one_or_none()
@@ -130,12 +142,22 @@ class WebhookService:
 
             return event
 
-    async def process(self, event_id, handler=None, max_attempts: int = 3) -> WebhookEvent:
+    async def process(
+        self, event_id, handler=None, max_attempts: int = 3
+    ) -> WebhookEvent:
         async with self._database.session_factory() as session:
             claim = await session.execute(
                 update(WebhookEvent)
-                .where(WebhookEvent.id == event_id, WebhookEvent.status.in_([WebhookStatus.received.value, WebhookStatus.retrying.value]))
-                .values(status=WebhookStatus.processing.value, attempt_count=WebhookEvent.attempt_count + 1)
+                .where(
+                    WebhookEvent.id == event_id,
+                    WebhookEvent.status.in_(
+                        [WebhookStatus.received.value, WebhookStatus.retrying.value]
+                    ),
+                )
+                .values(
+                    status=WebhookStatus.processing.value,
+                    attempt_count=WebhookEvent.attempt_count + 1,
+                )
             )
             await session.commit()
             event = await session.get(WebhookEvent, event_id)
@@ -150,7 +172,11 @@ class WebhookService:
                 event.status = WebhookStatus.processed.value
                 event.processed_at = self._clock()
             except Exception as error:
-                event.status = WebhookStatus.retrying.value if event.attempt_count < max_attempts else WebhookStatus.failed.value
+                event.status = (
+                    WebhookStatus.retrying.value
+                    if event.attempt_count < max_attempts
+                    else WebhookStatus.failed.value
+                )
                 event.last_error_code = "webhook.processing_failed"
                 event.last_error_message = str(error)
 

@@ -19,8 +19,12 @@ def test_defaults_when_no_files(tmp_path):
 
 
 def test_base_and_environment_merge(tmp_path):
-    write(tmp_path, "base.toml", '[app]\nname = "Base"\ndebug = false\n[auth]\npassword_min_length = 8\n')
-    write(tmp_path, "prod.toml", '[app]\ndebug = true\n')
+    write(
+        tmp_path,
+        "base.toml",
+        '[app]\nname = "Base"\ndebug = false\n[auth]\npassword_min_length = 8\n',
+    )
+    write(tmp_path, "prod.toml", "[app]\ndebug = true\n")
 
     settings = load_settings(tmp_path, environment="prod", environ={})
 
@@ -32,7 +36,11 @@ def test_base_and_environment_merge(tmp_path):
 def test_env_variable_override(tmp_path):
     write(tmp_path, "base.toml", '[app]\nname = "Base"\n')
 
-    environ = {"FASTKIT__APP__NAME": "FromEnv", "FASTKIT__AUTH__PASSWORD_MIN_LENGTH": "20", "FASTKIT__APP__DEBUG": "true"}
+    environ = {
+        "FASTKIT__APP__NAME": "FromEnv",
+        "FASTKIT__AUTH__PASSWORD_MIN_LENGTH": "20",
+        "FASTKIT__APP__DEBUG": "true",
+    }
     settings = load_settings(tmp_path, environment="dev", environ=environ)
 
     assert settings.app.name == "FromEnv"
@@ -43,16 +51,24 @@ def test_env_variable_override(tmp_path):
 def test_env_override_into_a_scalar_path_is_a_clean_validation_error(tmp_path):
     import pydantic
 
-    write(tmp_path, "base.toml", '[auth]\npassword_min_length = 8\n')
+    write(tmp_path, "base.toml", "[auth]\npassword_min_length = 8\n")
 
     # `auth.password_min_length` is a scalar, so nesting below it is malformed input; the loader
     # must surface a Pydantic ValidationError, never a bare TypeError from walking into a str
     with pytest.raises(pydantic.ValidationError):
-        load_settings(tmp_path, environment="dev", environ={"FASTKIT__AUTH__PASSWORD_MIN_LENGTH__X": "1"})
+        load_settings(
+            tmp_path,
+            environment="dev",
+            environ={"FASTKIT__AUTH__PASSWORD_MIN_LENGTH__X": "1"},
+        )
 
 
 def test_env_override_ignores_unrelated_vars(tmp_path):
-    settings = load_settings(tmp_path, environment="dev", environ={"PATH": "/usr/bin", "FASTKIT__APP__TIMEZONE": "Europe/Lisbon"})
+    settings = load_settings(
+        tmp_path,
+        environment="dev",
+        environ={"PATH": "/usr/bin", "FASTKIT__APP__TIMEZONE": "Europe/Lisbon"},
+    )
 
     assert settings.app.timezone == "Europe/Lisbon"
 
@@ -72,13 +88,19 @@ def test_invalid_environment_raises(tmp_path):
 
 
 def test_env_coercion_keeps_strings(tmp_path):
-    settings = load_settings(tmp_path, environment="dev", environ={"FASTKIT__APP__NAME": "42abc"})
+    settings = load_settings(
+        tmp_path, environment="dev", environ={"FASTKIT__APP__NAME": "42abc"}
+    )
 
     assert settings.app.name == "42abc"
 
 
 def test_public_config_excludes_secrets(tmp_path):
-    settings = load_settings(tmp_path, environment="dev", environ={"FASTKIT__AUTH__CAPTCHA__SITE_KEY": "public-key"})
+    settings = load_settings(
+        tmp_path,
+        environment="dev",
+        environ={"FASTKIT__AUTH__CAPTCHA__SITE_KEY": "public-key"},
+    )
 
     config = public_frontend_config(settings)
 

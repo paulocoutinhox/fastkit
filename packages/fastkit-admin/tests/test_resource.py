@@ -8,12 +8,21 @@ from fastkit_admin.resource import GridQuery
 
 async def _seed(session, model, count=3):
     for index in range(count):
-        session.add(model(name=f"Item {index}", price=Decimal(f"{index}.50"), category="premium" if index else "general", is_active=index % 2 == 0))
+        session.add(
+            model(
+                name=f"Item {index}",
+                price=Decimal(f"{index}.50"),
+                category="premium" if index else "general",
+                is_active=index % 2 == 0,
+            )
+        )
 
     await session.commit()
 
 
-async def test_grid_serialization_with_custom_column(session, product_admin, product_model):
+async def test_grid_serialization_with_custom_column(
+    session, product_admin, product_model
+):
     admin = product_admin
     await _seed(session, product_model, 1)
 
@@ -43,10 +52,14 @@ async def test_grid_filters(session, product_admin, product_model):
     active = await admin.list(session, GridQuery(filters={"is_active": "true"}), "en")
     assert all(row["is_active"] for row in active["rows"])
 
-    premium = await admin.list(session, GridQuery(filters={"category": "premium"}), "en")
+    premium = await admin.list(
+        session, GridQuery(filters={"category": "premium"}), "en"
+    )
     assert all(row["category"] == "premium" for row in premium["rows"])
 
-    unknown = await admin.list(session, GridQuery(filters={"not_registered": "x"}), "en")
+    unknown = await admin.list(
+        session, GridQuery(filters={"not_registered": "x"}), "en"
+    )
     assert unknown["pagination"]["total_items"] == 4
 
 
@@ -66,7 +79,16 @@ async def test_grid_sort_and_pagination(session, product_admin, product_model):
 async def test_create_parses_localized_decimal(session, product_admin, product_model):
     admin = product_admin
 
-    row = await admin.create(session, {"name": "Widget", "price": "1.234,50", "category": "general", "is_active": "true"}, "pt")
+    row = await admin.create(
+        session,
+        {
+            "name": "Widget",
+            "price": "1.234,50",
+            "category": "general",
+            "is_active": "true",
+        },
+        "pt",
+    )
 
     assert row.price == Decimal("1234.50")
     assert row.is_active is True
@@ -83,7 +105,9 @@ async def test_update_partial(session, product_admin, product_model):
     admin = product_admin
     row = await admin.create(session, {"name": "Widget", "price": "10.00"}, "en")
 
-    updated = await admin.update(session, row.id, {"name": "Renamed"}, "en", partial=True)
+    updated = await admin.update(
+        session, row.id, {"name": "Renamed"}, "en", partial=True
+    )
 
     assert updated.name == "Renamed"
     assert updated.price == Decimal("10.00")
@@ -108,7 +132,9 @@ async def test_delete(session, product_admin, product_model):
 
 async def test_detail_serialization(session, product_admin, product_model):
     admin = product_admin
-    row = await admin.create(session, {"name": "Widget", "price": "10.50", "category": "premium"}, "en")
+    row = await admin.create(
+        session, {"name": "Widget", "price": "10.50", "category": "premium"}, "en"
+    )
 
     detail = admin.serialize_detail(row, "pt")
 
@@ -121,10 +147,19 @@ def test_schemas(product_admin):
     grid = admin.grid_schema()
     form = admin.form_schema("create")
 
-    form_fields = [field for fieldset in form["fieldsets"] for field in fieldset["fields"]]
+    form_fields = [
+        field for fieldset in form["fieldsets"] for field in fieldset["fields"]
+    ]
 
     assert grid["resource"] == "products"
-    assert {column["name"] for column in grid["columns"]} == {"name", "price", "category", "is_active", "badge", "created_at"}
+    assert {column["name"] for column in grid["columns"]} == {
+        "name",
+        "price",
+        "category",
+        "is_active",
+        "badge",
+        "created_at",
+    }
     assert any(item["type"] == "choice" for item in grid["filters"])
     assert form_fields[0]["name"] == "name"
     assert "updated_at" not in {field["name"] for field in form_fields}
@@ -141,12 +176,23 @@ def test_schemas_translate_display_strings():
         name = "demo"
         label = "Products"
         list_columns = ["name"]
-        form_fields = [TextField("name", label="Name"), BooleanField("active", label="Active")]
+        form_fields = [
+            TextField("name", label="Name"),
+            BooleanField("active", label="Active"),
+        ]
         fieldsets = [Fieldset("Identity", ["name", "active"], description="Who")]
         filters = [TextFilter("name", label="Name")]
         actions = [AdminAction(name="go", label="Deactivate", scope="bulk")]
 
-    catalog = {"Products": "Produtos", "Name": "Nome", "Active": "Ativo", "Identity": "Identidade", "Who": "Quem", "Deactivate": "Desativar", "Save": "Salvar"}
+    catalog = {
+        "Products": "Produtos",
+        "Name": "Nome",
+        "Active": "Ativo",
+        "Identity": "Identidade",
+        "Who": "Quem",
+        "Deactivate": "Desativar",
+        "Save": "Salvar",
+    }
 
     def translate(text):
         return catalog.get(text, text)
@@ -172,12 +218,21 @@ def test_form_schema_with_explicit_fieldsets():
     class DemoAdmin(AdminResource):
         name = "demo"
         form_fields = [TextField("name"), TextField("email"), BooleanField("active")]
-        fieldsets = [Fieldset("Identity", ["name", "email"]), Fieldset("Flags", ["active"], description="Toggles")]
+        fieldsets = [
+            Fieldset("Identity", ["name", "email"]),
+            Fieldset("Flags", ["active"], description="Toggles"),
+        ]
 
     form = DemoAdmin().form_schema("create")
 
-    assert [fieldset["title"] for fieldset in form["fieldsets"]] == ["Identity", "Flags"]
-    assert [field["name"] for field in form["fieldsets"][0]["fields"]] == ["name", "email"]
+    assert [fieldset["title"] for fieldset in form["fieldsets"]] == [
+        "Identity",
+        "Flags",
+    ]
+    assert [field["name"] for field in form["fieldsets"][0]["fields"]] == [
+        "name",
+        "email",
+    ]
     assert form["fieldsets"][1]["description"] == "Toggles"
 
 
@@ -190,8 +245,12 @@ def test_form_schema_drops_empty_fieldsets_on_create():
         form_fields = [TextField("name"), DateTimeField("created_at", readonly=True)]
         fieldsets = [Fieldset("Main", ["name"]), Fieldset("Record", ["created_at"])]
 
-    create_titles = [fieldset["title"] for fieldset in DemoAdmin().form_schema("create")["fieldsets"]]
-    edit_titles = [fieldset["title"] for fieldset in DemoAdmin().form_schema("edit")["fieldsets"]]
+    create_titles = [
+        fieldset["title"] for fieldset in DemoAdmin().form_schema("create")["fieldsets"]
+    ]
+    edit_titles = [
+        fieldset["title"] for fieldset in DemoAdmin().form_schema("edit")["fieldsets"]
+    ]
 
     assert create_titles == ["Main"]
     assert edit_titles == ["Main", "Record"]
@@ -211,7 +270,11 @@ def test_serialize_detail_applies_render_override():
         form_fields = [TextField("name"), BooleanField("is_active")]
 
         def render_is_active(self, row, locale):
-            return "<span class='badge'>on</span>" if row.is_active else "<span class='badge'>off</span>"
+            return (
+                "<span class='badge'>on</span>"
+                if row.is_active
+                else "<span class='badge'>off</span>"
+            )
 
     detail = DemoAdmin().serialize_detail(Row(), "en")
 
@@ -267,7 +330,9 @@ def test_grid_columns_carry_field_type():
         list_columns = ["name", "active", "code"]
         form_fields = [TextField("name"), BooleanField("active")]
 
-    columns = {column["name"]: column for column in DemoAdmin().grid_schema()["columns"]}
+    columns = {
+        column["name"]: column for column in DemoAdmin().grid_schema()["columns"]
+    }
 
     assert columns["active"]["field_type"] == "boolean"
     assert columns["name"]["field_type"] == "text"
@@ -306,11 +371,15 @@ def test_clickable_columns_restricts_or_disables_click_through():
         list_columns = ["name", "code"]
         clickable_columns = []
 
-    subset = {column["name"]: column for column in SubsetAdmin().grid_schema()["columns"]}
+    subset = {
+        column["name"]: column for column in SubsetAdmin().grid_schema()["columns"]
+    }
     assert subset["name"]["clickable"] is True
     assert subset["code"]["clickable"] is False
 
-    disabled = {column["name"]: column for column in NoneAdmin().grid_schema()["columns"]}
+    disabled = {
+        column["name"]: column for column in NoneAdmin().grid_schema()["columns"]
+    }
     assert disabled["name"]["clickable"] is False
     assert disabled["code"]["clickable"] is False
 
@@ -333,7 +402,9 @@ async def test_sort_override_is_used(session, product_model):
             return func.length(product_model.name)
 
     admin = ByNameLength()
-    session.add_all([product_model(name="zzzz", price=1), product_model(name="a", price=1)])
+    session.add_all(
+        [product_model(name="zzzz", price=1), product_model(name="a", price=1)]
+    )
     await session.commit()
 
     result = await admin.list(session, GridQuery(sort="name_length"), "en")
@@ -449,15 +520,21 @@ async def test_update_reconciles_the_file_slot(session, product_model):
     assert assets.links == [("products", str(row.id), "name", "covers/new.png")]
 
 
-async def test_external_or_missing_file_values_pass_no_object_key(session, product_model):
+async def test_external_or_missing_file_values_pass_no_object_key(
+    session, product_model
+):
     assets = RecordingAssets()
     admin = _file_admin(product_model, assets)
 
-    row = await admin.create(session, {"name": "https://cdn.example.com/x.png", "price": 1})
+    row = await admin.create(
+        session, {"name": "https://cdn.example.com/x.png", "price": 1}
+    )
     assert assets.links == [("products", str(row.id), "name", None)]
 
 
-async def test_file_lifecycle_is_a_noop_without_an_assets_collaborator(session, product_model):
+async def test_file_lifecycle_is_a_noop_without_an_assets_collaborator(
+    session, product_model
+):
     admin = _file_admin(product_model, None)
 
     row = await admin.create(session, {"name": "/media/covers/a.png", "price": 1})
@@ -492,7 +569,9 @@ async def test_relation_options_dispatch_and_missing():
 
     admin = DemoAdmin()
 
-    options = await admin.relation_options(None, "category_id", {"scope": "active"}, "en")
+    options = await admin.relation_options(
+        None, "category_id", {"scope": "active"}, "en"
+    )
     assert options == [{"value": 1, "label": "active"}]
 
     with pytest.raises(NotFoundError):
@@ -513,7 +592,9 @@ def test_virtual_field_skipped_in_parse_and_detail():
 
     admin = DemoAdmin()
 
-    parsed = admin._parse_and_validate({"name": "Ada", "extra": "ignored"}, "en", partial=False)
+    parsed = admin._parse_and_validate(
+        {"name": "Ada", "extra": "ignored"}, "en", partial=False
+    )
     assert parsed == {"name": "Ada"}
 
     detail = admin.serialize_detail(Row(), "en")
@@ -568,7 +649,9 @@ def test_filters_split_into_widgets_and_fieldsets():
     schema = DemoAdmin().grid_schema()
 
     assert [item["field"] for item in schema["filters"]] == ["name"]
-    assert schema["filter_fieldsets"] == [{"title": "Target", "description": None, "fields": ["name"]}]
+    assert schema["filter_fieldsets"] == [
+        {"title": "Target", "description": None, "fields": ["name"]}
+    ]
 
 
 def test_grid_value_serializes_temporal_and_decimal():
@@ -582,6 +665,7 @@ def test_grid_value_serializes_temporal_and_decimal():
     assert grid_value(time(9, 30)) == "09:30:00"
 
     from datetime import timezone as _tz
+
     aware = datetime(2026, 7, 15, 9, 30, tzinfo=_tz.utc)
     assert grid_value(aware) == "2026-07-15T09:30:00+00:00"
     assert grid_value(Decimal("19.90")) == "19.90"
@@ -621,7 +705,9 @@ async def test_permission_flags(product_admin):
 async def test_run_action_and_missing(session, product_admin, product_model):
     from fastkit_core.errors.exceptions import NotFoundError
 
-    row = await product_admin.create(session, {"name": "Act", "price": "5.00", "is_active": "true"}, "en")
+    row = await product_admin.create(
+        session, {"name": "Act", "price": "5.00", "is_active": "true"}, "en"
+    )
 
     result = await product_admin.run_action(session, "deactivate", [row.id], "en")
     assert result == {"deactivated": 1}
@@ -691,9 +777,9 @@ async def test_password_field_skipped_when_blank():
         form_fields = [TextField("name"), PasswordField("password")]
 
     admin = DemoAdmin()
-    parsed = admin._parse_and_validate({"name": "Ada", "password": ""}, "en", partial=True)
+    parsed = admin._parse_and_validate(
+        {"name": "Ada", "password": ""}, "en", partial=True
+    )
 
     assert "password" not in parsed
     assert parsed["name"] == "Ada"
-
-

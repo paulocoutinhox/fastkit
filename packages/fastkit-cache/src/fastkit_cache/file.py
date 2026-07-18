@@ -32,9 +32,9 @@ class FileCacheProvider:
     def _decode(self, raw: bytes) -> tuple[float, str, bytes]:
         expires_at, key_len = _HEADER.unpack_from(raw)
         offset = _HEADER.size
-        key = raw[offset:offset + key_len].decode("utf-8")
+        key = raw[offset : offset + key_len].decode("utf-8")
 
-        return expires_at, key, raw[offset + key_len:]
+        return expires_at, key, raw[offset + key_len :]
 
     def _write_sync(self, path: Path, payload: bytes) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +59,9 @@ class FileCacheProvider:
         return await asyncio.to_thread(self._read_valid, self._path_for(key))
 
     async def set(self, key: str, value: bytes, ttl: int | None = None) -> None:
-        await asyncio.to_thread(self._write_sync, self._path_for(key), self._encode(key, value, ttl))
+        await asyncio.to_thread(
+            self._write_sync, self._path_for(key), self._encode(key, value, ttl)
+        )
 
     async def delete(self, key: str) -> None:
         await asyncio.to_thread(self._path_for(key).unlink, True)

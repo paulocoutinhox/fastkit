@@ -57,7 +57,12 @@ MYSQL = DatabaseCapabilities(
     supports_select_for_update=True,
 )
 
-_BY_DIALECT = {"sqlite": SQLITE, "postgresql": POSTGRESQL, "mysql": MYSQL, "mariadb": MYSQL}
+_BY_DIALECT = {
+    "sqlite": SQLITE,
+    "postgresql": POSTGRESQL,
+    "mysql": MYSQL,
+    "mariadb": MYSQL,
+}
 
 
 def capabilities_for(dialect_name: str) -> DatabaseCapabilities:

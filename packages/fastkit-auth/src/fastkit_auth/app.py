@@ -26,10 +26,21 @@ class AuthApp(FastKitApp):
         database = context.component("database")
         account_service = context.component("account_service")
 
-        password_service = PasswordHashService(min_length=settings.auth.password_min_length, max_length=settings.auth.password_max_length)
-        token_service = TokenService(secret_key=settings.app.secret_key, algorithm=settings.auth.jwt_algorithm, ttl_seconds=settings.auth.access_token_ttl_seconds)
-        session_service = SessionService(database, ttl_seconds=settings.auth.access_token_ttl_seconds)
-        rate_limiter = RateLimiter(max_attempts=settings.auth.rate_limit_per_minute, window_seconds=60)
+        password_service = PasswordHashService(
+            min_length=settings.auth.password_min_length,
+            max_length=settings.auth.password_max_length,
+        )
+        token_service = TokenService(
+            secret_key=settings.app.secret_key,
+            algorithm=settings.auth.jwt_algorithm,
+            ttl_seconds=settings.auth.access_token_ttl_seconds,
+        )
+        session_service = SessionService(
+            database, ttl_seconds=settings.auth.access_token_ttl_seconds
+        )
+        rate_limiter = RateLimiter(
+            max_attempts=settings.auth.rate_limit_per_minute, window_seconds=60
+        )
         captcha_provider = build_captcha_provider(settings)
 
         auth_service = AuthService(

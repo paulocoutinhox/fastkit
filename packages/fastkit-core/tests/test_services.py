@@ -168,7 +168,9 @@ async def test_concurrent_singleton_creation_builds_once():
 
     container.register_singleton(Database, factory)
 
-    results = await asyncio.gather(*[container.get_singleton(Database) for _ in range(8)])
+    results = await asyncio.gather(
+        *[container.get_singleton(Database) for _ in range(8)]
+    )
 
     assert calls["n"] == 1
     assert all(result is results[0] for result in results)

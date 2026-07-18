@@ -1,6 +1,11 @@
 import pytest
 
-from fastkit_core.checks.base import CheckLevel, CheckMessage, SystemCheckError, SystemCheckRegistry
+from fastkit_core.checks.base import (
+    CheckLevel,
+    CheckMessage,
+    SystemCheckError,
+    SystemCheckRegistry,
+)
 from fastkit_core.health.base import HealthCheckRegistry, HealthResult, HealthStatus
 
 
@@ -70,7 +75,9 @@ def test_system_checks_collect_messages():
 
 def test_system_checks_raise_on_error():
     registry = SystemCheckRegistry()
-    registry.register("bad", lambda: [CheckMessage(CheckLevel.error, "broken", hint="fix it")])
+    registry.register(
+        "bad", lambda: [CheckMessage(CheckLevel.error, "broken", hint="fix it")]
+    )
 
     with pytest.raises(SystemCheckError, match="broken"):
         registry.run_or_raise()

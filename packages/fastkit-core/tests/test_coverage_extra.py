@@ -91,6 +91,8 @@ def test_logged_error_produces_error_id(error_app):
 def test_validation_root_error(error_app):
     client = TestClient(error_app, raise_server_exceptions=False)
 
-    response = client.post("/validate", content=b"not-json", headers={"content-type": "application/json"})
+    response = client.post(
+        "/validate", content=b"not-json", headers={"content-type": "application/json"}
+    )
 
     assert response.status_code == 422

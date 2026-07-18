@@ -4,7 +4,9 @@ from fastkit_config.settings.captcha import CaptchaSettings
 
 
 class AuthSettings(BaseModel):
-    login_identifier_types: list[str] = Field(default_factory=lambda: ["email", "username", "phone"])
+    login_identifier_types: list[str] = Field(
+        default_factory=lambda: ["email", "username", "phone"]
+    )
     session_cookie_name: str = "fastkit_session"
     password_min_length: int = 12
     password_max_length: int = 128

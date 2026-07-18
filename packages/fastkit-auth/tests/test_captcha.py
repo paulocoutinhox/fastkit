@@ -9,11 +9,17 @@ from fastkit_auth.captcha.disabled import DisabledCaptchaProvider
 from fastkit_auth.captcha.provider import CaptchaProvider
 from fastkit_auth.captcha.image import ImageCaptchaProvider
 from fastkit_auth.captcha.providers import captcha_providers
-from fastkit_auth.captcha.recaptcha import RecaptchaConfig, RecaptchaProvider, StaticRecaptchaClient
+from fastkit_auth.captcha.recaptcha import (
+    RecaptchaConfig,
+    RecaptchaProvider,
+    StaticRecaptchaClient,
+)
 
 
 def _recaptcha(action="admin_login", score=0.5, hostnames=(), response=None):
-    config = RecaptchaConfig(action=action, minimum_score=score, allowed_hostnames=hostnames)
+    config = RecaptchaConfig(
+        action=action, minimum_score=score, allowed_hostnames=hostnames
+    )
 
     return RecaptchaProvider(config, StaticRecaptchaClient(response or {}), "site-key")
 
@@ -47,7 +53,15 @@ async def test_recaptcha_requires_a_token():
 
 
 async def test_recaptcha_success_and_client_config():
-    provider = _recaptcha(hostnames=("admin.example.com",), response={"success": True, "action": "admin_login", "score": 0.9, "hostname": "admin.example.com"})
+    provider = _recaptcha(
+        hostnames=("admin.example.com",),
+        response={
+            "success": True,
+            "action": "admin_login",
+            "score": 0.9,
+            "hostname": "admin.example.com",
+        },
+    )
 
     assert provider.enabled is True
     await provider.verify({"token": "token-1"})
@@ -59,7 +73,9 @@ async def test_recaptcha_success_and_client_config():
 
 
 async def test_recaptcha_rejects_a_replayed_token():
-    provider = _recaptcha(response={"success": True, "action": "admin_login", "score": 0.9})
+    provider = _recaptcha(
+        response={"success": True, "action": "admin_login", "score": 0.9}
+    )
 
     await provider.verify({"token": "token-1"})
 
@@ -81,7 +97,15 @@ async def test_recaptcha_rejects_bad_responses(response, message):
 
 
 async def test_recaptcha_hostname_mismatch():
-    provider = _recaptcha(hostnames=("admin.example.com",), response={"success": True, "action": "admin_login", "score": 0.9, "hostname": "evil.com"})
+    provider = _recaptcha(
+        hostnames=("admin.example.com",),
+        response={
+            "success": True,
+            "action": "admin_login",
+            "score": 0.9,
+            "hostname": "evil.com",
+        },
+    )
 
     with pytest.raises(AuthenticationError, match="hostname mismatch"):
         await provider.verify({"token": "t"})
@@ -92,7 +116,11 @@ async def test_recaptcha_provider_unavailable():
         async def verify(self, token):
             raise RuntimeError("network down")
 
-    provider = RecaptchaProvider(RecaptchaConfig(action="admin_login", minimum_score=0.5, allowed_hostnames=()), BrokenClient(), "k")
+    provider = RecaptchaProvider(
+        RecaptchaConfig(action="admin_login", minimum_score=0.5, allowed_hostnames=()),
+        BrokenClient(),
+        "k",
+    )
 
     with pytest.raises(AuthenticationError, match="unavailable"):
         await provider.verify({"token": "t"})
@@ -114,17 +142,25 @@ async def test_image_captcha_full_flow():
     provider = ImageCaptchaProvider(length=5, ttl_seconds=300, clock=clock)
 
     assert provider.enabled is True
-    assert provider.client_config() == {"provider": "image", "enabled": True, "new_url": "/auth/captcha/new"}
+    assert provider.client_config() == {
+        "provider": "image",
+        "enabled": True,
+        "new_url": "/auth/captcha/new",
+    }
 
     challenge = provider.new_challenge()
     assert challenge["image"].startswith("data:image/png;base64,")
 
     code = provider._challenges[challenge["challenge_id"]][0]
-    await provider.verify({"challenge_id": challenge["challenge_id"], "answer": code.lower()})
+    await provider.verify(
+        {"challenge_id": challenge["challenge_id"], "answer": code.lower()}
+    )
 
     # a challenge is single-use
     with pytest.raises(AuthenticationError, match="unknown"):
-        await provider.verify({"challenge_id": challenge["challenge_id"], "answer": code})
+        await provider.verify(
+            {"challenge_id": challenge["challenge_id"], "answer": code}
+        )
 
 
 async def test_image_captcha_requires_id_and_answer():
@@ -140,7 +176,9 @@ async def test_image_captcha_rejects_wrong_and_expired():
 
     wrong = provider.new_challenge()
     with pytest.raises(AuthenticationError, match="incorrect"):
-        await provider.verify({"challenge_id": wrong["challenge_id"], "answer": "nope-nope"})
+        await provider.verify(
+            {"challenge_id": wrong["challenge_id"], "answer": "nope-nope"}
+        )
 
     expired = provider.new_challenge()
     clock.advance(200)
@@ -156,7 +194,9 @@ async def test_image_captcha_mounts_a_new_challenge_route():
     app = FastAPI()
     app.include_router(router)
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         body = (await client.get("/auth/captcha/new")).json()
 
     assert body["data"]["image"].startswith("data:image/png;base64,")
@@ -165,14 +205,28 @@ async def test_image_captcha_mounts_a_new_challenge_route():
 def test_registry_builds_each_built_in():
     from types import SimpleNamespace
 
-    captcha = SimpleNamespace(provider="image", site_key="s", secret_key="", action="admin_login", minimum_score=0.5, allowed_hostnames=[], timeout_seconds=5, image_length=4, challenge_ttl_seconds=60)
+    captcha = SimpleNamespace(
+        provider="image",
+        site_key="s",
+        secret_key="",
+        action="admin_login",
+        minimum_score=0.5,
+        allowed_hostnames=[],
+        timeout_seconds=5,
+        image_length=4,
+        challenge_ttl_seconds=60,
+    )
     settings = SimpleNamespace(auth=SimpleNamespace(captcha=captcha))
 
-    assert isinstance(captcha_providers.build("disabled", settings), DisabledCaptchaProvider)
+    assert isinstance(
+        captcha_providers.build("disabled", settings), DisabledCaptchaProvider
+    )
     assert isinstance(captcha_providers.build("image", settings), ImageCaptchaProvider)
     assert isinstance(captcha_providers.build("recaptcha", settings), RecaptchaProvider)
 
     captcha.secret_key = "real-secret"
     from fastkit_auth.captcha.recaptcha import GoogleRecaptchaClient
 
-    assert isinstance(captcha_providers.build("recaptcha", settings)._client, GoogleRecaptchaClient)
+    assert isinstance(
+        captcha_providers.build("recaptcha", settings)._client, GoogleRecaptchaClient
+    )

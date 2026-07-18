@@ -19,7 +19,11 @@ class FastKit:
     """Public facade that bootstraps a Runtime and wires it into a FastAPI application."""
 
     def __init__(self, settings, installed_apps: list[str] | None = None):
-        resolved = installed_apps if installed_apps is not None else list(getattr(settings, "installed_apps", []))
+        resolved = (
+            installed_apps
+            if installed_apps is not None
+            else list(getattr(settings, "installed_apps", []))
+        )
 
         self.settings = settings
         self.runtime = Runtime(settings=settings, installed_apps=resolved)

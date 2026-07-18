@@ -15,10 +15,14 @@ class AdminRenderer:
     """
 
     def __init__(self, override_dirs: list[str] | None = None):
-        loaders = [FileSystemLoader(str(directory)) for directory in override_dirs or []]
+        loaders = [
+            FileSystemLoader(str(directory)) for directory in override_dirs or []
+        ]
         loaders.append(FileSystemLoader(str(PACKAGE_TEMPLATES)))
 
-        self.environment = Environment(loader=ChoiceLoader(loaders), autoescape=select_autoescape(["html"]))
+        self.environment = Environment(
+            loader=ChoiceLoader(loaders), autoescape=select_autoescape(["html"])
+        )
 
     def render(self, template: str, **context) -> str:
         return self.environment.get_template(template).render(**context)

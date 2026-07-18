@@ -26,20 +26,28 @@ class TenantService:
 
         return tenant
 
-    def assert_access(self, identity_tenant_id: int | None, effective_tenant_id: int | None) -> None:
+    def assert_access(
+        self, identity_tenant_id: int | None, effective_tenant_id: int | None
+    ) -> None:
         """A tenant-local identity can only act inside its own tenant, global identities anywhere."""
 
         if is_global(identity_tenant_id):
             return
 
         if identity_tenant_id != effective_tenant_id:
-            raise TenantError(TENANT_CROSS_ACCESS, message="identity cannot act on another tenant")
+            raise TenantError(
+                TENANT_CROSS_ACCESS, message="identity cannot act on another tenant"
+            )
 
 
-def resolve_effective_tenant(identity_tenant_id: int | None, requested_tenant_id: int | None) -> int:
+def resolve_effective_tenant(
+    identity_tenant_id: int | None, requested_tenant_id: int | None
+) -> int:
     """Global identities adopt the requested tenant, tenant-local identities keep their own."""
 
     if is_global(identity_tenant_id):
-        return requested_tenant_id if requested_tenant_id is not None else GLOBAL_TENANT_ID
+        return (
+            requested_tenant_id if requested_tenant_id is not None else GLOBAL_TENANT_ID
+        )
 
     return identity_tenant_id

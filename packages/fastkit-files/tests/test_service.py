@@ -16,7 +16,9 @@ from fastkit_files.service import StorageFileService
 async def _upload(service, image_factory, **kwargs):
     upload = await service.create_upload_session(tenant_id=1, **kwargs)
 
-    return await service.confirm_image_upload(upload.id, image_factory(), "photo.png", "image/png")
+    return await service.confirm_image_upload(
+        upload.id, image_factory(), "photo.png", "image/png"
+    )
 
 
 async def test_full_upload_and_process(service, image_factory, storage):
@@ -69,21 +71,27 @@ async def test_confirm_rejects_expired_session(service, image_factory, clock):
     clock.advance(200)
 
     with pytest.raises(FastKitError, match="not usable"):
-        await service.confirm_image_upload(upload.id, image_factory(), "x.png", "image/png")
+        await service.confirm_image_upload(
+            upload.id, image_factory(), "x.png", "image/png"
+        )
 
 
 async def test_confirm_rejects_bad_mime(service, image_factory):
     upload = await service.create_upload_session(tenant_id=1)
 
     with pytest.raises(FastKitError, match="not allowed"):
-        await service.confirm_image_upload(upload.id, image_factory(), "x.png", "application/pdf")
+        await service.confirm_image_upload(
+            upload.id, image_factory(), "x.png", "application/pdf"
+        )
 
 
 async def test_confirm_rejects_oversized(service, image_factory):
     upload = await service.create_upload_session(tenant_id=1, max_size_bytes=10)
 
     with pytest.raises(FastKitError, match="maximum allowed size"):
-        await service.confirm_image_upload(upload.id, image_factory(), "x.png", "image/png")
+        await service.confirm_image_upload(
+            upload.id, image_factory(), "x.png", "image/png"
+        )
 
 
 async def test_confirm_rejects_too_many_pixels(database, storage, clock, image_factory):
@@ -91,7 +99,9 @@ async def test_confirm_rejects_too_many_pixels(database, storage, clock, image_f
     upload = await service.create_upload_session(tenant_id=1)
 
     with pytest.raises(FastKitError, match="too many pixels"):
-        await service.confirm_image_upload(upload.id, image_factory(), "x.png", "image/png")
+        await service.confirm_image_upload(
+            upload.id, image_factory(), "x.png", "image/png"
+        )
 
 
 async def test_process_marks_failed_on_error(service, image_factory, monkeypatch):
@@ -113,7 +123,12 @@ async def test_process_marks_failed_on_error(service, image_factory, monkeypatch
 
 async def test_process_propagates_fastkit_error(service, image_factory):
     record = await _upload(service, image_factory)
-    bad_preset = ImagePreset(name="bad", variants=[ImageVariantSpec(name="v", width=10, height=10, mode="warp", format="png")])
+    bad_preset = ImagePreset(
+        name="bad",
+        variants=[
+            ImageVariantSpec(name="v", width=10, height=10, mode="warp", format="png")
+        ],
+    )
 
     with pytest.raises(FastKitError, match="unknown resize mode"):
         await service.process_image(record.id, bad_preset)
@@ -126,7 +141,9 @@ async def test_process_propagates_fastkit_error(service, image_factory):
 
 async def test_confirm_upload_stores_any_file(service, storage):
     upload = await service.create_upload_session(tenant_id=1)
-    record = await service.confirm_upload(upload.id, b"%PDF-1.7 body", "report.PDF", "application/pdf")
+    record = await service.confirm_upload(
+        upload.id, b"%PDF-1.7 body", "report.PDF", "application/pdf"
+    )
 
     assert record.kind == "file"
     assert record.extension == "pdf"
@@ -151,7 +168,9 @@ async def _attach(service, record, owner_id, slot="cover", owner_type="products"
     await service.link_slot(owner_type, owner_id, slot, record.object_key)
 
 
-async def test_link_slot_attaches_and_survives_cleanup(service, image_factory, storage, clock):
+async def test_link_slot_attaches_and_survives_cleanup(
+    service, image_factory, storage, clock
+):
     record = await _upload(service, image_factory)
     await _attach(service, record, 1)
 
@@ -163,7 +182,9 @@ async def test_link_slot_attaches_and_survives_cleanup(service, image_factory, s
     assert await storage.exists(record.object_key)
 
 
-async def test_link_slot_replacing_a_value_purges_the_old_asset(service, image_factory, storage):
+async def test_link_slot_replacing_a_value_purges_the_old_asset(
+    service, image_factory, storage
+):
     old = await _upload(service, image_factory)
     new = await _upload(service, image_factory)
     await _attach(service, old, 1)
@@ -175,7 +196,9 @@ async def test_link_slot_replacing_a_value_purges_the_old_asset(service, image_f
     assert await service.get(new.id) is not None
 
 
-async def test_link_slot_clearing_a_value_purges_the_asset(service, image_factory, storage):
+async def test_link_slot_clearing_a_value_purges_the_asset(
+    service, image_factory, storage
+):
     record = await _upload(service, image_factory)
     await _attach(service, record, 1)
 
@@ -193,7 +216,17 @@ async def test_link_slot_is_idempotent(service, image_factory):
     async with service._database.session_factory() as session:
         from fastkit_files.models import StorageFileReference
 
-        count = (await session.execute(select(StorageFileReference).where(StorageFileReference.storage_file_id == record.id))).scalars().all()
+        count = (
+            (
+                await session.execute(
+                    select(StorageFileReference).where(
+                        StorageFileReference.storage_file_id == record.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     assert len(count) == 1
     assert await service.get(record.id) is not None
@@ -211,7 +244,9 @@ async def test_link_by_asset_id_reconciles_a_slot(service, image_factory, storag
     assert await service.get(new.id) is not None
 
 
-async def test_shared_asset_survives_until_the_last_owner_unlinks(service, image_factory, storage):
+async def test_shared_asset_survives_until_the_last_owner_unlinks(
+    service, image_factory, storage
+):
     record = await _upload(service, image_factory)
     await service.link_slot("products", 1, "cover", record.object_key)
     await service.link_slot("products", 2, "cover", record.object_key)
@@ -230,7 +265,17 @@ async def test_unlink_owner_purges_variants_too(service, image_factory, storage)
     await service.link_slot("products", 1, "cover", record.object_key)
 
     async with service._database.session_factory() as session:
-        variants = (await session.execute(select(StorageFileVariant).where(StorageFileVariant.storage_file_id == record.id))).scalars().all()
+        variants = (
+            (
+                await session.execute(
+                    select(StorageFileVariant).where(
+                        StorageFileVariant.storage_file_id == record.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     keys = [variant.object_key for variant in variants]
 
@@ -285,7 +330,12 @@ class Settings:
 async def runtime(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "fastkit_core.runtime.discover_apps",
-        lambda: {"fastkit.core": CoreApp, "fastkit.db": DbApp, "fastkit.storage": StorageApp, "fastkit.files": FilesApp},
+        lambda: {
+            "fastkit.core": CoreApp,
+            "fastkit.db": DbApp,
+            "fastkit.storage": StorageApp,
+            "fastkit.files": FilesApp,
+        },
     )
     settings = Settings()
     settings.storage.root = str(tmp_path / "media")
