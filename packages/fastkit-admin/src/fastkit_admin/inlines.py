@@ -1,6 +1,17 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from fastkit_core.errors.exceptions import FieldError, ValidationError
+from fastkit_db.integrity import IntegrityViolation
+from fastkit_admin.integrity import integrity_fields, unique_field_groups
+
+
+class InlineIntegrityError(Exception):
+    def __init__(self, error, index: int):
+        self.error = error
+        self.index = index
+
+        super().__init__(str(error))
 
 
 class InlineResource:
@@ -33,6 +44,17 @@ class InlineResource:
         self.max_items = max_items
         self.pk_field = pk_field
         self.unique_fields = list(unique_fields or [])
+        editable_fields = [
+            field.name
+            for field in form_fields
+            if not field.virtual and not field.readonly
+        ]
+        inferred_groups = unique_field_groups(
+            model, editable_fields, [fk_field, pk_field]
+        )
+        self._unique_groups = ([self.unique_fields] if self.unique_fields else []) + [
+            group for group in inferred_groups if group != self.unique_fields
+        ]
 
     def schema(self) -> dict:
         return {
@@ -99,26 +121,84 @@ class InlineResource:
         return parsed
 
     def _flag_duplicates(self, parsed: list, errors: list) -> None:
-        if not self.unique_fields:
-            return
+        for fields in self._unique_groups:
+            seen = set()
 
-        seen = set()
+            for index, (_, values) in enumerate(parsed):
+                key = tuple(values.get(name) for name in fields)
 
-        for index, (_, values) in enumerate(parsed):
-            key = tuple(values.get(name) for name in self.unique_fields)
+                if any(part is None for part in key):
+                    continue
 
-            if any(part is None for part in key):
-                continue
-
-            if key in seen:
-                for name in self.unique_fields:
-                    errors.append(
+                if key in seen:
+                    errors.extend(
                         FieldError(
                             name, "validation.unique", path=[self.name, index, name]
                         )
+                        for name in fields
                     )
-            else:
+                    continue
+
                 seen.add(key)
+
+    def integrity_errors(
+        self,
+        violation: IntegrityViolation,
+        parsed: list,
+        code: str,
+        indexes: list[int] | None = None,
+    ) -> list[FieldError]:
+        editable_fields = [
+            field.name
+            for field in self.form_fields
+            if not field.virtual and not field.readonly
+        ]
+        fields = integrity_fields(self.model, editable_fields, violation)
+
+        if not fields:
+            return []
+
+        resolved_indexes = (
+            indexes
+            if indexes is not None
+            else self._integrity_error_indexes(violation, parsed, fields)
+        )
+
+        return [
+            FieldError(field, code, path=[self.name, index, field])
+            for index in resolved_indexes
+            for field in fields
+        ]
+
+    def _integrity_error_indexes(
+        self, violation: IntegrityViolation, parsed: list, fields: list[str]
+    ) -> list[int]:
+        if violation.kind == "not_null":
+            indexes = [
+                index
+                for index, (_, values) in enumerate(parsed)
+                if any(values.get(field) is None for field in fields)
+            ]
+
+            if indexes:
+                return indexes
+
+        if violation.kind == "unique":
+            seen = set()
+            duplicates = []
+
+            for index, (_, values) in enumerate(parsed):
+                key = tuple(values.get(field) for field in fields)
+
+                if key in seen:
+                    duplicates.append(index)
+                else:
+                    seen.add(key)
+
+            if duplicates:
+                return duplicates
+
+        return []
 
     async def persist(self, session, parent_id, parsed: list) -> None:
         column = getattr(self.model, self.fk_field)
@@ -130,7 +210,7 @@ class InlineResource:
         }
         seen = set()
 
-        for raw_id, values in parsed:
+        for index, (raw_id, values) in enumerate(parsed):
             child = existing.get(_match(raw_id))
 
             if child is None:
@@ -141,6 +221,11 @@ class InlineResource:
 
             for name, value in values.items():
                 setattr(child, name, value)
+
+            try:
+                await session.flush([child])
+            except IntegrityError as error:
+                raise InlineIntegrityError(error, index) from error
 
         for child_id, child in existing.items():
             if child_id not in seen:

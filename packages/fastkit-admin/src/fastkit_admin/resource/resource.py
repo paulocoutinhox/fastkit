@@ -16,6 +16,7 @@ from fastkit_core.errors.codes import (
 from fastkit_core.errors.exceptions import (
     AuthorizationError,
     ConflictError,
+    FastKitError,
     FieldError,
     NotFoundError,
     ValidationError,
@@ -24,6 +25,8 @@ from fastkit_db.integrity import classify_integrity_error
 from fastkit_admin.columns import normalize_columns
 from fastkit_admin.fields import PasswordField
 from fastkit_admin.filters import Filter
+from fastkit_admin.integrity import integrity_fields
+from fastkit_admin.inlines import InlineIntegrityError
 from fastkit_admin.resource.fieldset import Fieldset
 from fastkit_admin.resource.query import GridQuery
 from fastkit_admin.serialization import (
@@ -303,7 +306,16 @@ class AdminResource(Generic[ModelT]):
 
         for inline in self.inlines:
             if inline.name in validated:
-                await inline.persist(session, parent_id, validated[inline.name])
+                try:
+                    await inline.persist(session, parent_id, validated[inline.name])
+                except InlineIntegrityError as failure:
+                    raise self._integrity_error(
+                        failure.error, inline, validated[inline.name], [failure.index]
+                    ) from failure.error
+                except IntegrityError as error:
+                    raise self._integrity_error(
+                        error, inline, validated[inline.name]
+                    ) from error
 
     async def inline_values(self, session, row, locale: str = "en") -> dict:
         parent_id = getattr(row, self.pk_field)
@@ -317,32 +329,56 @@ class AdminResource(Generic[ModelT]):
         self._guard_writable()
         parsed = self._parse_and_validate(data, locale, partial=False)
         validated = self._validate_inlines(data, locale)
-        parsed = await self.before_create(session, parsed)
-
-        row = self.model(**parsed)
-        session.add(row)
 
         try:
+            parsed = await self.before_create(session, parsed)
+            row = self.model(**parsed)
+            session.add(row)
             await session.flush()
             await self.after_create(session, row)
+            await session.flush()
             await self._save_inlines(session, row, validated)
             await session.commit()
         except IntegrityError as error:
             await session.rollback()
             raise self._integrity_error(error) from error
+        except FastKitError:
+            await session.rollback()
+            raise
 
         await session.refresh(row)
         await self._sync_files(row)
 
         return row
 
-    def _integrity_error(self, error):
+    def _integrity_error(
+        self,
+        error,
+        inline=None,
+        inline_rows: list | None = None,
+        inline_indexes: list[int] | None = None,
+    ):
         violation = classify_integrity_error(error)
-        fields = [column for column in violation.columns if column in self._field_map]
+        editable_fields = [
+            name
+            for name, field in self._field_map.items()
+            if not field.virtual and not field.readonly
+        ]
+        fields = (
+            integrity_fields(self.model, editable_fields, violation)
+            if inline is None
+            else []
+        )
         label = self.label or self.name
 
         if violation.kind == "unique":
-            errors = [FieldError(field, "validation.unique") for field in fields]
+            errors = (
+                inline.integrity_errors(
+                    violation, inline_rows or [], "validation.unique", inline_indexes
+                )
+                if inline is not None
+                else [FieldError(field, "validation.unique") for field in fields]
+            )
 
             return ConflictError(
                 CONFLICT_UNIQUE,
@@ -351,7 +387,16 @@ class AdminResource(Generic[ModelT]):
             )
 
         if violation.kind == "foreign_key":
-            errors = [FieldError(field, "validation.foreign-key") for field in fields]
+            errors = (
+                inline.integrity_errors(
+                    violation,
+                    inline_rows or [],
+                    "validation.foreign-key",
+                    inline_indexes,
+                )
+                if inline is not None
+                else [FieldError(field, "validation.foreign-key") for field in fields]
+            )
 
             return ValidationError(
                 VALIDATION_FAILED,
@@ -360,7 +405,13 @@ class AdminResource(Generic[ModelT]):
             )
 
         if violation.kind == "not_null":
-            errors = [FieldError(field, "validation.required") for field in fields]
+            errors = (
+                inline.integrity_errors(
+                    violation, inline_rows or [], "validation.required", inline_indexes
+                )
+                if inline is not None
+                else [FieldError(field, "validation.required") for field in fields]
+            )
 
             return ValidationError(
                 VALIDATION_FAILED,
@@ -369,8 +420,18 @@ class AdminResource(Generic[ModelT]):
             )
 
         if violation.kind == "check":
+            errors = (
+                inline.integrity_errors(
+                    violation, inline_rows or [], "validation.invalid", inline_indexes
+                )
+                if inline is not None
+                else [FieldError(field, "validation.invalid") for field in fields]
+            )
+
             return ValidationError(
-                VALIDATION_FAILED, message="a value violates a database constraint"
+                VALIDATION_FAILED,
+                message="a value violates a database constraint",
+                field_errors=errors,
             )
 
         return ConflictError(
@@ -384,19 +445,23 @@ class AdminResource(Generic[ModelT]):
         row = await self.get_object(session, identifier)
         parsed = self._parse_and_validate(data, locale, partial=partial)
         validated = self._validate_inlines(data, locale)
-        parsed = await self.before_update(session, row, parsed)
-
-        for name, value in parsed.items():
-            setattr(row, name, value)
-
-        await self.after_update(session, row)
 
         try:
+            parsed = await self.before_update(session, row, parsed)
+
+            for name, value in parsed.items():
+                setattr(row, name, value)
+
+            await self.after_update(session, row)
+            await session.flush()
             await self._save_inlines(session, row, validated)
             await session.commit()
         except IntegrityError as error:
             await session.rollback()
             raise self._integrity_error(error) from error
+        except FastKitError:
+            await session.rollback()
+            raise
 
         await session.refresh(row)
         await self._sync_files(row)
