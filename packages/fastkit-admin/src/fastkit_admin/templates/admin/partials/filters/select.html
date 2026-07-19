@@ -1,4 +1,4 @@
-<select class="form-select fk-filter-input fk-filter-select" name="filter[{{ filter.field }}]" data-filter="{{ filter.field }}" data-depends-on="{{ filter.depends_on | join(',') }}" data-value="{{ filter.value if filter.value is not none else '' }}">
+<select class="form-select fk-filter-input fk-filter-select" name="filter[{{ filter.field }}]" data-filter="{{ filter.field }}" data-depends-on="{{ filter.depends_on | join(',') }}"{% if filter.options %} data-options="true"{% endif %} data-value="{{ filter.value if filter.value is not none else '' }}">
   <option value="">—</option>
   {% for choice in filter.choices or [] %}<option value="{{ choice.value }}"{% if filter.value is not none and filter.value|string == choice.value|string %} selected{% endif %}>{{ choice.label }}</option>{% endfor %}
 </select>

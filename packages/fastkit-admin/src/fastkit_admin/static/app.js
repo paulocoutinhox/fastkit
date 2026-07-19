@@ -310,9 +310,18 @@
     return params;
   }
 
+  function relationParentsReady($scope, $node) {
+    return String($node.data("depends-on") || "").split(",").filter(Boolean).every(function (parent) {
+      var value = readParent($scope, parent);
+      return value != null && value !== "";
+    });
+  }
+
   function initRelations(root) {
     $(root).find(".fk-relation").each(function () {
       var $select = $(this);
+      // a dependent select waits for its parent value, so it loads on cascade instead of firing an empty request now.
+      if (!relationParentsReady(scopeOf($select), $select)) { return; }
       loadOptions($select, resourceOf($select), $select.data("field"), relationParams(scopeOf($select), $select), $select.data("value"), true);
     });
     bindDependents(root);
@@ -336,7 +345,12 @@
   function resetDependent($scope, $child) {
     if ($child.hasClass("fk-relation")) {
       $child.val("").data("value", "");
-      loadOptions($child, resourceOf($child), $child.data("field"), relationParams($scope, $child), null, true);
+      // reload only when the parent still has a value, otherwise just clear the stale options.
+      if (relationParentsReady($scope, $child)) {
+        loadOptions($child, resourceOf($child), $child.data("field"), relationParams($scope, $child), null, true);
+      } else {
+        $child.find("option:not(:first)").remove();
+      }
     } else {
       bumpLookupSeq($child);
       $child.data("value", "").data("label", "").find('input[type=hidden]').val("");
@@ -367,12 +381,16 @@
       var initialLimit = Number($container.data("initial-limit") || 10);
       var searchLimit = Number($container.data("search-limit") || 20);
       var $hidden = $container.find('input[type=hidden]');
-      $container.data("value", $hidden.val() || "");
+      var value = $hidden.val() || "";
+      $container.data("value", value);
       var $input = $('<input class="form-control" type="text" autocomplete="off">').attr("placeholder", t("lookup.search")).attr("data-testid", "field-" + field);
       var $menu = $('<div class="dropdown-menu fk-lookup-menu w-100"></div>');
       $container.addClass("dropdown").append($input).append($menu);
       var timer = null;
       var seq = 0;
+
+      // an edit form arrives with the id only, so resolve the selected record's label to fill the search box.
+      if (value) { setLookupValue($container, resource, field, value); }
 
       function params() {
         var result = {};
@@ -698,6 +716,12 @@
     return params;
   }
 
+  function filterParentsReady($panel, $node) {
+    return String($node.data("depends-on") || "").split(",").filter(Boolean).every(function (parent) {
+      return !!filterFieldValue($panel, parent);
+    });
+  }
+
   function loadFilterSelect($select, urlFn, params, current) {
     var seq = (Number($select.data("seq")) || 0) + 1;
     $select.data("seq", seq);
@@ -755,7 +779,13 @@
 
   function enhanceFilters($panel, urlFn) {
     if (!$panel.length) { return; }
-    $panel.find(".fk-filter-select").each(function () { loadFilterSelect($(this), urlFn, filterParents($panel, $(this)), $(this).data("value")); });
+    // a select with static choices is server-rendered, and a dependent select waits for its parent value.
+    $panel.find(".fk-filter-select").each(function () {
+      var $select = $(this);
+      if ($select.data("options") && filterParentsReady($panel, $select)) {
+        loadFilterSelect($select, urlFn, filterParents($panel, $select), $select.data("value"));
+      }
+    });
     $panel.find(".fk-filter-lookup").each(function () { initFilterLookup($panel, $(this), urlFn); });
     $panel.find(".fk-filter-select,.fk-filter-lookup").each(function () {
       var $child = $(this);
@@ -763,7 +793,12 @@
         $panel.find('.fk-filter[data-filter="' + parent + '"]').on("change", function () {
           if ($child.hasClass("fk-filter-select")) {
             $child.val("");
-            loadFilterSelect($child, urlFn, filterParents($panel, $child));
+            // reload only when the parent still has a value, otherwise just clear the stale options.
+            if (filterParentsReady($panel, $child)) {
+              loadFilterSelect($child, urlFn, filterParents($panel, $child));
+            } else {
+              $child.find("option:not(:first)").remove();
+            }
           } else {
             $child.data("value", "").find('input[type=text]').val("");
           }

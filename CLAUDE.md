@@ -911,10 +911,21 @@ Tabler hover highlight has breathing room (not a tight box).
   at two levels). Apply sends the values to the list endpoint as `filter[field]` (and
   `filter[field][from]`/`[to]` for ranges — the exact shape `parse_grid_query` expects);
   Clear resets them.
-- **Dependent selects load value-first**: independent selects load, then each one loads its
-  own dependents once its value is set (so an edit form fills every level of a chain), and
-  **submit is blocked with a warning while any dependent options are still loading** so a record
-  is never saved with cleared fields.
+- **Dependent selects load value-first, and only once their parent has a value**: independent
+  selects load on init, then each one loads its own dependents once its value is set (so an edit
+  form fills every level of a chain), and **submit is blocked with a warning while any dependent
+  options are still loading** so a record is never saved with cleared fields. A **dependent select
+  (form `RelationField` or filter `SelectFilter`) does not fire an options request until every
+  field in its `depends_on` chain has a value** (`relationParentsReady`/`filterParentsReady` in
+  app.js) — an empty parent yields no options anyway, so firing the request would only 404/return
+  nothing. When a parent is cleared the child clears its options in place instead of re-fetching.
+  A **static-choice `SelectFilter`** (declared with `choices`, not an `options` handler) is fully
+  server-rendered and carries no `data-options`, so it never fires a client fetch (no stray 404 on
+  the options endpoint). A **`LookupField`/`LookupFilter` resolves and displays its selected value's
+  label on load** (`setLookupValue` from the `data-value` id via the `value` param) so an edit form
+  shows the picked record's name instead of an empty search box — a **dependent lookup still fetches
+  on focus** and its handler returns nothing when the parent is empty (the demo relies on this for
+  its loading-spinner e2e), so lookups are not gated the way selects are.
 - **Dependent resets cascade recursively to any depth** (`resetDependent` in app.js): changing a
   select/lookup resets its direct children **and re-fires a `change` on each reset child**, so the
   reset propagates down the whole chain — a 4-level `country → state → city → district` chain (or
