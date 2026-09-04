@@ -1,0 +1,18 @@
+{% if not consent.answered %}
+    <div class="sticky bottom-0 z-30 border-t border-base-300 bg-base-100 shadow-lg" data-consent role="region" aria-label="{{ t('site.cookies') }}">
+        <div class="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+            <p class="text-sm text-base-content/70">
+                {{ t('site.cookies-lead') }}
+                <a href="{{ url('/cookies') }}" class="text-primary transition hover:text-primary/80">{{ t('site.cookies-choose') }}</a>
+            </p>
+
+            <form method="post" action="{{ url('/cookies') }}" class="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                <input type="hidden" name="next" value="{{ request.url.path }}" />
+
+                <button type="submit" name="action" value="reject" class="btn btn-outline">{{ t('site.cookies-reject') }}</button>
+                <button type="submit" name="action" value="accept" class="btn btn-outline">{{ t('site.cookies-accept') }}</button>
+            </form>
+        </div>
+    </div>
+{% endif %}

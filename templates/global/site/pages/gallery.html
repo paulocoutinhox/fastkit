@@ -1,0 +1,22 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import page_header with context %}
+
+{% block title %}{{ gallery.title }} — {{ brand.name }}{% endblock %}
+{% block description %}{{ gallery.description or gallery.title }}{% endblock %}
+
+{% block content %}
+    {{ page_header(gallery.title, gallery.description or "", url('/gallery'), t('site.gallery')) }}
+
+    <span class="hidden" data-lightbox-words data-close="{{ t('site.close') }}" data-previous="{{ t('site.previous-photo') }}" data-next="{{ t('site.next-photo') }}"></span>
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for photo in photos %}
+            <figure class="overflow-hidden rounded-box border border-base-300 bg-base-100">
+                <a href="{{ photo.image_url }}" data-lightbox="{{ photo.caption or gallery.title }}" class="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                    <img src="{{ photo.image_url }}" alt="{{ photo.caption or gallery.title }}" class="aspect-video w-full bg-base-200 object-cover transition hover:opacity-90" loading="lazy" />
+                </a>
+                {% if photo.caption %}<figcaption class="px-4 py-3 text-sm text-base-content/70">{{ photo.caption }}</figcaption>{% endif %}
+            </figure>
+        {% endfor %}
+    </div>
+{% endblock %}

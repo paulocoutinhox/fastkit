@@ -1,0 +1,11 @@
+{% extends "site/layouts/base.html" %}
+
+{% block title %}{{ content.title }} — {{ brand.name }}{% endblock %}
+{% block description %}{{ content.title }}{% endblock %}
+
+{% block content %}
+    <article class="rounded-box border border-base-300 bg-base-100 p-6 sm:p-8">
+        <h1 class="text-2xl font-semibold tracking-tight text-base-content sm:text-3xl">{{ content.title }}</h1>
+        {% if content.content %}<div class="prose mt-6 max-w-none">{{ content.content | safe }}</div>{% endif %}
+    </article>
+{% endblock %}

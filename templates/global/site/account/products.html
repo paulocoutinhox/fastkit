@@ -1,0 +1,24 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import empty, page_header with context %}
+
+{% block title %}{{ t('site.my-products') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    {{ page_header(t('site.my-products'), t('site.my-products-lead'), url('/account'), t('site.my-account')) }}
+
+    {% if products %}
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {% for product in products %}
+                <article class="overflow-hidden rounded-box border border-base-300 bg-base-100">
+                    {% if product.image_url %}<img src="{{ product.image_url }}" alt="{{ product.name }}" class="aspect-video w-full bg-base-200 object-cover" loading="lazy" />{% endif %}
+                    <div class="px-4 py-3">
+                        <p class="text-sm font-medium text-base-content">{{ product.name }}</p>
+                        {% if product.file_url %}<a href="{{ product.file_url }}" class="mt-2 inline-block text-sm font-medium text-primary hover:text-primary">{{ t('site.download') }}</a>{% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        {{ empty(t('site.nothing-here')) }}
+    {% endif %}
+{% endblock %}

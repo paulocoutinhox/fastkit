@@ -1,0 +1,15 @@
+{% macro pagination(path, paging) %}
+    {% if paging.pages > 1 %}
+        <nav class="mt-6 flex flex-wrap items-center justify-center gap-3 text-sm" aria-label="{{ t('site.pagination') }}">
+            {% if paging.page > 1 %}
+                <a href="{{ path }}?page={{ paging.page - 1 }}" class="btn btn-outline">{{ t('site.previous') }}</a>
+            {% endif %}
+
+            <span class="text-base-content/70">{{ t('site.page-of', page=paging.page, pages=paging.pages) }}</span>
+
+            {% if paging.page < paging.pages %}
+                <a href="{{ path }}?page={{ paging.page + 1 }}" class="btn btn-outline">{{ t('site.next') }}</a>
+            {% endif %}
+        </nav>
+    {% endif %}
+{% endmacro %}

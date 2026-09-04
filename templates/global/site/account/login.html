@@ -1,0 +1,27 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/field.html" import field with context %}
+{% from "site/partials/ui.html" import card, page_header, submit with context %}
+
+{% block title %}{{ t('site.sign-in') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-md">
+        {{ page_header(t('site.sign-in')) }}
+
+        {% call card() %}
+            <form method="post" class="space-y-4">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                <input type="hidden" name="next" value="{{ next }}" />
+                {{ field("login", t('site.login'), "text", values, errors, True, "username") }}
+                {{ field("password", t('site.password'), "password", {}, errors, True, "current-password") }}
+                {% include "site/partials/captcha.html" %}
+                {{ submit(t('site.sign-in')) }}
+            </form>
+
+            <div class="mt-6 flex flex-col gap-2 text-sm sm:flex-row sm:justify-between">
+                <a href="{{ url('/account/signup') }}?next={{ next | urlencode }}" class="text-primary hover:text-primary">{{ t('site.create-account') }}</a>
+                <a href="{{ url('/account/password-recovery') }}" class="text-base-content/70 hover:text-base-content">{{ t('site.forgot-password') }}</a>
+            </div>
+        {% endcall %}
+    </div>
+{% endblock %}

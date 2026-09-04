@@ -1,0 +1,21 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import empty, page_header with context %}
+
+{% block title %}{{ t('site.gallery') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    {{ page_header(t('site.gallery')) }}
+
+    {% if galleries %}
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {% for gallery in galleries %}
+                <a href="{{ url('/gallery/' ~ gallery.tag) }}" class="block overflow-hidden rounded-box border border-base-300 bg-base-100">
+                    {% if gallery.cover_url %}<img src="{{ gallery.cover_url }}" alt="{{ gallery.title }}" class="aspect-video w-full bg-base-200 object-cover" loading="lazy" />{% endif %}
+                    <span class="block px-4 py-3 text-sm font-medium text-base-content">{{ gallery.title }}</span>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        {{ empty(t('site.nothing-here')) }}
+    {% endif %}
+{% endblock %}

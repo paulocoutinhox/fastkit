@@ -1,0 +1,26 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import page_header with context %}
+
+{% block title %}{{ t('site.plans') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    {{ page_header(t('site.plans')) }}
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for plan in plans %}
+            <article class="flex flex-col rounded-box border border-base-300 bg-base-100 p-6 {% if plan.featured %}ring-2 ring-primary/30{% endif %}">
+                <h2 class="text-base font-semibold text-base-content">{{ plan.name }}</h2>
+                <p class="mt-2 text-3xl font-semibold text-base-content">{{ money(plan.price, plan.currency) }}</p>
+                {% if plan.billing_interval_unit %}<p class="text-sm text-base-content/70">{{ t('site.every', value=plan.billing_interval_value, unit=t('enum.interval_unit.' ~ plan.billing_interval_unit)) }}</p>{% endif %}
+                {% if plan.description %}<div class="prose prose-sm mt-4">{{ plan.description | safe }}</div>{% endif %}
+
+                <form method="post" action="{{ url('/checkout/plan/' ~ plan.code) }}" class="mt-auto pt-6">
+                    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                    <button type="submit" class="w-full btn btn-primary">{{ t('site.subscribe') }}</button>
+                </form>
+            </article>
+        {% else %}
+            <p class="text-base-content/70">{{ t('site.nothing-here') }}</p>
+        {% endfor %}
+    </div>
+{% endblock %}

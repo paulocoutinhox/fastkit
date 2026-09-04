@@ -1,0 +1,41 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/pagination.html" import pagination with context %}
+{% from "site/partials/ui.html" import empty, page_header, row, rows with context %}
+
+{% block title %}{{ subscription.plan.name }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-2xl">
+        {{ page_header(subscription.plan.name, "", url('/account/subscriptions'), t('site.subscriptions')) }}
+
+        <dl class="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100 text-sm">
+            <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:justify-between"><dt class="text-base-content/70">{{ t('site.status') }}</dt><dd class="text-base-content">{{ t('enum.subscription_status.' ~ subscription.status) }}</dd></div>
+            {% if subscription.current_period_started_at %}
+                <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:justify-between"><dt class="text-base-content/70">{{ t('site.period-started-at') }}</dt><dd class="text-base-content">{{ day(subscription.current_period_started_at) }}</dd></div>
+            {% endif %}
+            {% if subscription.current_period_ends_at %}
+                <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:justify-between"><dt class="text-base-content/70">{{ t('site.renews-at') }}</dt><dd class="text-base-content">{{ day(subscription.current_period_ends_at) }}</dd></div>
+            {% endif %}
+        </dl>
+
+        <h2 class="mt-8 mb-3 text-sm font-semibold text-base-content">{{ t('site.payments') }}</h2>
+
+        {% if payments %}
+            {% call rows() %}
+                {% for payment in payments %}
+                    {% call row() %}
+                        <span class="min-w-0">
+                            <span class="block text-sm text-base-content">{{ t('enum.normalized_action.' ~ payment.action) if payment.action else t('site.payment') }}</span>
+                            {% if payment.occurred_at %}<span class="block text-xs text-base-content/50">{{ moment(payment.occurred_at) }}</span>{% endif %}
+                        </span>
+                        {% if payment.amount is not none %}<span class="text-sm text-base-content/70">{{ money(payment.amount, payment.currency) }}</span>{% endif %}
+                    {% endcall %}
+                {% endfor %}
+            {% endcall %}
+
+            {{ pagination(url('/account/subscriptions/' ~ subscription.id), paging) }}
+        {% else %}
+            {{ empty(t('site.nothing-here')) }}
+        {% endif %}
+    </div>
+{% endblock %}

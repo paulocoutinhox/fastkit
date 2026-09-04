@@ -1,0 +1,76 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import card with context %}
+
+{% block title %}{{ brand.name }}{% endblock %}
+
+{% block head %}
+    <script type="application/ld+json">{{ organization | safe }}</script>
+{% endblock %}
+
+{% block content %}
+    {% call card() %}
+        <h1 class="text-3xl font-semibold tracking-tight text-base-content sm:text-4xl">{{ t('site.home-title', name=brand.name) }}</h1>
+        <p class="mt-3 max-w-2xl text-base-content/70">{{ t('site.home-lead') }}</p>
+        <div class="mt-6 flex flex-wrap gap-3">
+            <a href="{{ url('/plans') }}" class="btn btn-primary">{{ t('site.see-plans') }}</a>
+            <a href="{{ url('/products') }}" class="btn btn-outline">{{ t('site.see-products') }}</a>
+        </div>
+    {% endcall %}
+
+    {% if banners %}
+        <section class="mt-10 grid gap-4 sm:grid-cols-2">
+            {% for banner in banners %}
+                <a href="{{ banner.url or url('/') }}" {% if page.counts %}data-banner="{{ banner.uuid }}"{% endif %} class="block overflow-hidden rounded-box border border-base-300 bg-base-100">
+                    {% if banner.image_url %}<img src="{{ banner.image_url }}" alt="{{ banner.title }}" class="aspect-video w-full bg-base-200 object-cover" loading="lazy" />{% endif %}
+                    <span class="block px-4 py-3 text-sm font-medium text-base-content">{{ banner.title }}</span>
+                </a>
+            {% endfor %}
+        </section>
+    {% endif %}
+
+    {% if plans %}
+        <section class="mt-12">
+            <h2 class="text-xl font-semibold text-base-content">{{ t('site.plans') }}</h2>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {% for plan in plans %}
+                    <article class="rounded-box border border-base-300 bg-base-100 p-5">
+                        <h3 class="text-base font-semibold text-base-content">{{ plan.name }}</h3>
+                        <p class="mt-1 text-2xl font-semibold text-base-content">{{ money(plan.price, plan.currency) }}</p>
+                        <a href="{{ url('/plans') }}" class="mt-4 inline-block text-sm font-medium text-primary hover:text-primary">{{ t('site.details') }}</a>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    {% if products %}
+        <section class="mt-12">
+            <h2 class="text-xl font-semibold text-base-content">{{ t('site.products') }}</h2>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {% for product in products %}
+                    <a href="{{ url('/products/' ~ product.slug) }}" class="block overflow-hidden rounded-box border border-base-300 bg-base-100">
+                        {% if product.image_url %}<img src="{{ product.image_url }}" alt="{{ product.name }}" class="aspect-video w-full bg-base-200 object-cover" loading="lazy" />{% endif %}
+                        <span class="block px-4 py-3">
+                            <span class="block text-sm font-medium text-base-content">{{ product.name }}</span>
+                            <span class="block text-sm text-base-content/70">{{ money(product.price, product.currency) }}</span>
+                        </span>
+                    </a>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    {% if galleries %}
+        <section class="mt-12">
+            <h2 class="text-xl font-semibold text-base-content">{{ t('site.gallery') }}</h2>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {% for gallery in galleries %}
+                    <a href="{{ url('/gallery/' ~ gallery.tag) }}" class="block overflow-hidden rounded-box border border-base-300 bg-base-100">
+                        {% if gallery.cover_url %}<img src="{{ gallery.cover_url }}" alt="{{ gallery.title }}" class="aspect-video w-full bg-base-200 object-cover" loading="lazy" />{% endif %}
+                        <span class="block px-4 py-3 text-sm font-medium text-base-content">{{ gallery.title }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}

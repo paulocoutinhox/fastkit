@@ -1,0 +1,13 @@
+{% if challenge.kind == "image" %}
+    <input type="hidden" name="captcha_token" value="{{ challenge.token }}" />
+    <fieldset class="fieldset">
+        <label class="fieldset-legend" for="field-captcha_answer">{{ t('site.captcha') }}</label>
+        <img src="{{ challenge.image }}" alt="{{ t('site.captcha') }}" class="mb-2 rounded-box border border-base-300" width="200" height="64" />
+        <input type="text" id="field-captcha_answer" name="captcha_answer" required autocomplete="off" class="input w-full uppercase{% if errors.get('captcha_answer') %} input-error{% endif %}" />
+        {% if errors.get('captcha_answer') %}<span class="label text-error">{{ errors.get('captcha_answer') }}</span>{% endif %}
+    </fieldset>
+{% elif challenge.kind == "recaptcha_v3" %}
+    <input type="hidden" name="captcha_answer" data-recaptcha-response value="" />
+    <div data-recaptcha-site-key="{{ challenge.site_key }}"></div>
+    {% if errors.get('captcha_answer') %}<p class="text-xs text-error">{{ errors.get('captcha_answer') }}</p>{% endif %}
+{% endif %}

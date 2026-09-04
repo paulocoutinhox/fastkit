@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/* the brand, written by the build from the one place that states it */
+@import "./brand.css";
+
+/* the markup lives in the jinja templates of the backend, so that is where the classes are read from */
+@source "../../../templates";
+
+/* what a published content brings from the editor is arbitrary html, and this is what gives it hierarchy */
+@plugin "@tailwindcss/typography";
+
+/* A theme is declared once, in the block below that tunes it: naming it here as well writes the stock palette into a selector of
+   higher specificity, and the tuned value below it loses. */
+@plugin "daisyui" {
+    themes: false;
+}
+
+/* The light theme tunes its error, success and warning to be filled behind white text, and this site also writes them as text on a white card, where they ship at 2.9:1 and less. */
+@plugin "daisyui/theme" {
+    name: "light";
+    default: true;
+    color-scheme: light;
+
+    --color-primary: var(--brand-600);
+    --color-primary-content: oklch(98% 0 0);
+
+    --color-error: oklch(58% 0.194 13.428);
+    --color-success: oklch(52% 0.177 163.223);
+    --color-warning: oklch(56% 0.189 84.429);
+}
+
+/* The black theme is monochrome as it ships: its primary is a grey and its base is the same black as the page, so a button reads as disabled and a card has no edge. */
+@plugin "daisyui/theme" {
+    name: "black";
+    default: false;
+    prefersdark: true;
+    color-scheme: dark;
+
+    --color-base-100: oklch(16% 0 0);
+    --color-base-200: oklch(11% 0 0);
+    --color-base-300: oklch(26% 0 0);
+    --color-base-content: oklch(93% 0 0);
+
+    --color-primary: var(--brand-400);
+    --color-primary-content: var(--brand-900);
+
+    --color-error: oklch(70% 0.19 22);
+    --color-error-content: oklch(16% 0.04 22);
+    --color-success: oklch(76% 0.17 163);
+    --color-success-content: oklch(16% 0.04 163);
+    --color-warning: oklch(80% 0.16 80);
+    --color-warning-content: oklch(16% 0.04 80);
+}
+
+@layer base {
+    html {
+        -webkit-text-size-adjust: 100%;
+        scroll-behavior: smooth;
+    }
+}
+
+/* The typography plugin carries a palette of its own and writes its rule after this file, so this one names the page it sits in to outrank it. */
+:root .prose {
+    --tw-prose-body: var(--color-base-content);
+    --tw-prose-headings: var(--color-base-content);
+    --tw-prose-lead: var(--color-base-content);
+    --tw-prose-links: var(--color-primary);
+    --tw-prose-bold: var(--color-base-content);
+    --tw-prose-counters: var(--color-base-content);
+    --tw-prose-bullets: var(--color-base-300);
+    --tw-prose-hr: var(--color-base-300);
+    --tw-prose-quotes: var(--color-base-content);
+    --tw-prose-quote-borders: var(--color-base-300);
+    --tw-prose-captions: var(--color-base-content);
+    --tw-prose-kbd: var(--color-base-content);
+    --tw-prose-code: var(--color-base-content);
+    --tw-prose-pre-code: var(--color-neutral-content);
+    --tw-prose-pre-bg: var(--color-neutral);
+    --tw-prose-th-borders: var(--color-base-300);
+    --tw-prose-td-borders: var(--color-base-300);
+}
+
+/* The typography plugin draws a backtick on each side of inline code, and what the editor wrote is what the page shows. */
+.prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *))::before,
+.prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *))::after {
+    content: none;
+}
+
+/* A form that was sent says so on the button that sent it, and the button stops taking a second press. */
+[data-busy] {
+    pointer-events: none;
+}
+
+/* An icon button has room for one thing, so the spinner takes the place of the glyph instead of pushing it aside. */
+[data-busy] > svg {
+    display: none;
+}

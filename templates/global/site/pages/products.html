@@ -1,0 +1,22 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import page_header with context %}
+
+{% block title %}{{ t('site.products') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    {{ page_header(t('site.products')) }}
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% for product in products %}
+            <a href="{{ url('/products/' ~ product.slug) }}" class="block overflow-hidden rounded-box border border-base-300 bg-base-100">
+                {% if product.image_url %}<img src="{{ product.image_url }}" alt="{{ product.name }}" class="aspect-video w-full bg-base-200 object-cover" loading="lazy" />{% endif %}
+                <span class="block px-4 py-3">
+                    <span class="block text-sm font-medium text-base-content">{{ product.name }}</span>
+                    <span class="block text-sm text-base-content/70">{{ money(product.price, product.currency) }}</span>
+                </span>
+            </a>
+        {% else %}
+            <p class="text-base-content/70">{{ t('site.nothing-here') }}</p>
+        {% endfor %}
+    </div>
+{% endblock %}

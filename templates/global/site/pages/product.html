@@ -1,0 +1,25 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import page_header, submit with context %}
+
+{% block title %}{{ product.name }} — {{ brand.name }}{% endblock %}
+{% block description %}{{ product.name }}{% endblock %}
+
+{% block content %}
+    {{ page_header(product.name, "", url('/products'), t('site.products')) }}
+
+    <article class="grid gap-8 rounded-box border border-base-300 bg-base-100 p-6 sm:p-8 lg:grid-cols-2">
+        <div>
+            {% if product.image_url %}<img src="{{ product.image_url }}" alt="{{ product.name }}" class="aspect-video w-full rounded-box bg-base-200 object-cover" />{% endif %}
+        </div>
+        <div>
+            <p class="text-3xl font-semibold text-base-content">{{ money(product.price, product.currency) }}</p>
+            {% if product.credits and product.credits_currency %}<p class="mt-1 text-sm text-base-content/70">{{ t('site.grants-credits', amount=product.credits, currency=product.credits_currency) }}</p>{% endif %}
+            {% if product.description %}<div class="prose prose-sm mt-4">{{ product.description | safe }}</div>{% endif %}
+
+            <form method="post" action="{{ url('/checkout/product/' ~ product.slug) }}" class="mt-6">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                {{ submit(t('site.buy')) }}
+            </form>
+        </div>
+    </article>
+{% endblock %}

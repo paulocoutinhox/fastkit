@@ -1,0 +1,43 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/pagination.html" import pagination with context %}
+{% from "site/partials/ui.html" import empty, page_header, rows with context %}
+
+{% block title %}{{ t('site.credits') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    {{ page_header(t('site.credits'), t('site.credits-lead'), url('/account'), t('site.my-account')) }}
+
+    {% if balances %}
+        <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {% for balance in balances %}
+                <li class="rounded-box border border-base-300 bg-base-100 px-5 py-4">
+                    <span class="block text-xs uppercase tracking-wide text-base-content/50">{{ balance.currency.name }}</span>
+                    <span class="block text-2xl font-semibold text-base-content">{{ number(balance.amount) }} {{ balance.currency.symbol or balance.currency.code }}</span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <h2 class="mt-8 mb-3 text-sm font-semibold text-base-content">{{ t('site.transactions') }}</h2>
+
+    {% if transactions %}
+        {% call rows() %}
+            {% for entry in transactions %}
+                <li class="flex flex-col gap-2 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                    <span class="min-w-0">
+                        <span class="block truncate text-sm text-base-content">{{ entry.description or t('enum.credit_transaction_type.' ~ entry.type) }}</span>
+                        <span class="block text-xs text-base-content/50">{{ moment(entry.created_at) }} — {{ entry.currency.name }}</span>
+                    </span>
+                    <span class="flex items-baseline justify-between gap-4 sm:justify-end">
+                        <span class="text-sm font-medium {% if entry.amount < 0 %}text-error{% else %}text-success{% endif %}">{{ '+' if entry.amount > 0 else '' }}{{ number(entry.amount) }}</span>
+                        <span class="text-xs text-base-content/50">{{ t('site.balance') }} {{ number(entry.balance_after) }}</span>
+                    </span>
+                </li>
+            {% endfor %}
+        {% endcall %}
+
+        {{ pagination(url('/account/credits'), paging) }}
+    {% else %}
+        {{ empty(t('site.nothing-here')) }}
+    {% endif %}
+{% endblock %}

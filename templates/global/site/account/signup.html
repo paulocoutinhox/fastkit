@@ -1,0 +1,26 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/field.html" import field with context %}
+{% from "site/partials/ui.html" import card, page_header, submit with context %}
+
+{% block title %}{{ t('site.create-account') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-md">
+        {{ page_header(t('site.create-account')) }}
+
+        {% call card() %}
+            <form method="post" class="space-y-4">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                <input type="hidden" name="next" value="{{ next }}" />
+                {{ field("first_name", t('site.first-name'), "text", values, errors, True, "given-name") }}
+                {{ field("last_name", t('site.last-name'), "text", values, errors, False, "family-name") }}
+                {{ field("email", t('site.your-email'), "email", values, errors, True, "email") }}
+                {{ field("password", t('site.password'), "password", {}, errors, True, "new-password") }}
+                {% include "site/partials/captcha.html" %}
+                {{ submit(t('site.create-account')) }}
+            </form>
+
+            <p class="mt-6 text-sm text-base-content/70">{{ t('site.already-have-account') }} <a href="{{ url('/account/login') }}?next={{ next | urlencode }}" class="text-primary hover:text-primary">{{ t('site.sign-in') }}</a></p>
+        {% endcall %}
+    </div>
+{% endblock %}

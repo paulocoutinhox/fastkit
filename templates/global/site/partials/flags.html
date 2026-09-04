@@ -1,0 +1,22 @@
+{% macro flag(code) %}
+    {% if code == "en" %}
+        <svg viewBox="0 0 24 16" class="h-4 w-6 rounded-sm" aria-hidden="true">
+            <rect width="24" height="16" fill="#ffffff" />
+            <g fill="#b22234"><rect width="24" height="2" y="0" /><rect width="24" height="2" y="4" /><rect width="24" height="2" y="8" /><rect width="24" height="2" y="12" /></g>
+            <rect width="11" height="8" fill="#3c3b6e" />
+        </svg>
+    {% elif code == "pt" %}
+        <svg viewBox="0 0 24 16" class="h-4 w-6 rounded-sm" aria-hidden="true">
+            <rect width="24" height="16" fill="#009b3a" />
+            <path d="M12 2 22 8 12 14 2 8Z" fill="#fedf00" />
+            <circle cx="12" cy="8" r="2.9" fill="#002776" />
+        </svg>
+    {% elif code == "es" %}
+        <svg viewBox="0 0 24 16" class="h-4 w-6 rounded-sm" aria-hidden="true">
+            <rect width="24" height="16" fill="#aa151b" />
+            <rect width="24" height="8" y="4" fill="#f1bf00" />
+        </svg>
+    {% else %}
+        <span class="badge badge-sm badge-ghost uppercase">{{ code }}</span>
+    {% endif %}
+{% endmacro %}

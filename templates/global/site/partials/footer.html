@@ -1,0 +1,24 @@
+<footer class="border-t border-base-300 bg-base-100">
+    <div class="mx-auto w-full max-w-5xl px-4 py-8 text-sm sm:px-6">
+        <div class="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
+            <nav class="flex flex-col gap-2">
+                {% if 'about' in navigation %}<a href="{{ url(navigation['about']) }}" class="transition hover:text-primary">{{ t('site.about') }}</a>{% endif %}
+                <a href="{{ url('/contact') }}" class="transition hover:text-primary">{{ t('site.contact') }}</a>
+                {% if 'terms' in navigation %}<a href="{{ url(navigation['terms']) }}" class="transition hover:text-primary">{{ t('site.terms') }}</a>{% endif %}
+                {% if 'privacy' in navigation %}<a href="{{ url(navigation['privacy']) }}" class="transition hover:text-primary">{{ t('site.privacy') }}</a>{% endif %}
+                <a href="{{ url('/cookies') }}" class="transition hover:text-primary">{{ t('site.cookies') }}</a>
+            </nav>
+
+            <div class="w-full max-w-sm">
+                <p class="mb-1 text-sm font-medium">{{ t('site.newsletter') }}</p>
+                <p class="mb-3 text-xs text-base-content/70">{{ t('site.newsletter-lead') }}</p>
+                <a href="{{ url('/newsletter') }}" class="btn btn-primary">{{ t('site.subscribe') }}</a>
+            </div>
+        </div>
+
+        <div class="mt-8 flex flex-col gap-4 border-t border-base-300 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-base-content/70">{{ brand.name }}</p>
+            {% include "site/partials/language-selector.html" %}
+        </div>
+    </div>
+</footer>

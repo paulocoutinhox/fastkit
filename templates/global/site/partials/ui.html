@@ -1,0 +1,59 @@
+{% macro logo(size="h-7 w-7") %}
+    <svg viewBox="0 0 512 512" fill="currentColor" class="{{ size }} shrink-0" aria-hidden="true">
+        <path d="M310 88 160 288a10 10 0 0 0 8 16h64l-30 120 150-200a10 10 0 0 0-8-16h-64z" />
+    </svg>
+{% endmacro %}
+
+{% macro page_header(title, lead="", back_url="", back_label="") %}
+    <header class="mb-6">
+        {% if back_url %}
+            <a href="{{ back_url }}" class="mb-3 inline-flex items-center gap-1 text-base-content/70 transition hover:text-primary">
+                <span aria-hidden="true">&larr;</span>
+                <span>{{ back_label }}</span>
+            </a>
+        {% endif %}
+        <h1 class="text-2xl font-semibold sm:text-3xl">{{ title }}</h1>
+        {% if lead %}<p class="mt-2 text-sm text-base-content/70">{{ lead }}</p>{% endif %}
+    </header>
+{% endmacro %}
+
+{% macro card(tone="plain") %}
+    <section class="card card-border bg-base-100 {% if tone == 'danger' %}border-error/40{% endif %}">
+        <div class="card-body">{{ caller() }}</div>
+    </section>
+{% endmacro %}
+
+{% macro empty(message) %}
+    <p class="rounded-box border border-dashed border-base-300 bg-base-100 px-6 py-10 text-center text-sm text-base-content/70">{{ message }}</p>
+{% endmacro %}
+
+{% macro rows() %}
+    <ul class="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100">{{ caller() }}</ul>
+{% endmacro %}
+
+{% macro row() %}
+    <li class="flex flex-col gap-1 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">{{ caller() }}</li>
+{% endmacro %}
+
+{% macro submit(label, tone="primary") %}
+    <button type="submit" class="btn w-full {% if tone == 'danger' %}btn-error{% else %}btn-primary{% endif %}">{{ label }}</button>
+{% endmacro %}
+
+{% macro chevron() %}
+    <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 shrink-0 opacity-40" aria-hidden="true"><path d="M7.2 4.4 12.8 10l-5.6 5.6-1.4-1.4L10 10 5.8 5.8Z" /></svg>
+{% endmacro %}
+
+{% macro option(href, title, lead) %}
+    <a href="{{ href }}" class="flex items-center justify-between gap-4 px-4 py-4 transition hover:bg-base-200">
+        <span class="min-w-0">
+            <span class="block text-sm font-medium">{{ title }}</span>
+            <span class="block text-xs text-base-content/70">{{ lead }}</span>
+        </span>
+        {{ chevron() }}
+    </a>
+{% endmacro %}
+
+{% macro nav_link(href, label) %}
+    {% set current = page.at(href) %}
+    <a href="{{ url(href) }}" class="transition hover:text-primary{% if current %} text-primary{% endif %}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
+{% endmacro %}
