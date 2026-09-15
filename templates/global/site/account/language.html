@@ -1,0 +1,23 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/flags.html" import flag %}
+{% from "site/partials/ui.html" import page_header with context %}
+
+{% block title %}{{ t('site.language') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-xl">
+        {{ page_header(t('site.language'), t('site.language-lead'), url('/account'), t('site.my-account')) }}
+
+        <form method="post" class="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+
+            {% for code, native in languages.items() %}
+                <button type="submit" name="language" value="{{ code }}" class="flex w-full items-center gap-3 px-4 py-4 text-left transition hover:bg-base-200">
+                    {{ flag(code) }}
+                    <span class="flex-1 text-sm font-medium text-base-content">{{ native }}</span>
+                    {% if code == language %}<span class="text-xs font-semibold uppercase text-primary">{{ t('site.in-use') }}</span>{% endif %}
+                </button>
+            {% endfor %}
+        </form>
+    </div>
+{% endblock %}

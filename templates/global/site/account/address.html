@@ -1,0 +1,40 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/field.html" import choice, field with context %}
+{% from "site/partials/ui.html" import card, page_header, submit with context %}
+
+{% block title %}{{ t('site.address') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-xl">
+        {{ page_header(t('site.address'), t('site.address-lead'), url('/account'), t('site.my-account')) }}
+
+        {% call card() %}
+            <form method="post" class="space-y-4" data-address-form data-postal-code-url="{{ url('/account/address/postal-code') }}" data-postal-code-countries="{{ postal_code_countries }}">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+
+                {{ choice("country_code", t('site.country'), countries, values, errors, True, t('site.choose-country')) }}
+
+                <div class="relative">
+                    {{ field("postal_code", t('site.postal-code'), "text", values, errors, True, "postal-code") }}
+                    <span class="mt-1 hidden text-xs text-base-content/70" data-postal-code-status>{{ t('site.postal-code-searching') }}</span>
+                </div>
+
+                {{ field("line1", t('site.line1'), "text", values, errors, True, "address-line1") }}
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    {{ field("street_number", t('site.street-number'), "text", values, errors) }}
+                    {{ field("complement", t('site.complement'), "text", values, errors) }}
+                </div>
+
+                {{ field("district", t('site.district'), "text", values, errors) }}
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    {{ field("city", t('site.city'), "text", values, errors, True, "address-level2") }}
+                    {{ field("state", t('site.state'), "text", values, errors, True, "address-level1") }}
+                </div>
+
+                {{ submit(t('site.save')) }}
+            </form>
+        {% endcall %}
+    </div>
+{% endblock %}

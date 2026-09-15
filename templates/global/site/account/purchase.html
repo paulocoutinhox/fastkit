@@ -1,0 +1,24 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import page_header with context %}
+
+{% block title %}{{ purchase.product.name }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-xl">
+        {{ page_header(purchase.product.name, "", url('/account/purchases'), t('site.purchases')) }}
+
+        <dl class="divide-y divide-base-300 overflow-hidden rounded-box border border-base-300 bg-base-100 text-sm">
+            <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:justify-between"><dt class="text-base-content/70">{{ t('site.status') }}</dt><dd class="text-base-content">{{ t('enum.purchase_status.' ~ purchase.status) }}</dd></div>
+            <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:justify-between"><dt class="text-base-content/70">{{ t('site.amount') }}</dt><dd class="text-base-content">{{ money(purchase.price, purchase.currency) }}</dd></div>
+            <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:justify-between"><dt class="text-base-content/70">{{ t('site.reference') }}</dt><dd class="break-all text-base-content">{{ purchase.reference }}</dd></div>
+            <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:justify-between"><dt class="text-base-content/70">{{ t('site.opened-at') }}</dt><dd class="text-base-content">{{ moment(purchase.created_at) }}</dd></div>
+            {% if purchase.paid_at %}
+                <div class="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:justify-between"><dt class="text-base-content/70">{{ t('site.paid-at') }}</dt><dd class="text-base-content">{{ moment(purchase.paid_at) }}</dd></div>
+            {% endif %}
+        </dl>
+
+        {% if owned %}
+            <a href="{{ url('/account/products') }}" class="btn btn-primary mt-6 w-full">{{ t('site.my-products') }}</a>
+        {% endif %}
+    </div>
+{% endblock %}

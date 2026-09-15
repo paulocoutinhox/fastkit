@@ -1,0 +1,36 @@
+{% from "site/partials/ui.html" import logo, nav_link with context %}
+
+<header class="navbar relative border-b border-base-300 bg-base-100">
+    <div class="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+        <a href="{{ url('/') }}" class="flex items-center gap-2 text-base font-semibold"{% if page.at('/') %} aria-current="page"{% endif %}>
+            {{ logo() }}
+            <span>{{ brand.name }}</span>
+        </a>
+
+        <div class="flex items-center gap-2 sm:hidden">
+            {% include "site/partials/theme-toggle.html" %}
+
+            <button type="button" class="btn btn-ghost btn-square" data-menu-toggle aria-label="{{ t('site.menu') }}" aria-expanded="false">
+                <svg viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true"><path d="M3 5h14v2H3Zm0 4h14v2H3Zm0 4h14v2H3Z" /></svg>
+            </button>
+        </div>
+
+        <nav
+            class="absolute left-0 right-0 top-full z-20 hidden flex-col gap-3 border-b border-base-300 bg-base-100 px-4 py-4 text-sm shadow-sm sm:static sm:flex sm:flex-row sm:items-center sm:gap-5 sm:border-0 sm:p-0 sm:shadow-none"
+            data-menu
+        >
+            {{ nav_link('/plans', t('site.plans')) }}
+            {{ nav_link('/products', t('site.products')) }}
+            {{ nav_link('/gallery', t('site.gallery')) }}
+            {{ nav_link('/contact', t('site.contact')) }}
+
+            {% if user %}
+                <a href="{{ url('/account') }}" class="btn btn-primary btn-sm"{% if page.at('/account') %} aria-current="page"{% endif %}>{{ t('site.my-account') }}</a>
+            {% else %}
+                <a href="{{ url('/account/login') }}" class="btn btn-primary btn-sm"{% if page.at('/account/login') %} aria-current="page"{% endif %}>{{ t('site.sign-in') }}</a>
+            {% endif %}
+
+            <span class="hidden sm:inline-flex">{% include "site/partials/theme-toggle.html" %}</span>
+        </nav>
+    </div>
+</header>

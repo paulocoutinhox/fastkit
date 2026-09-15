@@ -1,0 +1,47 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import page_header, rows, submit with context %}
+
+{% block title %}{{ t('site.cookies') }} — {{ brand.name }}{% endblock %}
+{% block description %}{{ t('site.cookies-lead') }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-2xl">
+        {{ page_header(t('site.cookies'), t('site.cookies-lead')) }}
+
+        <form method="post" class="space-y-4">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            <input type="hidden" name="next" value="{{ url('/cookies') }}" />
+
+            {% call rows() %}
+                <li class="flex items-start gap-4 px-4 py-4">
+                    <input type="checkbox" id="necessary" checked disabled class="checkbox checkbox-sm mt-1" />
+                    <label for="necessary" class="min-w-0">
+                        <span class="block font-medium">{{ t('site.cookies-necessary') }}</span>
+                        <span class="block text-sm text-base-content/70">{{ t('site.cookies-necessary-lead') }}</span>
+                    </label>
+                </li>
+
+                {% for category in consent_categories %}
+                    <li class="flex items-start gap-4 px-4 py-4">
+                        <input type="checkbox" id="{{ category.name }}" name="{{ category.name }}" {% if category.name in consent %}checked{% endif %} class="checkbox checkbox-sm checkbox-primary mt-1" />
+                        <label for="{{ category.name }}" class="min-w-0">
+                            <span class="block font-medium">{{ category.label }}</span>
+                            <span class="block text-sm text-base-content/70">{{ category.lead }}</span>
+                        </label>
+                    </li>
+                {% endfor %}
+            {% endcall %}
+
+            <div class="grid gap-2 sm:grid-cols-3">
+                <button type="submit" name="action" value="reject" class="btn btn-outline">{{ t('site.cookies-reject') }}</button>
+                <button type="submit" name="action" value="accept" class="btn btn-outline">{{ t('site.cookies-accept') }}</button>
+                {{ submit(t('site.cookies-save')) }}
+            </div>
+        </form>
+
+        <p class="mt-6 text-sm text-base-content/70">
+            {{ t('site.cookies-policy-note') }}
+            {% if 'cookies' in navigation %}<a href="{{ url(navigation['cookies']) }}" class="text-primary transition hover:text-primary/80">{{ t('site.cookies-policy') }}</a>{% endif %}
+        </p>
+    </div>
+{% endblock %}

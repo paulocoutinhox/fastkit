@@ -1,0 +1,36 @@
+{% extends "site/layouts/base.html" %}
+
+{% block title %}{{ t(title_key) }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="card card-border mx-auto max-w-xl bg-base-100">
+        <div class="card-body items-center text-center">
+            {% if outcome == "paid" %}
+                <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-success">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-7 w-7" aria-hidden="true"><path d="M8.2 13.4 4.8 10l-1.4 1.4 4.8 4.8L17 7.4 15.6 6Z" /></svg>
+                </span>
+            {% elif outcome == "pending" %}
+                <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-warning/10 text-warning">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-7 w-7" aria-hidden="true"><path d="M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm.9 4.5v4.9l3.5 2.1-.9 1.5-4.4-2.6V5.5Z" /></svg>
+                </span>
+            {% else %}
+                <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-error/10 text-error">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-7 w-7" aria-hidden="true"><path d="M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm-.9 4h1.8v6H9.1Zm0 8h1.8v2H9.1Z" /></svg>
+                </span>
+            {% endif %}
+
+            <h1 class="mt-5 text-2xl font-semibold text-base-content">{{ t(title_key) }}</h1>
+            <p class="mt-2 text-base-content/70">{{ t(lead_key) }}</p>
+
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                <a href="{{ url('/account') }}" class="btn btn-primary">{{ t('site.my-account') }}</a>
+
+                {% if outcome == "refused" %}
+                    <a href="{{ url('/plans') }}" class="btn btn-outline">{{ t('site.see-plans') }}</a>
+                {% else %}
+                    <a href="{{ url('/account/purchases') }}" class="btn btn-outline">{{ t('site.purchases') }}</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,63 @@
+[project]
+name = "fastkit"
+version = "1.0.0"
+description = "Multi-tenant account, subscription and content backend with a server-rendered site and a driven admin"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { file = "LICENSE.md" }
+
+dependencies = [
+    "aioboto3>=15.5.0",
+    "aiomysql>=0.3.2",
+    "aiosmtplib>=5.0.1",
+    "aiosqlite>=0.22.1",
+    "argon2-cffi>=25.1.0",
+    "cachefy[sqlalchemy]>=1.0.0",
+    "cryptography>=46.0.0",
+    "fastapi[standard]>=0.122.0",
+    "jinja2>=3.1.6",
+    "pillow>=12.0.0",
+    "pydantic>=2.13.4",
+    "pyjwt>=2.13.0",
+    "python-multipart>=0.0.20",
+    "queuefy[sqlalchemy]>=1.0.3",
+    "sentry-sdk>=2.42.0",
+    "sqlalchemy[asyncio]>=2.0.50",
+    "throttled>=0.2.1",
+    "uvicorn>=0.42.0",
+]
+
+[dependency-groups]
+dev = ["httpx>=0.28.1", "pytest-asyncio>=1.3.0", "pytest-cov>=7.1.0", "pytest>=9.0.0", "ruff>=0.16.3"]
+
+[tool.ruff]
+# Calls and signatures stay on a single line, which is the house style of this codebase.
+line-length = 320
+
+[tool.ruff.lint]
+# The formatter already lays the code out, so the linter is here for the dead code, the real errors and the import order.
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+known-first-party = ["config", "enums", "helpers", "jobs", "locale", "models", "routes", "schemas", "services", "tests"]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+# SQLAlchemy drives its async bridge through greenlets, and tracing is lost across the switch.
+concurrency = ["greenlet", "thread"]
+# A jinja template compiles to code coverage tries to parse, and a template is not a statement anybody covers.
+omit = ["tests/*", "extras/*", "services/seed.py", "services/schema_diff.py", "*.html"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+# The floor is the standard, so the command that proves it locally is the same one the pipeline runs.
+fail_under = 100
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:"]

@@ -1,0 +1,48 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/field.html" import field, upload with context %}
+{% from "site/partials/ui.html" import card, page_header, submit with context %}
+
+{% block title %}{{ t('site.personal-data') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-xl">
+        {{ page_header(t('site.personal-data'), "", url('/account'), t('site.my-account')) }}
+
+        {% call card() %}
+            <div class="flex items-center gap-4">
+                {% if avatar_url %}
+                    <img src="{{ avatar_url }}" alt="" class="h-16 w-16 shrink-0 rounded-full object-cover" />
+                {% else %}
+                    <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary">{{ display_name[0] | upper }}</span>
+                {% endif %}
+                <p class="text-sm text-base-content/70">{{ t('site.avatar-lead') }}</p>
+            </div>
+
+            <form method="post" action="{{ url('/account/avatar') }}" enctype="multipart/form-data" class="mt-4 space-y-3">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                {{ upload("file", t('site.avatar'), t('site.choose-file'), t('site.no-file-chosen'), "image/*", True) }}
+                <button type="submit" class="btn btn-outline">{{ t('site.upload-avatar') }}</button>
+            </form>
+
+            {% if avatar_url %}
+                <form method="post" action="{{ url('/account/avatar/remove') }}" class="mt-2">
+                    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                    <button type="submit" class="text-sm text-base-content/70 hover:text-base-content">{{ t('site.remove-avatar') }}</button>
+                </form>
+            {% endif %}
+        {% endcall %}
+
+        <section class="mt-6 rounded-box border border-base-300 bg-base-100 p-6 sm:p-8">
+            <form method="post" class="space-y-4">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                {{ field("first_name", t('site.first-name'), "text", values, errors, False, "given-name") }}
+                {{ field("last_name", t('site.last-name'), "text", values, errors, False, "family-name") }}
+                {{ field("nickname", t('site.nickname'), "text", values, errors) }}
+                {{ field("email", t('site.your-email'), "email", values, errors, False, "email") }}
+                {{ field("username", t('site.username'), "text", values, errors, False, "username") }}
+                {{ field("mobile_phone", t('site.mobile-phone'), "text", values, errors, False, "tel", phone_mask or "") }}
+                {{ submit(t('site.save')) }}
+            </form>
+        </section>
+    </div>
+{% endblock %}

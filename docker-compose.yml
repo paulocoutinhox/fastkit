@@ -1,0 +1,46 @@
+# One file for every environment, where `APP_ENV` says which configuration the process loads.
+# Nothing here carries a value of its own, because every value lives in the config file of the environment it belongs to.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fastkit
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-dev}
+    volumes:
+      - ./data:/app/data
+    # Only where this machine runs the database itself, because the entrypoint applies the schema before it serves and a database
+    # that is not up yet is a container that dies and comes back. Where the database is elsewhere the profile is off and so is this.
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: false
+
+  # The database of a machine that runs one, reached by `docker compose --profile database up`.
+  mysql:
+    profiles: ["database"]
+    image: mysql:8
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_USER=app
+      - MYSQL_PASSWORD=app
+      - MYSQL_DATABASE=app
+      - MYSQL_ROOT_PASSWORD=app
+      - TZ=UTC
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  mysql-data:

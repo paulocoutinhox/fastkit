@@ -1,0 +1,59 @@
+{% macro marked(name, errors) %}{% if errors.get(name) %} aria-invalid="true" aria-describedby="field-{{ name }}-error"{% endif %}{% endmacro %}
+
+{% macro refusal(name, errors) %}{% if errors.get(name) %}<span id="field-{{ name }}-error" class="label text-error">{{ errors.get(name) }}</span>{% endif %}{% endmacro %}
+
+{% macro field(name, label, type="text", values={}, errors={}, required=False, autocomplete="", mask="") %}
+    <fieldset class="fieldset">
+        <label class="fieldset-legend" for="field-{{ name }}">{{ label }}</label>
+        <input
+            type="{{ type }}"
+            id="field-{{ name }}"
+            name="{{ name }}"
+            value="{{ values.get(name) or '' }}"
+            {% if required %}required{% endif %}
+            {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+            {% if mask %}data-mask="{{ mask }}" inputmode="numeric"{% endif %}
+            class="input w-full{% if errors.get(name) %} input-error{% endif %}"
+            {{- marked(name, errors) }}
+        />
+        {{ refusal(name, errors) }}
+    </fieldset>
+{% endmacro %}
+
+{% macro area(name, label, values={}, errors={}, required=False) %}
+    <fieldset class="fieldset">
+        <label class="fieldset-legend" for="field-{{ name }}">{{ label }}</label>
+        <textarea id="field-{{ name }}" name="{{ name }}" rows="5" {% if required %}required{% endif %} class="textarea w-full{% if errors.get(name) %} textarea-error{% endif %}"{{ marked(name, errors) }}>{{ values.get(name) or '' }}</textarea>
+        {{ refusal(name, errors) }}
+    </fieldset>
+{% endmacro %}
+
+{% macro choice(name, label, options, values={}, errors={}, required=False, placeholder="") %}
+    <fieldset class="fieldset">
+        <label class="fieldset-legend" for="field-{{ name }}">{{ label }}</label>
+        <select id="field-{{ name }}" name="{{ name }}" {% if required %}required{% endif %} class="select w-full{% if errors.get(name) %} select-error{% endif %}"{{ marked(name, errors) }}>
+            {% if placeholder %}<option value="">{{ placeholder }}</option>{% endif %}
+            {% for value, text in options %}<option value="{{ value }}" {% if values.get(name)|string == value|string %}selected{% endif %}>{{ text }}</option>{% endfor %}
+        </select>
+        {{ refusal(name, errors) }}
+    </fieldset>
+{% endmacro %}
+
+{% macro upload(name, label, choose_label, empty_label, accept="", required=False) %}
+    <fieldset class="fieldset">
+        <label class="fieldset-legend" for="field-{{ name }}">{{ label }}</label>
+        <span class="relative flex items-center gap-3 rounded-box border border-dashed border-base-300 bg-base-200 px-4 py-3 transition hover:border-primary">
+            <span class="btn btn-sm btn-outline pointer-events-none">{{ choose_label }}</span>
+            <span class="min-w-0 truncate text-sm text-base-content/70" data-upload-name>{{ empty_label }}</span>
+            <input
+                type="file"
+                id="field-{{ name }}"
+                name="{{ name }}"
+                {% if accept %}accept="{{ accept }}"{% endif %}
+                {% if required %}required{% endif %}
+                class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                data-upload-input
+            />
+        </span>
+    </fieldset>
+{% endmacro %}

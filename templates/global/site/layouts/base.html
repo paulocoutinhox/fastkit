@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="{{ language }}" class="h-full"{% if theme_drawn_as %} data-theme="{{ theme_drawn_as }}"{% endif %}>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{% block title %}{{ brand.name }}{% endblock %}</title>
+        <meta name="description" content="{% block description %}{{ t('site.meta-description', name=brand.name) }}{% endblock %}" />
+        <link rel="canonical" href="{{ canonical }}" />
+        <meta property="og:site_name" content="{{ brand.name }}" />
+        <meta property="og:title" content="{{ self.title() }}" />
+        <meta property="og:description" content="{{ self.description() }}" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="{{ canonical }}" />
+        <link rel="icon" href="{{ favicon_url }}" type="image/svg+xml" />
+        <link rel="stylesheet" href="{{ styles_url }}" />
+        {% block head %}{% endblock %}
+    </head>
+    <body data-tenant="{{ page.brand.code }}" class="flex min-h-full flex-col bg-base-200 antialiased">
+        <a href="#content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:btn focus:btn-primary focus:btn-sm">{{ t('site.skip-to-content') }}</a>
+
+        {% include "site/partials/header.html" %}
+
+        <main id="content" class="relative mx-auto w-full min-h-0 max-w-5xl flex-1 px-4 py-10 sm:px-6">
+            {% include "site/partials/messages.html" %}
+            {% block content %}{% endblock %}
+        </main>
+
+        {% include "site/partials/footer.html" %}
+        {% include "site/partials/consent.html" %}
+        <script src="{{ scripts_url }}" defer></script>
+    </body>
+</html>

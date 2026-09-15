@@ -1,0 +1,18 @@
+{% from "site/partials/flags.html" import flag %}
+
+<form method="post" action="/language" class="flex flex-wrap items-center gap-2">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+    <input type="hidden" name="next" value="{{ request.url.path }}" />
+
+    {% for code, native in languages.items() %}
+        <button
+            type="submit" name="language" value="{{ code }}"
+            title="{{ native }}"
+            aria-label="{{ native }}"
+            aria-current="{{ 'true' if code == language else 'false' }}"
+            class="btn btn-ghost btn-sm btn-square{% if code == language %} btn-active{% else %} opacity-60 hover:opacity-100{% endif %}"
+        >
+            {{ flag(code) }}
+        </button>
+    {% endfor %}
+</form>
