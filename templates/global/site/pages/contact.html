@@ -1,0 +1,22 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/field.html" import area, field with context %}
+{% from "site/partials/ui.html" import card, page_header, submit with context %}
+
+{% block title %}{{ t('site.contact') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-xl">
+        {{ page_header(t('site.contact')) }}
+
+        {% call card() %}
+        <form method="post" class="space-y-4">
+            <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+            {{ field("name", t('site.your-name'), "text", values, errors, True, "name") }}
+            {{ field("email", t('site.your-email'), "email", values, errors, True, "email") }}
+            {{ area("message", t('site.your-message'), values, errors, True) }}
+            {% include "site/partials/captcha.html" %}
+            {{ submit(t('site.send')) }}
+        </form>
+        {% endcall %}
+    </div>
+{% endblock %}

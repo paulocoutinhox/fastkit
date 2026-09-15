@@ -1,0 +1,18 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import card, page_header, submit with context %}
+
+{% block title %}{{ t(heading) }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-md">
+        {{ page_header(t(heading), t(lead)) }}
+
+        {% call card() %}
+            <form method="post">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
+                {{ submit(t(button)) }}
+            </form>
+        {% endcall %}
+    </div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/field.html" import field with context %}
+{% from "site/partials/ui.html" import card, page_header, submit with context %}
+
+{% block title %}{{ t('site.newsletter') }} — {{ brand.name }}{% endblock %}
+{% block description %}{{ t('site.newsletter-lead') }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-md">
+        {{ page_header(t('site.newsletter'), t('site.newsletter-lead')) }}
+
+        {% call card() %}
+            <form method="post" class="space-y-4">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                {{ field("email", t('site.your-email'), "email", values, errors, True, "email") }}
+                {% include "site/partials/captcha.html" %}
+                {{ submit(t('site.subscribe')) }}
+            </form>
+        {% endcall %}
+    </div>
+{% endblock %}

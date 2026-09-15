@@ -1,0 +1,9 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+<p style="margin: 0 0 16px">{{ t("email.newsletter-intro") }}</p>
+
+<p style="margin: 0 0 24px"><a href="{{ link }}" style="display: inline-block; padding: 12px 20px; background: #1d4ed8; border-radius: 10px; color: #ffffff; font-weight: 600; text-decoration: none">{{ t("email.newsletter-action") }}</a></p>
+
+<p style="margin: 0; color: #64748b">{{ t("email.newsletter-ignore") }}</p>
+{% endblock %}
