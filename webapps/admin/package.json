@@ -1,0 +1,41 @@
+{
+    "name": "fastkit-admin",
+    "private": true,
+    "type": "module",
+    "version": "1.0.0",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "test": "vitest run",
+        "test:cov": "vitest run --coverage",
+        "format": "prettier --write src tests",
+        "format:check": "prettier --check src tests"
+    },
+    "dependencies": {
+        "@tinymce/tinymce-vue": "^6.3.0",
+        "chart.js": "^4.6.1",
+        "pinia": "^4.1.0",
+        "tinymce": "^8.10.2",
+        "tinymce-i18n": "^26.11.2",
+        "vue": "^3.5.45",
+        "vue-i18n": "^11.4.20",
+        "vue-router": "^5.5.1"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.3.5",
+        "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+        "@vitejs/plugin-vue": "^6.0.11",
+        "@vitest/coverage-v8": "^5.1.0",
+        "@vue/test-utils": "^2.6.0",
+        "jsdom": "^31.0.1",
+        "prettier": "^3.10.1",
+        "tailwindcss": "^4.3.5",
+        "vite": "^8.3.8",
+        "vitest": "^5.1.0"
+    },
+    "overrides": {
+        "minimatch": "^11.0.4",
+        "glob": "^14.0.3"
+    }
+}

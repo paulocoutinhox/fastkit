@@ -1,0 +1,6 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+    <p style="margin: 0 0 16px">{{ name }} &lt;{{ email }}&gt;</p>
+    <p style="margin: 0; white-space: pre-line">{{ message }}</p>
+{% endblock %}

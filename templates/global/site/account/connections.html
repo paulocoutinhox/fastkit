@@ -1,0 +1,28 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import card, page_header with context %}
+
+{% block title %}{{ t('site.social-connections') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-xl">
+        {{ page_header(t('site.social-connections'), t('site.social-connections-lead'), '/account/profile', t('site.personal-data')) }}
+
+        {% call card() %}
+            {% if social_methods %}
+                <ul class="divide-y divide-base-300">
+                    {% for method in social_methods %}
+                        <li class="flex items-center justify-between gap-4 py-4">
+                            <span class="font-medium">{{ method.label }}</span>
+                            <form method="post" action="/account/connections/{{ method.provider }}/{{ 'remove' if method.connected else 'connect' }}">
+                                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                                <button type="submit" class="btn btn-outline btn-sm">{{ t('site.disconnect-social') if method.connected else t('site.connect-social') }}</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-base-content/70">{{ t('site.social-methods-disabled') }}</p>
+            {% endif %}
+        {% endcall %}
+    </div>
+{% endblock %}

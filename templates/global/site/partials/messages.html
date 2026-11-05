@@ -1,0 +1,10 @@
+{% if flashes %}
+    <div class="mb-6 space-y-2">
+        {% for flash in flashes %}
+            <div role="alert" class="alert alert-soft grid-cols-[1fr_auto] {% if flash.level == 'error' %}alert-error{% else %}alert-success{% endif %}" data-flash>
+                <span>{{ flash.message }}</span>
+                <button type="button" class="btn btn-ghost btn-xs btn-circle" data-flash-close aria-label="{{ t('site.close') }}">&times;</button>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
