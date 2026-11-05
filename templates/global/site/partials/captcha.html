@@ -1,0 +1,15 @@
+{% from "site/partials/field.html" import marked, refusal %}
+{% if challenge.kind == "image" %}
+    <input type="hidden" name="captcha_token" value="{{ challenge.token }}" />
+    <fieldset class="fieldset">
+        <label class="fieldset-legend" for="field-captcha_answer">{{ t('site.captcha') }}</label>
+        <img src="{{ challenge.image }}" alt="{{ t('site.captcha') }}" class="mb-2 rounded-box border border-base-300" width="200" height="64" />
+        <input type="text" id="field-captcha_answer" name="captcha_answer" required autocomplete="off" class="input w-full uppercase{% if errors.get('captcha_answer') %} input-error{% endif %}"{{ marked('captcha_answer', errors) }} />
+        {{ refusal('captcha_answer', errors) }}
+    </fieldset>
+{% elif challenge.kind == "recaptcha-v3" %}
+    <input type="hidden" name="captcha_answer" data-recaptcha-response value="" />
+    <div data-recaptcha-site-key="{{ challenge.site_key }}"></div>
+    {# The challenge draws no control of its own, so a refusal of it is announced where it appears. #}
+    {% if errors.get('captcha_answer') %}<p class="text-xs text-error" role="alert">{{ errors.get('captcha_answer') }}</p>{% endif %}
+{% endif %}

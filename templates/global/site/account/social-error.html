@@ -1,0 +1,15 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/ui.html" import card, page_header with context %}
+
+{% block title %}{{ t('site.social-sign-in-failed') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-md">
+        {{ page_header(t('site.social-sign-in-failed')) }}
+
+        {% call card() %}
+            <p role="alert">{{ failure }}</p>
+            <a href="/account/login" class="btn btn-primary mt-6">{{ t('site.sign-in') }}</a>
+        {% endcall %}
+    </div>
+{% endblock %}

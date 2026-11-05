@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/* The brand, written by the build from the one place that states it. */
+@import "./brand.css";
+
+/* The palette is named by what a thing is and never by which grey it happens to be, and the two sides of it sit in one declaration so they cannot be edited apart. */
+@theme {
+    --color-surface: light-dark(oklch(0.982 0.005 95), oklch(0.196 0 0));
+    --color-raised: light-dark(oklch(1 0 0), oklch(0.232 0.001 100));
+    --color-sunken: light-dark(oklch(0.948 0.011 95), oklch(0.285 0.001 100));
+    --color-inverse: light-dark(oklch(0.191 0.002 107), oklch(0.15 0 0));
+
+    --color-sidebar: light-dark(oklch(0.966 0.009 100), oklch(0.15 0 0));
+
+    /* A surface raised off the one under it: the open entry of the menu, and a filled button under the pointer. */
+    --color-lifted: light-dark(oklch(0.915 0.012 96), oklch(0.305 0 0));
+
+    /* The row the pointer is on, named apart from every surface so that moving one of those never moves it by accident. */
+    --color-highlight: light-dark(oklch(0.974 0.007 95), oklch(0.262 0.001 100));
+    --color-ink: light-dark(oklch(0.191 0.002 107), oklch(0.982 0.005 95));
+    --color-ink-soft: light-dark(oklch(0.359 0.005 107), oklch(0.924 0.014 97));
+    --color-ink-muted: light-dark(oklch(0.478 0.006 95), oklch(0.745 0.01 94));
+    --color-ink-faint: light-dark(oklch(0.6 0.01 95), oklch(0.6 0.01 95));
+    --color-line: light-dark(oklch(0.915 0.012 96), oklch(0.293 0 0));
+    --color-line-strong: light-dark(oklch(0.853 0.014 97), oklch(0.38 0.002 106));
+
+    /* What a screen asks to be pressed carries the brand on the light side and the cream of the page text on the dark one, so the ink on it turns with the palette. */
+    --color-action: light-dark(var(--brand-600), oklch(0.982 0.005 95));
+    --color-action-strong: light-dark(var(--brand-700), oklch(0.915 0.012 96));
+    --color-action-ink: light-dark(oklch(1 0 0), oklch(0.191 0.002 107));
+
+    --color-danger: light-dark(oklch(0.563 0.19 27), oklch(0.72 0.15 25));
+    --color-danger-soft: light-dark(oklch(0.971 0.013 18), oklch(0.26 0.06 25));
+    --color-danger-line: light-dark(oklch(0.885 0.062 18), oklch(0.42 0.12 26));
+    --color-danger-ink: light-dark(oklch(0.444 0.177 27), oklch(0.885 0.062 18));
+    --color-danger-fill: light-dark(oklch(0.563 0.157 26), oklch(0.563 0.157 26));
+    --color-danger-fill-strong: light-dark(oklch(0.514 0.138 26), oklch(0.514 0.138 26));
+    --color-good: light-dark(oklch(0.55 0.13 163), oklch(0.765 0.15 163));
+    --color-good-soft: light-dark(oklch(0.979 0.021 166), oklch(0.27 0.05 166));
+    --color-good-line: light-dark(oklch(0.905 0.093 164), oklch(0.4 0.08 166));
+    --color-good-ink: light-dark(oklch(0.432 0.095 166), oklch(0.905 0.093 164));
+    --color-good-fill: light-dark(oklch(0.596 0.145 163), oklch(0.596 0.145 163));
+    --color-notice: light-dark(oklch(0.54 0.13 58), oklch(0.8 0.14 75));
+    --color-notice-soft: light-dark(oklch(0.987 0.022 95), oklch(0.28 0.05 79));
+    --color-info-soft: light-dark(oklch(0.977 0.013 237), oklch(0.27 0.05 245));
+    --color-info-line: light-dark(oklch(0.901 0.058 231), oklch(0.42 0.09 245));
+    --color-info-ink: light-dark(oklch(0.443 0.11 241), oklch(0.901 0.058 231));
+
+    /* The brand written as text turns with the palette, and the brand filled behind white text never does: two roles, two names. */
+    --color-brand-ink: light-dark(var(--brand-700), var(--brand-300));
+}
+
+@layer base {
+    html {
+        /* Which side of every `light-dark` is used, which the theme store writes on the element itself when somebody chose one. */
+        color-scheme: light dark;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+        @apply bg-surface text-ink antialiased;
+    }
+
+    /* The native arrow is drawn flush against the border, so every select carries the chevron the lookup draws and leaves its own room for it. */
+    select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8880' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
+        background-size: 1rem 1rem;
+    }
+
+    [hidden] {
+        display: none !important;
+    }
+}
+
+@layer components {
+    .field-control {
+        @apply h-10 w-full rounded-lg border border-line-strong bg-raised px-3 text-sm text-ink transition outline-none placeholder:text-ink-faint focus:border-ink-faint focus:ring-2 focus:ring-ink-faint/25 disabled:cursor-not-allowed disabled:bg-sunken disabled:text-ink-muted;
+    }
+
+    /* A box that grows with what is written in it cannot stand at the height of a single line. */
+    textarea.field-control {
+        @apply h-auto py-2;
+    }
+
+    select.field-control {
+        padding-right: 2.25rem;
+        background-position: right 0.75rem center;
+    }
+
+    /* The system scrollbar has its own look, so a panel that scrolls hides it and keeps the gesture. */
+    .scrollbar-hidden {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .scrollbar-hidden::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+
+    .editor-shell {
+        @apply overflow-hidden rounded-lg border border-line-strong bg-raised transition focus-within:border-ink-faint focus-within:ring-2 focus-within:ring-ink-faint/25;
+    }
+
+    .editor-shell-invalid {
+        @apply border-danger focus-within:border-danger focus-within:ring-danger/20;
+    }
+
+    .field-control-invalid {
+        @apply border-danger focus:border-danger focus:ring-danger/20;
+    }
+}
+
+/* The editor injects its skin with no layer, and a rule inside a layer loses to one outside it whatever its weight, so what speaks to the editor stands outside. */
+.editor-shell .tox-tinymce {
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+}
+
+.editor-shell .tox-editor-header {
+    @apply border-b border-line;
+    box-shadow: none !important;
+    padding: 0.25rem 0.375rem !important;
+}
+
+.editor-shell .tox-toolbar__primary {
+    background: none !important;
+}
+
+/* The page inside the editor is left clear, and what shows through it is the card and never the white the skin paints behind it. */
+.editor-shell .tox .tox-edit-area__iframe {
+    background-color: var(--color-raised);
+}
+
+/* Both skins paint the drop area of the image dialog white, and the dark one writes its words in white on it, so the area is drawn with the roles of the panel. */
+.tox .tox-dialog .tox-dropzone {
+    background: var(--color-sunken);
+    border: 2px dashed var(--color-line-strong);
+    border-radius: 0.5rem;
+}
+
+.tox .tox-dialog .tox-dropzone p {
+    color: var(--color-ink-muted);
+}
+
+/* The skin marks the focus of a field with the same blue it underlines the chosen tab with, so the ring of a field is drawn the way every field of the panel draws its own. */
+.tox .tox-dialog .tox-textfield:focus,
+.tox .tox-dialog .tox-textarea-wrap:focus-within,
+.tox .tox-dialog .tox-custom-editor:focus-within,
+.tox .tox-dialog .tox-listboxfield .tox-listbox--select:focus,
+.tox .tox-dialog .tox-selectfield select:focus {
+    border-color: var(--color-ink-faint);
+    box-shadow: 0 0 0 2px rgb(from var(--color-ink-faint) r g b / 0.25);
+}
+
+/* The dark skin names the chosen tab in a light blue, which the panel reads as a quiet tone, and the tab that is chosen is the one thing on that list that has to stand out. */
+.tox .tox-dialog .tox-dialog__body-nav-item--active {
+    border-bottom-color: var(--color-ink);
+    color: var(--color-ink);
+}
+
+/* The primary button of an editor dialog is the one a screen asks to be pressed, so it carries the action of the panel through the variables the skin reads. */
+.tox {
+    --tox-private-button-primary-background-color: var(--color-action);
+    --tox-private-button-primary-border-color: var(--color-action);
+    --tox-private-button-primary-text-color: var(--color-action-ink);
+    --tox-private-button-primary-hover-background-color: var(--color-action-strong);
+    --tox-private-button-primary-hover-border-color: var(--color-action-strong);
+    --tox-private-button-primary-hover-text-color: var(--color-action-ink);
+    --tox-private-button-primary-active-background-color: var(--color-action-strong);
+    --tox-private-button-primary-active-border-color: var(--color-action-strong);
+    --tox-private-button-primary-active-text-color: var(--color-action-ink);
+    --tox-private-button-primary-focus-background-color: var(--color-action-strong);
+    --tox-private-button-primary-focus-border-color: var(--color-action-strong);
+    --tox-private-button-primary-focus-text-color: var(--color-action-ink);
+}

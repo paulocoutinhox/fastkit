@@ -1,0 +1,30 @@
+{
+    "name": "fastkit-site",
+    "private": true,
+    "type": "module",
+    "version": "1.0.0",
+    "scripts": {
+        "dev": "vite build --watch",
+        "build": "vite build",
+        "test": "vitest run",
+        "test:cov": "vitest run --coverage",
+        "format": "prettier --write src tests",
+        "format:check": "prettier --check src tests"
+    },
+    "devDependencies": {
+        "@tailwindcss/typography": "^0.5.20",
+        "@tailwindcss/vite": "^4.3.4",
+        "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+        "@vitest/coverage-v8": "^5.1.0",
+        "daisyui": "^5.7.50",
+        "jsdom": "^30.1.3",
+        "prettier": "^3.9.10",
+        "tailwindcss": "^4.3.4",
+        "vite": "^8.3.6",
+        "vitest": "^5.1.0"
+    },
+    "overrides": {
+        "minimatch": "^11.0.4",
+        "postcss-selector-parser": "^7.1.7"
+    }
+}

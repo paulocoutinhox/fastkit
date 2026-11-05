@@ -1,0 +1,52 @@
+# One file for every environment, where `APP_ENV` says which configuration the process loads.
+# The application carries no value of its own here, because each lives in the config file of its environment, and the database below is the local one a stack that runs its own uses.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fastkit
+    restart: unless-stopped
+    # Published on this machine alone, because the proxy in front is what the world reaches, and the ranges it is trusted from would let anybody reaching this port directly write the forwarded headers.
+    ports:
+      - "127.0.0.1:${PORT:-8000}:8000"
+    environment:
+      # The image says prod, and a stack started without naming one serves what the image says rather than the loosest configuration there is.
+      - APP_ENV=${APP_ENV:-prod}
+    # A named volume belongs to the user of the image, where a folder of the host is one that user cannot write on Linux.
+    volumes:
+      - app-data:/app/data
+    # The worker is given thirty seconds to finish what it claimed, and docker kills after ten unless told otherwise.
+    stop_grace_period: 45s
+    # Only where this machine runs the database itself, because the entrypoint applies the schema before it serves and a database
+    # that is not up yet is a container that dies and comes back. Where the database is elsewhere the profile is off and so is this.
+    depends_on:
+      mysql:
+        condition: service_healthy
+        required: false
+
+  # The database of a machine that runs one, reached by `manage.py docker-start --database`.
+  mysql:
+    profiles: ["database"]
+    image: mysql:8
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3306:3306"
+    environment:
+      - MYSQL_USER=app
+      - MYSQL_PASSWORD=app
+      - MYSQL_DATABASE=app
+      - MYSQL_ROOT_PASSWORD=app
+      - TZ=UTC
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+volumes:
+  app-data:
+  mysql-data:

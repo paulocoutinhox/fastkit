@@ -1,0 +1,40 @@
+{% extends "report/document.html" %}
+
+{% block style %}
+    {{ super() }}
+
+    .figures {
+        display: grid;
+        grid-template-columns: repeat({{ document.details.figures | length }}, 1fr);
+        gap: 4mm;
+        margin-bottom: 8mm;
+    }
+
+    .figures div {
+        padding: 3mm 4mm;
+        border: 1px solid #e2e8f0;
+        border-radius: 2mm;
+    }
+
+    .figures dt {
+        font-size: 8pt;
+        color: #64748b;
+    }
+
+    .figures dd {
+        margin: 1mm 0 0;
+        font-size: 16pt;
+        font-weight: bold;
+    }
+{% endblock %}
+
+{% block before_charts %}
+    <dl class="figures">
+        {% for figure in document.details.figures %}
+            <div>
+                <dt>{{ figure.label }}</dt>
+                <dd>{{ number(figure.value) }}</dd>
+            </div>
+        {% endfor %}
+    </dl>
+{% endblock %}

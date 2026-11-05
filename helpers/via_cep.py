@@ -1,0 +1,40 @@
+"""Read against the current documentation of viacep.com.br, which answers a lookup as `/ws/<eight digits>/json/`."""
+
+import httpx2
+
+from helpers import remote
+from helpers.postal_address import PostalAddress
+from helpers.postal_code_lookup import PostalCodeLookup
+from helpers.text import only_digits
+
+TIMEOUT = 5.0
+
+
+class ViaCep(PostalCodeLookup):
+    async def find(self, postal_code: str) -> PostalAddress | None:
+        digits = only_digits(postal_code)
+
+        # A code of any other length is one the service answers 400 to, so it is refused here instead of asked about.
+        if len(digits) != 8:
+            return None
+
+        # A service that did not answer found nothing, and the person fills the address by hand as if the code were unknown.
+        try:
+            async with httpx2.AsyncClient(timeout=TIMEOUT) as client:
+                answered = await client.get(f"https://viacep.com.br/ws/{digits}/json/")
+        except httpx2.HTTPError:
+            return None
+
+        if answered.status_code != httpx2.codes.OK:
+            return None
+
+        body = remote.body_of(answered)
+
+        # A code nobody knows is answered with `erro` and a status of 200, so the body is what says it was not found.
+        if body.get("erro"):
+            return None
+
+        place = PostalAddress(line1=body.get("logradouro") or "", district=body.get("bairro") or "", city=body.get("localidade") or "", state=body.get("uf") or "")
+
+        # A postal code stands for a place, so a body naming none is one that found nothing however cleanly it answered.
+        return place if place.city and place.state else None
