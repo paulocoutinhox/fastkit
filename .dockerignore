@@ -1,0 +1,17 @@
+.git
+.claude
+.github
+.venv
+data
+htmlcov
+.coverage
+__pycache__
+.pytest_cache
+.ruff_cache
+webapps/admin/node_modules
+webapps/admin/dist
+webapps/admin/coverage
+webapps/site/node_modules
+webapps/site/dist
+webapps/site/coverage
+extras/schema

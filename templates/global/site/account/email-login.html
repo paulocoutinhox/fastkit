@@ -1,0 +1,21 @@
+{% extends "site/layouts/base.html" %}
+{% from "site/partials/field.html" import field with context %}
+{% from "site/partials/ui.html" import card, page_header, submit with context %}
+
+{% block title %}{{ t('site.email-sign-in') }} — {{ brand.name }}{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-md">
+        {{ page_header(t('site.email-sign-in'), t('site.email-sign-in-lead'), '/account/login', t('site.sign-in')) }}
+
+        {% call card() %}
+            <form method="post" class="space-y-4">
+                <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}" />
+                <input type="hidden" name="next" value="{{ next }}" />
+                {{ field("email", t('site.your-email'), "email", values, errors, True, "email") }}
+                {% include "site/partials/captcha.html" %}
+                {{ submit(t('site.send-sign-in-code')) }}
+            </form>
+        {% endcall %}
+    </div>
+{% endblock %}

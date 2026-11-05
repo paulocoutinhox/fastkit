@@ -1,0 +1,7 @@
+{% extends "email/base.html" %}
+{% block content %}
+<p>{{ t("email.sign-in-code-lead") }}</p>
+<p style="font-size: 32px; font-weight: bold; letter-spacing: 6px;">{{ code }}</p>
+<p>{{ t("email.sign-in-code-expiry", minutes=minutes) }}</p>
+<p>{{ t("email.sign-in-code-ignore") }}</p>
+{% endblock %}
